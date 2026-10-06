@@ -7,6 +7,7 @@ type Message = {
   id?: string
   role: 'user' | 'assistant'
   content: string
+  variant?: 'personalized' | 'baseline'
 }
 
 type Profile = {
@@ -69,6 +70,7 @@ export default function Home() {
   const [loadingSession, setLoadingSession] = useState(true)
   const [loadingData, setLoadingData] = useState(false)
   const [feedback, setFeedback] = useState<Record<string, number>>({})
+  const [variant, setVariant] = useState<'personalized' | 'baseline'>('personalized')
 
   useEffect(() => {
     let mounted = true
@@ -107,7 +109,7 @@ export default function Home() {
         await Promise.all([
           supabase
             .from('messages')
-            .select('id,role,content')
+            .select('id,role,content,variant')
             .eq('user_id', session.user.id)
             .order('created_at', { ascending: true })
             .limit(100),
@@ -151,7 +153,7 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify({ message: userText, variant })
       })
 
       const data = await response.json().catch(() => ({}))
@@ -162,7 +164,7 @@ export default function Home() {
 
       setMessages((current) => [
         ...current,
-        { id: data.messageId ?? undefined, role: 'assistant', content: data.reply }
+        { id: data.messageId ?? undefined, role: 'assistant', content: data.reply, variant: data.variant ?? variant }
       ])
       if (data.profile) setProfile(data.profile)
     } catch (error: unknown) {
@@ -174,7 +176,11 @@ export default function Home() {
     }
   }
 
-  async function rateMessage(messageId: string | undefined, rating: number) {
+  async function rateMessage(
+    messageId: string | undefined,
+    rating: number,
+    messageVariant: 'personalized' | 'baseline' = 'personalized'
+  ) {
     if (!messageId) {
       setError('Bu yanıt için geri bildirim kimliği bulunamadı.')
       return
@@ -186,7 +192,7 @@ export default function Home() {
       body: JSON.stringify({
         messageId,
         rating,
-        variant: 'personalized'
+        variant: messageVariant
       })
     })
 
@@ -276,6 +282,13 @@ export default function Home() {
           </div>
 
           <div className="toolbar">
+            <button
+              className="btn secondary"
+              onClick={() => setVariant(variant === 'personalized' ? 'baseline' : 'personalized')}
+              title="Araştırma karşılaştırma koşulunu değiştir"
+            >
+              Test: {variant === 'personalized' ? 'Kişiselleştirilmiş' : 'Genel'}
+            </button>
             <button className="btn secondary" onClick={clearData}>Verilerimi sil</button>
             <button className="btn" onClick={signOut}>Çıkış</button>
           </div>
@@ -301,6 +314,13 @@ export default function Home() {
                   <div className={`msg ${message.role}`}>
                     {message.content}
                   </div>
+                  {message.role === 'assistant' && (
+                    <div className="message-meta">
+                      <span className="small">
+                        {message.variant === 'baseline' ? 'Genel koşul' : 'Kişiselleştirilmiş koşul'}
+                      </span>
+                    </div>
+                  )}
                   {message.role === 'assistant' && message.id && (
                     <div className="feedback" aria-label="Yanıtı değerlendir">
                       <span className="small">Yanıt puanı:</span>
@@ -309,7 +329,7 @@ export default function Home() {
                           key={rating}
                           type="button"
                           className={`feedback-btn ${feedback[message.id!] === rating ? 'selected' : ''}`}
-                          onClick={() => rateMessage(message.id, rating)}
+                          onClick={() => rateMessage(message.id, rating, message.variant ?? 'personalized')}
                           aria-label={`Puan ${rating}`}
                         >
                           {rating}
@@ -320,7 +340,13 @@ export default function Home() {
                 </div>
               ))}
 
-              {loading && <div className="msg assistant">Dijital ikiz profili analiz ediliyor…</div>}
+              {loading && (
+                <div className="msg assistant">
+                  {variant === 'personalized'
+                    ? 'Dijital ikiz profili analiz ediliyor…'
+                    : 'Genel yanıt hazırlanıyor…'}
+                </div>
+              )}
             </div>
 
             <div className="composer">
