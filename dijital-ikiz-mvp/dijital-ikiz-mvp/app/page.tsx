@@ -242,7 +242,7 @@ export default function Home() {
             <p className="sub">
               Konuşma geçmişi + deneysel duygu + Big Five + üslup profili + Supabase hafızası.
             </p>
-            <p className="small user-email">{session.user.email}</p>
+            <p className="small user-email">{session.user.email} · <a href="/about" style={{ color: "#8cc8ff" }}>Proje bilgisi</a></p>
           </div>
 
           <div className="toolbar">
