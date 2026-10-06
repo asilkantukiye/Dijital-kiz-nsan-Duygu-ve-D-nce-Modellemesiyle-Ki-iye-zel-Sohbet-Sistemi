@@ -3,8 +3,6 @@
 import { FormEvent, useState } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
-const supabase = createClient()
-
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,6 +16,7 @@ export default function Login() {
     setLoading(true)
 
     try {
+      const supabase = createClient()
       const result =
         mode === 'login'
           ? await supabase.auth.signInWithPassword({ email, password })
