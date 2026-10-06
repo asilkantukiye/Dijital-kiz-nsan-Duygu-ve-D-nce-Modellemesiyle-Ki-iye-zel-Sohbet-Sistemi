@@ -58,8 +58,6 @@ const labels: Record<keyof Profile, string> = {
   avg_sentence_length: 'Cümle uzunluğu'
 }
 
-const supabase = createClient()
-
 export default function Home() {
   const [session, setSession] = useState<any>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -74,6 +72,8 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true
+
+    const supabase = createClient()
 
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
@@ -104,6 +104,7 @@ export default function Home() {
 
     async function loadData() {
       setLoadingData(true)
+      const supabase = createClient()
 
       const [{ data: storedMessages, error: messageError }, { data: storedProfile, error: profileError }] =
         await Promise.all([
@@ -230,6 +231,7 @@ export default function Home() {
   }
 
   async function signOut() {
+    const supabase = createClient()
     await supabase.auth.signOut()
   }
 
