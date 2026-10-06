@@ -3,15 +3,318 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
-type Message={role:'user'|'assistant';content:string}
-type Profile={valence:number;arousal:number;dominance:number;openness:number;conscientiousness:number;extraversion:number;agreeableness:number;neuroticism:number;informality:number;emoji_frequency:number;humor:number;slang:number}
+type Message = {
+  id?: string
+  role: 'user' | 'assistant'
+  content: string
+}
 
-const empty:Profile={valence:.5,arousal:.35,dominance:.5,openness:.5,conscientiousness:.5,extraversion:.5,agreeableness:.5,neuroticism:.5,informality:.45,emoji_frequency:0,humor:.35,slang:.25}
+type Profile = {
+  valence: number
+  arousal: number
+  dominance: number
+  openness: number
+  conscientiousness: number
+  extraversion: number
+  agreeableness: number
+  neuroticism: number
+  informality: number
+  emoji_frequency: number
+  humor: number
+  slang: number
+  avg_sentence_length: number
+}
 
-export default function Home(){
- const supabase=createClient(); const [session,setSession]=useState<any>(null); const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(''); const [loading,setLoading]=useState(false); const [profile,setProfile]=useState<Profile>(empty); const [error,setError]=useState('')
- useEffect(()=>{supabase.auth.getSession().then(({data})=>setSession(data.session)); const {data}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s)); return()=>data.subscription.unsubscribe()},[])
- async function send(){if(!text.trim()||loading)return; const userText=text.trim(); setText(''); setError(''); setMessages(m=>[...m,{role:'user',content:userText}]); setLoading(true); try{const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:userText,history:messages,userId:session?.user?.id})}); const data=await res.json(); if(!res.ok)throw new Error(data.error||'İstek başarısız'); setMessages(m=>[...m,{role:'assistant',content:data.reply}]); if(data.profile)setProfile(data.profile)}catch(e:any){setError(e.message);setMessages(m=>m.slice(0,-1))}finally{setLoading(false)}}
- if(!session)return <div className="page"><main className="shell"><div className="card login"><div className="eyebrow">TÜBİTAK AR-GE PROTOTİPİ</div><h1 className="title">Dijital İkiz İnsan</h1><p className="sub">Önce Supabase hesabınla giriş yap. Bu MVP konuşma ve dijital ikiz profilini kullanıcı hesabına bağlar.</p><a className="btn" style={{display:'inline-block',textDecoration:'none'}} href="/login">Giriş / Kayıt</a></div></main></div>
- return <div className="page"><main className="shell"><header className="hero"><div><div className="eyebrow">DİJİTAL İKİZ İNSAN • MVP v0.1</div><h1 className="title">Seni öğrenen sohbet motoru.</h1><p className="sub">Qwen3-4B + duygu + Big Five + üslup profili + Supabase hafızası.</p></div><button className="btn" onClick={()=>supabase.auth.signOut()}>Çıkış</button></header><div className="grid"><section className="card chat"><div className="messages">{messages.length===0&&<div className="small">İlk mesajını yaz. Sistem mesajdan deneysel duygu, kişilik ve üslup göstergeleri çıkarıp Qwen3-4B yanıtını kişiselleştirecek.</div>}{messages.map((m,i)=><div key={i} className={`msg ${m.role}`}>{m.content}</div>)}{loading&&<div className="msg assistant">Dijital ikiz profili analiz ediliyor…</div>}</div><div className="composer"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')send()}} placeholder="Mesajını yaz…"/><button className="btn" disabled={loading||!text.trim()} onClick={send}>Gönder</button></div>{error&&<div className="error" style={{padding:'0 14px 14px'}}>{error}</div>}</section><aside className="card side"><h3>Dijital İkiz Profili</h3><p className="small">İlk prototipte göstergeler heuristik olarak güncellenir. Bilimsel raporda bunları gerçek doğrulama setiyle test edeceğiz.</p>{Object.entries(profile).map(([k,v])=><div className="metric" key={k}><span>{k.replaceAll('_',' ')}</span><div className="bar"><div className="fill" style={{width:`${Math.round(v*100)}%`}}/></div></div>)}</aside></div></main></div>
+const emptyProfile: Profile = {
+  valence: 0.5,
+  arousal: 0.35,
+  dominance: 0.5,
+  openness: 0.5,
+  conscientiousness: 0.5,
+  extraversion: 0.5,
+  agreeableness: 0.5,
+  neuroticism: 0.5,
+  informality: 0.45,
+  emoji_frequency: 0,
+  humor: 0.35,
+  slang: 0.25,
+  avg_sentence_length: 0.2
+}
+
+const labels: Record<keyof Profile, string> = {
+  valence: 'Duygu dengesi',
+  arousal: 'Uyarılmışlık',
+  dominance: 'Kendinden eminlik',
+  openness: 'Açıklık',
+  conscientiousness: 'Sorumluluk',
+  extraversion: 'Dışadönüklük',
+  agreeableness: 'Uyumluluk',
+  neuroticism: 'Duygusal hassasiyet',
+  informality: 'Gündelik dil',
+  emoji_frequency: 'Emoji sıklığı',
+  humor: 'Mizah',
+  slang: 'Argo / slang',
+  avg_sentence_length: 'Cümle uzunluğu'
+}
+
+const supabase = createClient()
+
+export default function Home() {
+  const [session, setSession] = useState<any>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [profile, setProfile] = useState<Profile>(emptyProfile)
+  const [error, setError] = useState('')
+  const [loadingSession, setLoadingSession] = useState(true)
+  const [loadingData, setLoadingData] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) {
+        setSession(data.session)
+        setLoadingSession(false)
+      }
+    })
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setLoadingSession(false)
+    })
+
+    return () => {
+      mounted = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setMessages([])
+      setProfile(emptyProfile)
+      return
+    }
+
+    let mounted = true
+
+    async function loadData() {
+      setLoadingData(true)
+
+      const [{ data: storedMessages, error: messageError }, { data: storedProfile, error: profileError }] =
+        await Promise.all([
+          supabase
+            .from('messages')
+            .select('id,role,content')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: true })
+            .limit(100),
+          supabase
+            .from('twin_profiles')
+            .select('profile')
+            .eq('user_id', session.user.id)
+            .maybeSingle()
+        ])
+
+      if (!mounted) return
+
+      if (messageError || profileError) {
+        setError(messageError?.message || profileError?.message || 'Veriler yüklenemedi.')
+      } else {
+        setMessages((storedMessages ?? []) as Message[])
+        setProfile((storedProfile?.profile as Profile | null) ?? emptyProfile)
+        setError('')
+      }
+
+      setLoadingData(false)
+    }
+
+    loadData()
+
+    return () => {
+      mounted = false
+    }
+  }, [session?.user?.id])
+
+  async function send() {
+    if (!text.trim() || loading || !session?.user?.id) return
+
+    const userText = text.trim()
+    setText('')
+    setError('')
+    setMessages((current) => [...current, { role: 'user', content: userText }])
+    setLoading(true)
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText })
+      })
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'İstek başarısız.')
+      }
+
+      setMessages((current) => [...current, { role: 'assistant', content: data.reply }])
+      if (data.profile) setProfile(data.profile)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Bir hata oluştu.'
+      setError(message)
+      setMessages((current) => current.slice(0, -1))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function clearData() {
+    if (!session?.user?.id) return
+
+    const confirmed = window.confirm(
+      'Tüm sohbet geçmişini ve dijital ikiz profilini silmek istediğine emin misin? Bu işlem geri alınamaz.'
+    )
+
+    if (!confirmed) return
+
+    setError('')
+
+    const response = await fetch('/api/data', { method: 'DELETE' })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setError(data.error || 'Veriler silinemedi.')
+      return
+    }
+
+    setMessages([])
+    setProfile(emptyProfile)
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut()
+  }
+
+  if (loadingSession) {
+    return (
+      <div className="page">
+        <main className="shell">
+          <div className="card login">
+            <div className="eyebrow">DİJİTAL İKİZ İNSAN</div>
+            <h1 className="title">Yükleniyor…</h1>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="page">
+        <main className="shell">
+          <div className="card login">
+            <div className="eyebrow">TÜBİTAK AR-GE PROTOTİPİ</div>
+            <h1 className="title">Dijital İkiz İnsan</h1>
+            <p className="sub">
+              Konuşma örneklerinden deneysel duygu, kişilik ve üslup göstergeleri çıkaran kişiselleştirilmiş sohbet prototipi.
+            </p>
+            <a className="btn" style={{ display: 'inline-block', textDecoration: 'none' }} href="/login">
+              Giriş / Kayıt
+            </a>
+            <p className="small privacy-note">
+              Araştırma prototipidir; psikolojik tanı veya profesyonel terapi hizmeti sunmaz.
+            </p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="page">
+      <main className="shell">
+        <header className="hero">
+          <div>
+            <div className="eyebrow">DİJİTAL İKİZ İNSAN • MVP v0.2</div>
+            <h1 className="title">Seni öğrenen sohbet motoru.</h1>
+            <p className="sub">
+              Konuşma geçmişi + deneysel duygu + Big Five + üslup profili + Supabase hafızası.
+            </p>
+            <p className="small user-email">{session.user.email}</p>
+          </div>
+
+          <div className="toolbar">
+            <button className="btn secondary" onClick={clearData}>Verilerimi sil</button>
+            <button className="btn" onClick={signOut}>Çıkış</button>
+          </div>
+        </header>
+
+        <div className="privacy-banner">
+          <strong>Deneysel sistem:</strong> Profil skorları doğrulanmış psikolojik ölçüm değildir. Bu sürüm Ar-Ge mimarisini ve sohbet akışını test etmek içindir.
+        </div>
+
+        <div className="grid">
+          <section className="card chat" aria-label="Sohbet">
+            <div className="messages" aria-live="polite">
+              {loadingData && <div className="small">Kayıtlı sohbet yükleniyor…</div>}
+
+              {!loadingData && messages.length === 0 && !loading && (
+                <div className="small">
+                  İlk mesajını yaz. Sistem mesajdan deneysel göstergeler çıkarıp yanıtı kişiselleştirecek ve hesabına kaydedecek.
+                </div>
+              )}
+
+              {messages.map((message, index) => (
+                <div key={message.id ?? `${message.role}-${index}`} className={`msg ${message.role}`}>
+                  {message.content}
+                </div>
+              ))}
+
+              {loading && <div className="msg assistant">Dijital ikiz profili analiz ediliyor…</div>}
+            </div>
+
+            <div className="composer">
+              <input
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    send()
+                  }
+                }}
+                maxLength={4000}
+                placeholder="Mesajını yaz…"
+                aria-label="Mesaj"
+              />
+              <button className="btn" disabled={loading || !text.trim()} onClick={send}>
+                Gönder
+              </button>
+            </div>
+
+            {error && <div className="error" style={{ padding: '0 14px 14px' }} role="alert">{error}</div>}
+          </section>
+
+          <aside className="card side">
+            <h3>Dijital İkiz Profili</h3>
+            <p className="small">
+              Bu skorlar ilk MVP'de deneysel/heuristic baseline olarak kullanılır.
+            </p>
+
+            {Object.entries(profile).map(([key, value]) => (
+              <div className="metric" key={key}>
+                <span>{labels[key as keyof Profile]}</span>
+                <div className="bar">
+                  <div className="fill" style={{ width: `${Math.round(value * 100)}%` }} />
+                </div>
+                <small>{Math.round(value * 100)}%</small>
+              </div>
+            ))}
+          </aside>
+        </div>
+      </main>
+    </div>
+  )
 }
