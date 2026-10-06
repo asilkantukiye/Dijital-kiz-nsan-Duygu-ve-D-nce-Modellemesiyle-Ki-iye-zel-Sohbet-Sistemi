@@ -41,3 +41,30 @@ grant select, insert, update, delete on public.messages to authenticated;
 
 create index if not exists messages_user_created_idx
   on public.messages(user_id, created_at desc);
+
+
+create table if not exists public.message_feedback (
+  id uuid primary key default gen_random_uuid(),
+  message_id uuid not null references public.messages(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  rating smallint not null check (rating between 1 and 5),
+  variant text not null default 'personalized' check (variant in ('personalized','baseline')),
+  comment text check (comment is null or char_length(comment) <= 1000),
+  created_at timestamptz not null default now(),
+  unique (message_id, user_id)
+);
+
+alter table public.message_feedback enable row level security;
+
+drop policy if exists "users own feedback" on public.message_feedback;
+create policy "users own feedback"
+  on public.message_feedback
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.message_feedback to authenticated;
+
+create index if not exists message_feedback_user_created_idx
+  on public.message_feedback(user_id, created_at desc);
