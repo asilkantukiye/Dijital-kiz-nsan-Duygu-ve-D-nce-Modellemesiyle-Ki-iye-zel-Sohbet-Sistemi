@@ -11,10 +11,15 @@ create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('user','assistant')),
+  variant text not null default 'personalized' check (variant in ('personalized','baseline')),
   content text not null check (char_length(content) between 1 and 4000),
   profile_snapshot jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.messages add column if not exists variant text not null default 'personalized';
+alter table public.messages drop constraint if exists messages_variant_check;
+alter table public.messages add constraint messages_variant_check check (variant in ('personalized','baseline'));
 
 alter table public.twin_profiles enable row level security;
 alter table public.messages enable row level security;
