@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dijital İkiz İnsan</title>
+  <meta name="description" content="Duygu ve düşünce modellemesiyle kişiye özel sohbet sistemi — deneysel TÜBİTAK Ar-Ge prototipi.">
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f7f8fc}
+    *{box-sizing:border-box}
+    body{margin:0}
+    header{padding:24px 7%;display:flex;justify-content:space-between;align-items:center}
+    .brand{font-weight:800;letter-spacing:-.02em}
+    nav a{margin-left:18px;text-decoration:none;color:#4b5563;font-size:14px}
+    .hero{min-height:72vh;display:grid;place-items:center;padding:60px 7%}
+    .wrap{max-width:1040px;width:100%}
+    .tag{display:inline-block;padding:7px 11px;border:1px solid #dbe1ea;border-radius:999px;background:#fff;font-size:13px;color:#4b5563}
+    h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-.05em;max-width:850px;margin:18px 0}
+    .lead{font-size:20px;line-height:1.6;color:#4b5563;max-width:720px}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+    .btn{display:inline-block;padding:13px 18px;border-radius:12px;text-decoration:none;font-weight:700}
+    .primary{background:#111827;color:#fff}
+    .secondary{background:#fff;color:#111827;border:1px solid #dbe1ea}
+    section{padding:80px 7%;background:#fff;border-top:1px solid #e5e7eb}
+    .grid{max-width:1040px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .card{padding:24px;border:1px solid #e5e7eb;border-radius:18px;background:#fafafa}
+    .card h2{font-size:18px;margin-top:0}
+    .card p{color:#6b7280;line-height:1.6}
+    footer{padding:30px 7%;color:#6b7280;font-size:13px;text-align:center}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.hero{min-height:auto;padding-top:50px;padding-bottom:80px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Dijital İkiz İnsan</div>
+    <nav>
+      <a href="#proje">Proje</a>
+      <a href="#yontem">Yöntem</a>
+      <a href="#sinirlar">Sınırlar</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <span class="tag">TÜBİTAK Ar-Ge prototipi</span>
+        <h1>Duygu, düşünce ve iletişim tarzını modelleyen kişiye özel sohbet sistemi.</h1>
+        <p class="lead">Dijital İkiz İnsan projesi; kullanıcının metinsel verilerinden deneysel bir profil çıkararak sohbet yanıtlarını kişiselleştirmeyi ve bunu ölçülebilir bir araştırma süreciyle değerlendirmeyi amaçlar.</p>
+        <div class="actions">
+          <a class="btn primary" href="https://YOUR-VERCEL-DOMAIN.vercel.app">Uygulamayı Aç</a>
+          <a class="btn secondary" href="#proje">Projeyi İncele</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="proje">
+      <div class="grid">
+        <article class="card">
+          <h2>VAD duygu modeli</h2>
+          <p>Valence, arousal ve dominance boyutları için sürekli değerler tahmin etmeye yönelik araştırma hattı.</p>
+        </article>
+        <article class="card">
+          <h2>Big Five</h2>
+          <p>Openness, conscientiousness, extraversion, agreeableness ve neuroticism boyutlarını metin üzerinden modelleme çalışması.</p>
+        </article>
+        <article class="card">
+          <h2>A/B değerlendirme</h2>
+          <p>Kişiselleştirilmiş ve genel yanıtların kullanıcı geri bildirimiyle karşılaştırılması.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="yontem">
+      <div class="wrap">
+        <h2>Araştırma yaklaşımı</h2>
+        <p class="lead">Gerçek eğitim verileri; kaynak, lisans veya açık rıza bilgileriyle izlenebilir tutulur. Eğitim ve test ayrımı katılımcı bazında yapılır. Model başarısı yalnızca gerçekten çalıştırılmış test sonuçlarıyla raporlanır.</p>
+      </div>
+    </section>
+
+    <section id="sinirlar">
+      <div class="wrap">
+        <h2>Önemli sınırlamalar</h2>
+        <p class="lead">Bu sistem deneysel bir araştırma prototipidir. Üretilen profil psikolojik tanı veya klinik değerlendirme değildir ve kullanıcı adına gerçek dünyada işlem yapıldığı iddiasında bulunmaz.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 2026 Dijital İkiz İnsan — Deneysel araştırma prototipi</footer>
+</body>
+</html>
