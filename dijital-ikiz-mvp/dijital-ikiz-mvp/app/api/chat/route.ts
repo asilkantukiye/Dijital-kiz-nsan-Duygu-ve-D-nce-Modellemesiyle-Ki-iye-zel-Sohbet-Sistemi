@@ -126,7 +126,7 @@ export async function POST(req: Request) {
 
     if (upsertError) throw upsertError
 
-    const { error: insertError } = await supabase
+    const { data: insertedMessages, error: insertError } = await supabase
       .from('messages')
       .insert([
         {
@@ -142,10 +142,17 @@ export async function POST(req: Request) {
           profile_snapshot: profile
         }
       ])
+      .select('id,role')
 
     if (insertError) throw insertError
 
-    return NextResponse.json({ reply, profile })
+    const assistantMessage = insertedMessages?.find((item) => item.role === 'assistant')
+
+    return NextResponse.json({
+      reply,
+      profile,
+      messageId: assistantMessage?.id ?? null
+    })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Sunucu hatası'
     return NextResponse.json({ error: message }, { status: 500 })
