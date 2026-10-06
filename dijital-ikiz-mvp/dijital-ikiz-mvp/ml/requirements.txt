@@ -1,0 +1,6 @@
+pandas>=2.2
+scikit-learn>=1.6
+torch>=2.7
+transformers>=4.51
+accelerate>=1.8
+safetensors>=0.5
