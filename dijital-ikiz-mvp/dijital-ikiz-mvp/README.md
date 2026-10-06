@@ -31,7 +31,7 @@ Kişiselleştirilmiş yanıt
 
 ## 1. Gereksinimler
 
-- Node.js 24 LTS veya daha yeni bir desteklenen LTS sürüm
+- Node.js 22 LTS veya daha yeni bir desteklenen LTS sürüm
 - Supabase projesi
 - Hugging Face hesabı ve Inference Providers izni olan token
 
