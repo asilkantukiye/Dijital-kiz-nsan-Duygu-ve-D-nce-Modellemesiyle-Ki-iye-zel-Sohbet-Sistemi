@@ -11,7 +11,7 @@ create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('user','assistant')),
-  content text not null,
+  content text not null check (char_length(content) between 1 and 4000),
   profile_snapshot jsonb,
   created_at timestamptz not null default now()
 );
@@ -20,9 +20,24 @@ alter table public.twin_profiles enable row level security;
 alter table public.messages enable row level security;
 
 drop policy if exists "users own twin profile" on public.twin_profiles;
-create policy "users own twin profile" on public.twin_profiles for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "users own twin profile"
+  on public.twin_profiles
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "users own messages" on public.messages;
-create policy "users own messages" on public.messages for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "users own messages"
+  on public.messages
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
-create index if not exists messages_user_created_idx on public.messages(user_id, created_at desc);
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.twin_profiles to authenticated;
+grant select, insert, update, delete on public.messages to authenticated;
+
+create index if not exists messages_user_created_idx
+  on public.messages(user_id, created_at desc);
