@@ -68,6 +68,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const [loadingSession, setLoadingSession] = useState(true)
   const [loadingData, setLoadingData] = useState(false)
+  const [feedback, setFeedback] = useState<Record<string, number>>({})
 
   useEffect(() => {
     let mounted = true
@@ -159,7 +160,10 @@ export default function Home() {
         throw new Error(data.error || 'İstek başarısız.')
       }
 
-      setMessages((current) => [...current, { role: 'assistant', content: data.reply }])
+      setMessages((current) => [
+        ...current,
+        { id: data.messageId ?? undefined, role: 'assistant', content: data.reply }
+      ])
       if (data.profile) setProfile(data.profile)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Bir hata oluştu.'
@@ -168,6 +172,32 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function rateMessage(messageId: string | undefined, rating: number) {
+    if (!messageId) {
+      setError('Bu yanıt için geri bildirim kimliği bulunamadı.')
+      return
+    }
+
+    const response = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messageId,
+        rating,
+        variant: 'personalized'
+      })
+    })
+
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setError(data.error || 'Geri bildirim kaydedilemedi.')
+      return
+    }
+
+    setFeedback((current) => ({ ...current, [messageId]: rating }))
   }
 
   async function clearData() {
@@ -267,8 +297,26 @@ export default function Home() {
               )}
 
               {messages.map((message, index) => (
-                <div key={message.id ?? `${message.role}-${index}`} className={`msg ${message.role}`}>
-                  {message.content}
+                <div key={message.id ?? `${message.role}-${index}`} className="message-row">
+                  <div className={`msg ${message.role}`}>
+                    {message.content}
+                  </div>
+                  {message.role === 'assistant' && message.id && (
+                    <div className="feedback" aria-label="Yanıtı değerlendir">
+                      <span className="small">Yanıt puanı:</span>
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          className={`feedback-btn ${feedback[message.id!] === rating ? 'selected' : ''}`}
+                          onClick={() => rateMessage(message.id, rating)}
+                          aria-label={`Puan ${rating}`}
+                        >
+                          {rating}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
 
