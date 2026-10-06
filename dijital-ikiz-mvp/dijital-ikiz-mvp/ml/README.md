@@ -63,3 +63,38 @@ Duygu modeli için sürekli VAD tahmininde MAE/RMSE ve korelasyonlar; sınıflan
 Big Five için boyut bazında regresyon hatası/korelasyon veya sınıflandırma kullanılıyorsa macro-F1 raporlanmalıdır.
 
 %75 hedefi ancak hangi metrik ve test protokolünde ölçüldüğü açıklandıktan sonra raporlanmalıdır.
+
+
+## Kaggle başlangıç komutları
+
+Bağımlılık kurulumu:
+
+```bash
+pip install -r ml/requirements.txt
+```
+
+Veri kontrolü:
+
+```bash
+python ml/data/validate_dataset.py ml/data/your_dataset.csv
+```
+
+Katılımcı bazlı bölme:
+
+```bash
+python ml/data/split_by_participant.py ml/data/your_dataset.csv ml/data/splits
+```
+
+VAD eğitimi:
+
+```bash
+python ml/train_regressor.py   --train ml/data/splits/train.csv   --validation ml/data/splits/validation.csv   --test ml/data/splits/test.csv   --labels valence arousal dominance   --model dbmdz/bert-base-turkish-cased   --output artifacts/vad
+```
+
+Big Five için aynı eğitim altyapısı:
+
+```bash
+python ml/train_regressor.py   --train ml/data/splits/train.csv   --validation ml/data/splits/validation.csv   --test ml/data/splits/test.csv   --labels openness conscientiousness extraversion agreeableness neuroticism   --model dbmdz/bert-base-turkish-cased   --output artifacts/big-five
+```
+
+Bu komutların ürettiği `metrics.json`, deney günlüğüne eklenmelidir. Sonuçlar çalıştırılmadan önceden doldurulmamalıdır.
