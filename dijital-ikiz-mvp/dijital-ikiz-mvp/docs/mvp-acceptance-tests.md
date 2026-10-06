@@ -16,6 +16,7 @@ Bu liste yazılımın çalıştığını göstermek için kullanılabilir.
 - [ ] Boş mesaj gönderilemez.
 - [ ] 4000 karakterden uzun mesaj reddedilir.
 - [ ] LLM yanıtı arayüzde görünür.
+- [ ] Kişiselleştirilmiş ve genel test varyantları arasında geçiş yapılabilir.
 - [ ] Son konuşma bağlamı sonraki istekte kullanılır.
 - [ ] Sayfa yenilendiğinde kayıtlı sohbet geçmişi yüklenir.
 
@@ -37,6 +38,8 @@ Bu liste yazılımın çalıştığını göstermek için kullanılabilir.
 - [ ] API yanıtlarında \`Cache-Control: no-store\` bulunmalıdır.
 - [ ] API istek limiti test edilmelidir.
 - [ ] Kullanıcı "Verilerimi sil" işlemi ile kendi verilerini silebilmelidir.
+- [ ] Asistan yanıtlarına 1–5 puan verilebilir.
+- [ ] Geri bildirimler varyant bilgisiyle saklanmalıdır.
 
 ## Dağıtım
 
