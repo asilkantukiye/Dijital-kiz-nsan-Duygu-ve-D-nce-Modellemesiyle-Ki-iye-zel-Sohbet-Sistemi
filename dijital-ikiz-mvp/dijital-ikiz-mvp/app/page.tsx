@@ -112,6 +112,7 @@ export default function Home() {
             .from('messages')
             .select('id,role,content,variant')
             .eq('user_id', session.user.id)
+            .eq('variant', variant)
             .order('created_at', { ascending: true })
             .limit(100),
           supabase
@@ -139,7 +140,7 @@ export default function Home() {
     return () => {
       mounted = false
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, variant])
 
   async function send() {
     if (!text.trim() || loading || !session?.user?.id) return
@@ -147,7 +148,7 @@ export default function Home() {
     const userText = text.trim()
     setText('')
     setError('')
-    setMessages((current) => [...current, { role: 'user', content: userText }])
+    setMessages((current) => [...current, { role: 'user', content: userText, variant }])
     setLoading(true)
 
     try {
