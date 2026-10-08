@@ -13,6 +13,22 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError'
 }
 
+function providerErrorMessage(status: number) {
+  if (status === 401 || status === 403) {
+    return 'Hugging Face yetkilendirmesi başarısız.'
+  }
+
+  if (status === 429) {
+    return 'Hugging Face istek limiti aşıldı.'
+  }
+
+  if (status >= 500) {
+    return 'Hugging Face geçici olarak kullanılamıyor.'
+  }
+
+  return `Hugging Face isteği reddetti (HTTP ${status}).`
+}
+
 async function fetchHuggingFace(
   token: string,
   model: string,
@@ -33,7 +49,7 @@ async function fetchHuggingFace(
         messages,
         temperature: 0.7,
         top_p: 0.8,
-        max_tokens: 700,
+        max_tokens: 600,
         stream: false
       }),
       signal: controller.signal,
@@ -77,10 +93,7 @@ export async function qwenChat(
     }
 
     if (!res.ok) {
-      const detail = await res.text()
-      const error = new Error(
-        `Hugging Face API hatası (${res.status}): ${detail.slice(0, 500)}`
-      )
+      const error = new Error(providerErrorMessage(res.status))
 
       if (attempt < HF_MAX_ATTEMPTS && isRetryableStatus(res.status)) {
         lastError = error
