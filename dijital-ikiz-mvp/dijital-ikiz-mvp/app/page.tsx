@@ -106,26 +106,34 @@ export default function Home() {
       setLoadingData(true)
       const supabase = createClient()
 
-      const [{ data: storedMessages, error: messageError }, { data: storedProfile, error: profileError }] =
-        await Promise.all([
-          supabase
-            .from('messages')
-            .select('id,role,content,variant')
-            .eq('user_id', session.user.id)
-            .eq('variant', variant)
-            .order('created_at', { ascending: true })
-            .limit(100),
-          supabase
-            .from('twin_profiles')
-            .select('profile')
-            .eq('user_id', session.user.id)
-            .maybeSingle()
-        ])
+      const [
+        { data: storedMessages, error: messageError },
+        { data: storedProfile, error: profileError },
+        { data: storedFeedback, error: feedbackError }
+      ] = await Promise.all([
+        supabase
+          .from('messages')
+          .select('id,role,content,variant')
+          .eq('user_id', session.user.id)
+          .eq('variant', variant)
+          .order('created_at', { ascending: true })
+          .limit(100),
+        supabase
+          .from('twin_profiles')
+          .select('profile')
+          .eq('user_id', session.user.id)
+          .maybeSingle(),
+        supabase
+          .from('message_feedback')
+          .select('message_id,rating')
+          .eq('user_id', session.user.id)
+      ])
 
       if (!mounted) return
 
-      if (messageError || profileError) {
-        setError(messageError?.message || profileError?.message || 'Veriler yüklenemedi.')
+      if (messageError || profileError || feedbackError) {
+        console.error('Data loading error', messageError || profileError || feedbackError)
+        setError('Kayıtlı veriler yüklenemedi. Lütfen tekrar deneyin.')
       } else {
         setMessages((storedMessages ?? []) as Message[])
         setProfile(
@@ -133,6 +141,13 @@ export default function Home() {
             ? ((storedProfile?.profile as Profile | null) ?? emptyProfile)
             : emptyProfile
         )
+        const loadedFeedback: Record<string, number> = {}
+        for (const item of storedFeedback ?? []) {
+          if (typeof item.message_id === 'string' && Number.isInteger(item.rating)) {
+            loadedFeedback[item.message_id] = item.rating
+          }
+        }
+        setFeedback(loadedFeedback)
         setError('')
       }
 
