@@ -57,9 +57,24 @@ export async function POST(req: Request) {
 
     if (error) throw error
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json(
+      { ok: true },
+      {
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Geri bildirim kaydedilemedi.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Feedback API error:', error)
+    return NextResponse.json(
+      { error: 'Geri bildirim kaydedilemedi. Lütfen daha sonra tekrar deneyin.' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
   }
 }
