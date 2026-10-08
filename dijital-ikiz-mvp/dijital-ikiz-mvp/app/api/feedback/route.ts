@@ -7,7 +7,13 @@ export async function POST(req: Request) {
     const messageId = String(body.messageId ?? '').trim()
     const rating = Number(body.rating)
     const comment = typeof body.comment === 'string' ? body.comment.trim() : null
-    const variant = body.variant === 'baseline' ? 'baseline' : 'personalized'
+    const rawVariant = body.variant
+
+    if (rawVariant !== 'personalized' && rawVariant !== 'baseline') {
+      return NextResponse.json({ error: 'Geçersiz deney varyantı.' }, { status: 400 })
+    }
+
+    const requestedVariant = rawVariant as 'personalized' | 'baseline'
 
     if (!messageId) {
       return NextResponse.json({ error: 'Mesaj kimliği gerekli.' }, { status: 400 })
@@ -30,7 +36,7 @@ export async function POST(req: Request) {
 
     const { data: message, error: messageError } = await supabase
       .from('messages')
-      .select('id')
+      .select('id,variant')
       .eq('id', messageId)
       .eq('user_id', user.id)
       .eq('role', 'assistant')
@@ -42,6 +48,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Mesaj bulunamadı.' }, { status: 404 })
     }
 
+    if (message.variant !== requestedVariant) {
+      return NextResponse.json(
+        { error: 'Geri bildirim varyantı mesajla eşleşmiyor.' },
+        { status: 409 }
+      )
+    }
+
     const { error } = await supabase
       .from('message_feedback')
       .upsert(
@@ -49,7 +62,7 @@ export async function POST(req: Request) {
           message_id: messageId,
           user_id: user.id,
           rating,
-          variant,
+          variant: message.variant,
           comment: comment || null
         },
         { onConflict: 'message_id,user_id' }
