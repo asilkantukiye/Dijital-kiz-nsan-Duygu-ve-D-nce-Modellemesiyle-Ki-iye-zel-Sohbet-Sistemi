@@ -3,6 +3,10 @@ name: Vercel Deploy
 permissions:
   contents: read
 
+concurrency:
+  group: vercel-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: ["main"]
