@@ -56,20 +56,20 @@ export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
         const timeout = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS)
 
         try {
-          const result = await Promise.race([
-            client.featureExtraction({
+          const result = await client.featureExtraction(
+            {
               model: this.model,
               inputs: input
-            }),
-            new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error('Embedding zaman aşımı.')), EMBEDDING_TIMEOUT_MS)
-            })
-          ])
+            },
+            {
+              signal: controller.signal,
+              retry_on_error: false
+            }
+          )
 
           return normalizeEmbedding(result)
         } finally {
           clearTimeout(timeout)
-          controller.abort()
         }
       } catch (error: unknown) {
         lastError = error
