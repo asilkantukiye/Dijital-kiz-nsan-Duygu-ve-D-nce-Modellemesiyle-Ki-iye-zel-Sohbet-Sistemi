@@ -29,16 +29,16 @@ create policy "users own twin profile"
   on public.twin_profiles
   for all
   to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 drop policy if exists "users own messages" on public.messages;
 create policy "users own messages"
   on public.messages
   for all
   to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.twin_profiles to authenticated;
@@ -46,6 +46,9 @@ grant select, insert, update, delete on public.messages to authenticated;
 
 create index if not exists messages_user_created_idx
   on public.messages(user_id, created_at desc);
+
+create index if not exists messages_user_variant_created_idx
+  on public.messages(user_id, variant, created_at desc);
 
 
 create table if not exists public.message_feedback (
@@ -66,8 +69,8 @@ create policy "users own feedback"
   on public.message_feedback
   for all
   to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 grant select, insert, update, delete on public.message_feedback to authenticated;
 
