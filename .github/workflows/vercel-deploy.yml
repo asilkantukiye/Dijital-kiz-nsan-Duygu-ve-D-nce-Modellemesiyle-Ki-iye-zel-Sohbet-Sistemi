@@ -1,0 +1,31 @@
+name: Vercel Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+
+      - name: Link existing Vercel project
+        run: npx --yes vercel@latest link --yes --project dijital-ikiz-insan --scope "${{ secrets.VERCEL_ORG_ID }}" --token "${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy to Vercel production
+        run: npx --yes vercel@latest deploy --prod --yes --scope "${{ secrets.VERCEL_ORG_ID }}" --token "${{ secrets.VERCEL_TOKEN }}"
