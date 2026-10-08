@@ -159,14 +159,29 @@ export async function POST(req: Request) {
 
     const assistantMessage = insertedMessages?.find((item) => item.role === 'assistant')
 
-    return NextResponse.json({
-      reply,
-      profile,
-      variant,
-      messageId: assistantMessage?.id ?? null
-    })
+    return NextResponse.json(
+      {
+        reply,
+        profile,
+        variant,
+        messageId: assistantMessage?.id ?? null
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Sunucu hatası'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Chat API error:', error)
+    return NextResponse.json(
+      { error: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
   }
 }
