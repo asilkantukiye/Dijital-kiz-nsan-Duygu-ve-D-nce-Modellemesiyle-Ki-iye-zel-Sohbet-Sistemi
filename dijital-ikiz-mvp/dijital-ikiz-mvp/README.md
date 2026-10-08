@@ -52,6 +52,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
+HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
 ```
 
 **Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
