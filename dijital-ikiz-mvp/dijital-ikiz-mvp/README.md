@@ -119,7 +119,13 @@ HF_MODEL
 
 Üretim, preview ve development ortamları için gerekli değişkenleri ekleyin.
 
-## 7. MVP kapsamı
+## 7. Semantic Memory Engine
+
+Kişiselleştirilmiş koşulda kullanıcıdan açıkça çıkarılabilen sınırlı tercih ve iletişim tercihleri, tam konuşma metni yerine türetilmiş kısa kayıtlar olarak `memory_items` tablosunda tutulur. Kayıtlar 384 boyutlu embedding ile saklanır ve yalnızca aynı kullanıcının RLS kapsamındaki kayıtları RPC üzerinden cosine similarity ile geri çağrılır. Bellek üretimi veya embedding servisi başarısız olursa sohbet akışı bozulmaz; bellek katmanı atlanır.
+
+Güvenilmeyen memory metni system prompt'a talimat olarak eklenmez. Referans belleği ayrı bir kullanıcı bağlamı olarak, bunun talimat olmadığı açıkça belirtilerek modele verilir. Sağlık, kimlik, finans, kimlik doğrulama sırrı ve benzeri yüksek riskli terimler içeren adaylar temel çıkarıcı tarafından kaydedilmez.
+
+## 8. MVP kapsamı
 
 Mevcut sürüm:
 
@@ -141,7 +147,7 @@ Mevcut sürüm:
 
 sağlar.
 
-## 8. Bilimsel durum
+## 9. Bilimsel durum
 
 Bu MVP'deki duygu, kişilik ve üslup çıkarımı **heuristic/baseline** yaklaşımıdır. Bu nedenle henüz rapordaki %75 doğruluk hedefinin sağlandığı iddia edilmemelidir.
 
@@ -157,7 +163,7 @@ TÜBİTAK'ın Ar-Ge aşaması için sonraki adımlar:
 
 Deney yapılmadan sonuçlar bilimsel başarı olarak raporlanmamalıdır.
 
-## 9. Güvenlik ve gizlilik
+## 10. Güvenlik ve gizlilik
 
 Uygulama kullanıcı konuşmalarını, geri bildirimlerini ve çıkarılan profil verilerini saklar. Kullanıcı arayüzünden kendi sohbet ve profil verilerini silebilir.
 
@@ -167,7 +173,7 @@ Koruma katmanları arasında Supabase RLS, server-side kullanıcı doğrulaması
 
 Proje çocuklar veya psikolojik destek gibi alanlarda gerçek kullanıcı çalışmasına geçmeden önce uygun etik, ebeveyn/onam, veri koruma ve uzman denetimi süreçleri ayrıca değerlendirilmelidir.
 
-## 10. Proje raporu ile eşleştirme
+## 11. Proje raporu ile eşleştirme
 
 PDF'deki üç ana modülün MVP karşılığı:
 
