@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
+import { rejectCrossOrigin } from '@/lib/api-security'
 import { createClient } from '@/lib/supabase-server'
 
 export async function POST(req: Request) {
   try {
+    const originError = rejectCrossOrigin(req)
+    if (originError) return originError
+
     const body = await req.json().catch(() => ({}))
     const messageId = String(body.messageId ?? '').trim()
     const rating = Number(body.rating)
