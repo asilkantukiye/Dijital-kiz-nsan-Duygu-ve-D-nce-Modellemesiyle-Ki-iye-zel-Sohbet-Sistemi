@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
@@ -91,7 +91,7 @@ def load_split(path: Path, labels: list[str]) -> pd.DataFrame:
 
 
 @torch.no_grad()
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, labels):
     model.eval()
     predictions = []
     targets = []
@@ -110,10 +110,14 @@ def evaluate(model, loader, device):
     y_pred = np.clip(y_pred, 0, 1)
 
     per_label = {}
-    for i in range(y_true.shape[1]):
-        per_label[i] = {
-            "mae": float(mean_absolute_error(y_true[:, i], y_pred[:, i])),
-            "rmse": float(math.sqrt(mean_squared_error(y_true[:, i], y_pred[:, i]))),
+    for i, label in enumerate(labels):
+        true_col = y_true[:, i]
+        pred_col = y_pred[:, i]
+        r2 = None if len(np.unique(true_col)) < 2 else float(r2_score(true_col, pred_col))
+        per_label[label] = {
+            "mae": float(mean_absolute_error(true_col, pred_col)),
+            "rmse": float(math.sqrt(mean_squared_error(true_col, pred_col))),
+            "r2": r2,
         }
 
     return {
@@ -187,7 +191,7 @@ def main() -> int:
 
             losses.append(float(loss.detach().cpu()))
 
-        val_metrics = evaluate(model, val_loader, device)
+        val_metrics = evaluate(model, val_loader, device, args.labels)
         print(
             f"epoch={epoch} train_mse={np.mean(losses):.5f} "
             f"val_mae={val_metrics['mae']:.5f} val_rmse={val_metrics['rmse']:.5f}"
@@ -198,7 +202,7 @@ def main() -> int:
             torch.save(model.state_dict(), args.output / "best_model.pt")
 
     model.load_state_dict(torch.load(args.output / "best_model.pt", map_location=device))
-    test_metrics = evaluate(model, test_loader, device)
+    test_metrics = evaluate(model, test_loader, device, args.labels)
 
     report = {
         "model": args.model,
