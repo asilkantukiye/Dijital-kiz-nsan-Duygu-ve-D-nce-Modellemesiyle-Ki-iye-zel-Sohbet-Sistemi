@@ -10,9 +10,26 @@ function backoffMs(attempt: number) {
 }
 
 function normalizeEmbedding(value: unknown): number[] {
-  const rows = Array.isArray(value) && Array.isArray(value[0])
-    ? value[0]
-    : value
+  const source = Array.isArray(value) ? value : []
+  let rows: unknown = source
+
+  if (Array.isArray(source[0]) && Array.isArray(source[0][0])) {
+    const tokenRows = source[0] as unknown[]
+    const usable = tokenRows.filter((row): row is unknown[] => Array.isArray(row))
+    if (usable.length === 0) {
+      throw new Error('Embedding çıktısı boş.')
+    }
+
+    const pooled = Array.from({ length: EMBEDDING_DIMENSION }, (_, index) => {
+      const values = usable.map((row) => Number(row[index])).filter(Number.isFinite)
+      return values.length > 0
+        ? values.reduce((sum, item) => sum + item, 0) / values.length
+        : 0
+    })
+    rows = pooled
+  } else if (Array.isArray(source[0])) {
+    rows = source[0]
+  }
 
   if (!Array.isArray(rows) || rows.length !== EMBEDDING_DIMENSION) {
     throw new Error('Embedding boyutu beklenen 384 değer değil.')
