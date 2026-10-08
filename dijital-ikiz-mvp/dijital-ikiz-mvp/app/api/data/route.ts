@@ -18,9 +18,18 @@ export async function DELETE() {
     if (messagesError) throw messagesError
     if (profileError) throw profileError
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json(
+      { ok: true },
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Veriler silinemedi.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Data deletion API error:', error)
+    return NextResponse.json(
+      { error: 'Veriler silinemedi. Lütfen daha sonra tekrar deneyin.' },
+      {
+        status: 500,
+        headers: { 'Cache-Control': 'no-store' }
+      }
+    )
   }
 }
