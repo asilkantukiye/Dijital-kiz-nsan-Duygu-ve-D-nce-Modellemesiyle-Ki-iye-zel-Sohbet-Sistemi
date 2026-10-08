@@ -31,6 +31,10 @@ Bu liste yazılımın çalıştığını göstermek için kullanılabilir.
 - [ ] Profil göstergeleri arayüzde görünür.
 - [ ] Profilin deneysel olduğu açıkça belirtilir.
 - [ ] Baseline koşulu kişiselleştirilmiş profil durumunu güncellemez.
+- [ ] Kişiselleştirilmiş koşulda yalnızca sınırlı ve türetilmiş bellek adayları kaydedilir.
+- [ ] Bellek adayları yüksek riskli/sır niteliğindeki terimleri içermemelidir.
+- [ ] Benzer bellekler embedding similarity ile geri çağrılabilir.
+- [ ] Memory retrieval/persistence hatası sohbet yanıtını bozmaz.
 
 ## Veri güvenliği
 
@@ -48,6 +52,8 @@ Bu liste yazılımın çalıştığını göstermek için kullanılabilir.
 - [ ] Asistan yanıtlarına 1–5 puan verilebilir.
 - [ ] Geri bildirimler doğru varyant bilgisiyle saklanmalıdır.
 - [ ] Kullanıcı/sağlayıcı metinleri sistem talimatı gibi yorumlanmamalıdır.
+- [ ] Memory RPC yalnızca aktif kullanıcının kayıtlarını döndürmelidir.
+- [ ] Kullanıcı verilerini silme işlemi memory_items kayıtlarını da silmelidir.
 
 ## Dağıtım
 
