@@ -115,6 +115,9 @@ create index if not exists memory_items_user_updated_idx
 create index if not exists memory_items_user_last_used_idx
   on public.memory_items(user_id, last_used_at desc);
 
+create index if not exists memory_items_source_message_idx
+  on public.memory_items(source_message_id);
+
 create index if not exists memory_items_embedding_hnsw_idx
   on public.memory_items
   using hnsw (embedding vector_cosine_ops);
