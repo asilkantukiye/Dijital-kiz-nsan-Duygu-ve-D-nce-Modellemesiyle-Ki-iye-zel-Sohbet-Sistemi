@@ -25,8 +25,41 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh the session when necessary and return the refreshed cookies.
+  // Keep the SSR auth cookies fresh.
   await supabase.auth.getClaims()
 
+  const pathname = request.nextUrl.pathname
+  const protectedRoute =
+    pathname === '/' ||
+    pathname.startsWith('/api/chat') ||
+    pathname.startsWith('/api/feedback') ||
+    pathname.startsWith('/api/data')
+
+  if (protectedRoute) {
+    // getUser() performs a server-side Auth check, so a logged-out/stale
+    // session cannot reach protected pages or APIs through the proxy.
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      if (pathname === '/') {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        loginUrl.search = ''
+        return NextResponse.redirect(loginUrl)
+      }
+
+      return NextResponse.json(
+        { error: 'Oturum bulunamadı.' },
+        {
+          status: 401,
+          headers: { 'Cache-Control': 'private, no-store' }
+        }
+      )
+    }
+  }
+
+  response.headers.set('Cache-Control', 'private, no-store')
   return response
 }
