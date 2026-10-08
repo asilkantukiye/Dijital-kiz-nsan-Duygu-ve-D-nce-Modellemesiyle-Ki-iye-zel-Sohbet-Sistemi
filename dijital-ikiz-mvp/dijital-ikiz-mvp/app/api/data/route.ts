@@ -10,13 +10,15 @@ export async function DELETE() {
       return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 })
     }
 
-    const [{ error: messagesError }, { error: profileError }] = await Promise.all([
+    const [{ error: messagesError }, { error: profileError }, { error: memoryError }] = await Promise.all([
       supabase.from('messages').delete().eq('user_id', user.id),
-      supabase.from('twin_profiles').delete().eq('user_id', user.id)
+      supabase.from('twin_profiles').delete().eq('user_id', user.id),
+      supabase.from('memory_items').delete().eq('user_id', user.id)
     ])
 
     if (messagesError) throw messagesError
     if (profileError) throw profileError
+    if (memoryError) throw memoryError
 
     return NextResponse.json(
       { ok: true },
