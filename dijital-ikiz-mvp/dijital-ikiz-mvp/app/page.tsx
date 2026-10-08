@@ -128,7 +128,11 @@ export default function Home() {
         setError(messageError?.message || profileError?.message || 'Veriler yüklenemedi.')
       } else {
         setMessages((storedMessages ?? []) as Message[])
-        setProfile((storedProfile?.profile as Profile | null) ?? emptyProfile)
+        setProfile(
+          variant === 'personalized'
+            ? ((storedProfile?.profile as Profile | null) ?? emptyProfile)
+            : emptyProfile
+        )
         setError('')
       }
 
@@ -375,12 +379,14 @@ export default function Home() {
           </section>
 
           <aside className="card side">
-            <h3>Dijital İkiz Profili</h3>
-            <p className="small">
-              Bu skorlar ilk MVP'de deneysel/heuristic baseline olarak kullanılır.
-            </p>
+            {variant === 'personalized' ? (
+              <>
+                <h3>Dijital İkiz Profili</h3>
+                <p className="small">
+                  Bu skorlar ilk MVP'de deneysel/heuristic baseline olarak kullanılır.
+                </p>
 
-            {Object.entries(profile).map(([key, value]) => (
+                {Object.entries(profile).map(([key, value]) => (
               <div className="metric" key={key}>
                 <span>{labels[key as keyof Profile]}</span>
                 <div className="bar">
@@ -388,7 +394,16 @@ export default function Home() {
                 </div>
                 <small>{Math.round(value * 100)}%</small>
               </div>
-            ))}
+                ))}
+              </>
+            ) : (
+              <>
+                <h3>Genel Koşul</h3>
+                <p className="small">
+                  Bu koşulda dijital ikiz profili modele verilmez. Karşılaştırma yanıtı genel sohbet bağlamında üretilir.
+                </p>
+              </>
+            )}
           </aside>
         </div>
       </main>
