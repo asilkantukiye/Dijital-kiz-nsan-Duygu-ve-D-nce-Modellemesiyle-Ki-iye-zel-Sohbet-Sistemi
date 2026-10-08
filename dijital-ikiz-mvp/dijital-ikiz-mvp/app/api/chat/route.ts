@@ -33,7 +33,13 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
     const message = String(body.message ?? '').trim()
-    const variant = body.variant === 'baseline' ? 'baseline' : 'personalized'
+    const rawVariant = body.variant
+
+    if (rawVariant !== 'personalized' && rawVariant !== 'baseline') {
+      return NextResponse.json({ error: 'Geçersiz deney varyantı.' }, { status: 400 })
+    }
+
+    const variant = rawVariant as 'personalized' | 'baseline'
 
     if (!message) {
       return NextResponse.json({ error: 'Mesaj boş.' }, { status: 400 })
@@ -85,7 +91,12 @@ export async function POST(req: Request) {
       ? normalizeProfile(existingProfile.profile)
       : null
 
-    const profile = analyzeMessage(message, previous)
+    // Baseline koşulu kişiselleştirilmiş profil durumunu değiştirmemelidir;
+    // aksi halde A/B koşulları arasında durum sızıntısı oluşabilir.
+    const profile =
+      variant === 'personalized'
+        ? analyzeMessage(message, previous)
+        : (previous ?? normalizeProfile(null))
 
     const safeHistory = (storedMessages ?? [])
       .reverse()
@@ -126,14 +137,18 @@ export async function POST(req: Request) {
 
     const now = new Date().toISOString()
 
-    const { error: upsertError } = await supabase
-      .from('twin_profiles')
-      .upsert(
-        { user_id: user.id, profile, updated_at: now },
-        { onConflict: 'user_id' }
-      )
+    if (variant === 'personalized') {
+      const { error: upsertError } = await supabase
+        .from('twin_profiles')
+        .upsert(
+          { user_id: user.id, profile, updated_at: now },
+          { onConflict: 'user_id' }
+        )
 
-    if (upsertError) throw upsertError
+      if (upsertError) throw upsertError
+    }
+
+    const profileSnapshot = variant === 'personalized' ? profile : null
 
     const { data: insertedMessages, error: insertError } = await supabase
       .from('messages')
@@ -143,14 +158,14 @@ export async function POST(req: Request) {
           role: 'user',
           variant,
           content: message,
-          profile_snapshot: profile
+          profile_snapshot: profileSnapshot
         },
         {
           user_id: user.id,
           role: 'assistant',
           variant,
           content: reply,
-          profile_snapshot: profile
+          profile_snapshot: profileSnapshot
         }
       ])
       .select('id,role')
