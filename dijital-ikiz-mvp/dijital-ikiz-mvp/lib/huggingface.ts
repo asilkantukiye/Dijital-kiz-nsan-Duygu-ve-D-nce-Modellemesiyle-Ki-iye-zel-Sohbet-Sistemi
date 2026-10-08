@@ -1,62 +1,87 @@
-const HF_TIMEOUT_MS = 30_000
-const HF_MAX_ATTEMPTS = 2
+import { InferenceClient } from '@huggingface/inference'
 
-function isRetryableStatus(status: number) {
-  return status === 408 || status === 429 || status >= 500
-}
+const EMBEDDING_DIMENSION = 384
+const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
+const EMBEDDING_TIMEOUT_MS = 15_000
+const EMBEDDING_MAX_ATTEMPTS = 2
 
 function backoffMs(attempt: number) {
-  return attempt === 1 ? 500 : 1000
+  return attempt === 1 ? 350 : 700
 }
 
-function isAbortError(error: unknown) {
-  return error instanceof Error && error.name === 'AbortError'
+function normalizeEmbedding(value: unknown): number[] {
+  const rows = Array.isArray(value) && Array.isArray(value[0])
+    ? value[0]
+    : value
+
+  if (!Array.isArray(rows) || rows.length !== EMBEDDING_DIMENSION) {
+    throw new Error('Embedding boyutu beklenen 384 değer değil.')
+  }
+
+  const numbers = rows.map(Number)
+  if (numbers.some((n) => !Number.isFinite(n))) {
+    throw new Error('Embedding geçersiz sayılar içeriyor.')
+  }
+
+  const norm = Math.sqrt(numbers.reduce((sum, n) => sum + n * n, 0))
+  if (!Number.isFinite(norm) || norm === 0) {
+    throw new Error('Embedding normalize edilemedi.')
+  }
+
+  return numbers.map((n) => n / norm)
 }
 
-function providerErrorMessage(status: number) {
-  if (status === 401 || status === 403) {
-    return 'Hugging Face yetkilendirmesi başarısız.'
-  }
-
-  if (status === 429) {
-    return 'Hugging Face istek limiti aşıldı.'
-  }
-
-  if (status >= 500) {
-    return 'Hugging Face geçici olarak kullanılamıyor.'
-  }
-
-  return `Hugging Face isteği reddetti (HTTP ${status}).`
+export interface EmbeddingProvider {
+  embed(text: string, kind: 'query' | 'passage'): Promise<number[]>
 }
 
-async function fetchHuggingFace(
-  token: string,
-  model: string,
-  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
-) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), HF_TIMEOUT_MS)
+export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
+  private readonly model: string
 
-  try {
-    return await fetch('https://router.huggingface.co/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.7,
-        top_p: 0.8,
-        max_tokens: 600,
-        stream: false
-      }),
-      signal: controller.signal,
-      cache: 'no-store'
-    })
-  } finally {
-    clearTimeout(timeout)
+  constructor(model = process.env.HF_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL) {
+    this.model = model
+  }
+
+  async embed(text: string, kind: 'query' | 'passage') {
+    const token = process.env.HF_TOKEN
+    if (!token) throw new Error('HF_TOKEN tanımlı değil.')
+
+    const input = `${kind}: ${text.slice(0, 2000)}`
+    let lastError: unknown = null
+
+    for (let attempt = 1; attempt <= EMBEDDING_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const client = new InferenceClient(token)
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS)
+
+        try {
+          const result = await Promise.race([
+            client.featureExtraction({
+              model: this.model,
+              inputs: input
+            }),
+            new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('Embedding zaman aşımı.')), EMBEDDING_TIMEOUT_MS)
+            })
+          ])
+
+          return normalizeEmbedding(result)
+        } finally {
+          clearTimeout(timeout)
+          controller.abort()
+        }
+      } catch (error: unknown) {
+        lastError = error
+        if (attempt < EMBEDDING_MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)))
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('Embedding üretimi başarısız oldu.')
   }
 }
 
@@ -72,20 +97,41 @@ export async function qwenChat(
 
   let lastError: unknown = null
 
-  for (let attempt = 1; attempt <= HF_MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
     let res: Response
 
     try {
-      res = await fetchHuggingFace(token, model, messages)
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        lastError = new Error('Hugging Face bağlantısı kurulamadı.')
-      } else {
-        lastError = new Error('Yapay zekâ yanıtı zaman aşımına uğradı. Lütfen tekrar deneyin.')
-      }
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30_000)
 
-      if (attempt < HF_MAX_ATTEMPTS) {
-        await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)))
+      try {
+        res = await fetch('https://router.huggingface.co/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.7,
+            top_p: 0.8,
+            max_tokens: 600,
+            stream: false
+          }),
+          signal: controller.signal,
+          cache: 'no-store'
+        })
+      } finally {
+        clearTimeout(timeout)
+      }
+    } catch (error: unknown) {
+      lastError = error instanceof Error && error.name === 'AbortError'
+        ? new Error('Yapay zekâ yanıtı zaman aşımına uğradı. Lütfen tekrar deneyin.')
+        : new Error('Hugging Face bağlantısı kurulamadı.')
+
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 500 : 1000))
         continue
       }
 
@@ -93,11 +139,18 @@ export async function qwenChat(
     }
 
     if (!res.ok) {
-      const error = new Error(providerErrorMessage(res.status))
+      const error =
+        res.status === 401 || res.status === 403
+          ? new Error('Hugging Face yetkilendirmesi başarısız.')
+          : res.status === 429
+            ? new Error('Hugging Face istek limiti aşıldı.')
+            : res.status >= 500
+              ? new Error('Hugging Face geçici olarak kullanılamıyor.')
+              : new Error(`Hugging Face isteği reddetti (HTTP ${res.status}).`)
 
-      if (attempt < HF_MAX_ATTEMPTS && isRetryableStatus(res.status)) {
+      if (attempt < 2 && (res.status === 408 || res.status === 429 || res.status >= 500)) {
         lastError = error
-        await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)))
+        await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 500 : 1000))
         continue
       }
 
