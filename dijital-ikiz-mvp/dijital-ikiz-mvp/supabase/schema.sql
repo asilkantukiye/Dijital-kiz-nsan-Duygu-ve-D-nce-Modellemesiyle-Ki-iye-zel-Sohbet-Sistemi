@@ -1,5 +1,5 @@
-create extension if not exists pgcrypto;
-create extension if not exists vector;
+create extension if not exists pgcrypto with schema extensions;
+create extension if not exists vector with schema extensions;
 
 create table if not exists public.twin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
