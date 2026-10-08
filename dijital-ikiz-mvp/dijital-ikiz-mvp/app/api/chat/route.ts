@@ -177,7 +177,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         reply,
-        profile,
+        profile: variant === 'personalized' ? profile : null,
         variant,
         messageId: assistantMessage?.id ?? null
       },
