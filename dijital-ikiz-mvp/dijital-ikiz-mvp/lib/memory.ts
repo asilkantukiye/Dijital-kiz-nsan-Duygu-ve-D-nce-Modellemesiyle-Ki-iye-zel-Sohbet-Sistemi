@@ -38,7 +38,11 @@ const blockedTerms = [
   'tanı',
   'depresyon',
   'intihar',
-  'kendime zarar'
+  'kendime zarar',
+  'seni',
+  'chatgpt',
+  'asistan',
+  'sistem talimat'
 ]
 
 const preferenceRules: RegExp[] = [
