@@ -3,6 +3,30 @@
 import { FormEvent, useState } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
+function friendlyAuthError(message: string, mode: 'login' | 'signup') {
+  const normalized = message.toLocaleLowerCase('tr-TR')
+
+  if (normalized.includes('invalid login credentials')) {
+    return 'E-posta veya şifre hatalı.'
+  }
+
+  if (normalized.includes('email not confirmed')) {
+    return 'E-posta adresini doğruladıktan sonra giriş yapabilirsin.'
+  }
+
+  if (normalized.includes('user already registered')) {
+    return 'Bu e-posta ile zaten bir hesap var. Giriş yapmayı deneyin.'
+  }
+
+  if (normalized.includes('password should be at least')) {
+    return 'Şifre en az 6 karakter olmalıdır.'
+  }
+
+  return mode === 'signup'
+    ? 'Kayıt sırasında bir sorun oluştu. Bilgilerini kontrol edip tekrar dene.'
+    : 'Giriş sırasında bir sorun oluştu. Bilgilerini kontrol edip tekrar dene.'
+}
+
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +47,7 @@ export default function Login() {
           : await supabase.auth.signUp({ email, password })
 
       if (result.error) {
-        setMsg(result.error.message)
+        setMsg(friendlyAuthError(result.error.message, mode))
         return
       }
 
