@@ -1,0 +1,21 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Local environment and secrets
+.env
+.env.*
+!.env*.example
+
+# Vercel local metadata
+.vercel/
+
+# Python / ML local artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ml/artifacts/
+kaggle_results/
