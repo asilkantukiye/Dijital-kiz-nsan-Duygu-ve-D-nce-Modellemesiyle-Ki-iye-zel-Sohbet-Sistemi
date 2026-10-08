@@ -7,6 +7,7 @@ import {
   profileToSystemPrompt
 } from '@/lib/twin'
 import { qwenChat } from '@/lib/huggingface'
+import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
 
 const MAX_MESSAGE_LENGTH = 4000
 const MAX_HISTORY = 8
@@ -188,6 +189,16 @@ export async function POST(req: Request) {
 
     const safeHistory = boundHistory(rawHistory)
 
+    let memoryContext: string | null = null
+    if (variant === 'personalized') {
+      try {
+        const memories = await retrieveMemories(user.id, message)
+        memoryContext = formatMemoryContext(memories)
+      } catch (error) {
+        console.error('Memory retrieval error:', error)
+      }
+    }
+
     const system = [
       'Sen Dijital İkiz İnsan adlı deneysel bir araştırma prototipinin sohbet motorusun.',
       'Türkçe konuş.',
@@ -206,11 +217,18 @@ export async function POST(req: Request) {
 
     const systemPrompt = system.join('\n\n')
 
-    const rawReply = await qwenChat([
+    const modelMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       { role: 'system', content: systemPrompt },
-      ...safeHistory,
-      { role: 'user', content: message }
-    ])
+      ...safeHistory
+    ]
+
+    if (memoryContext) {
+      modelMessages.push({ role: 'user', content: memoryContext })
+    }
+
+    modelMessages.push({ role: 'user', content: message })
+
+    const rawReply = await qwenChat(modelMessages)
     const reply = boundReply(rawReply)
 
     if (!reply) {
@@ -254,7 +272,16 @@ export async function POST(req: Request) {
 
     if (insertError) throw insertError
 
+    const userMessage = insertedMessages?.find((item) => item.role === 'user')
     const assistantMessage = insertedMessages?.find((item) => item.role === 'assistant')
+
+    if (variant === 'personalized' && userMessage?.id) {
+      try {
+        await persistMemories(user.id, userMessage.id, message)
+      } catch (error) {
+        console.error('Memory persistence error:', error)
+      }
+    }
 
     return NextResponse.json(
       {
