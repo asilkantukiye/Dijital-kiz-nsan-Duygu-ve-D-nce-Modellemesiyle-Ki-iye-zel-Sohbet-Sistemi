@@ -14,105 +14,108 @@ TÜBİTAK projesi için geliştirilen ilk çalışan prototiptir. Proje, kullan�
 
 Akış:
 
-\`\`\`
+```
 Kullanıcı
   ↓
 Next.js arayüzü
   ↓
 /api/chat
   ├─ Supabase oturumu doğrula
-  ├─ Önceki profil + son 8 mesajı oku
-  ├─ Deneysel profil güncelle
+  ├─ Önceki profil + varyanta ait son 8 mesajı oku
+  ├─ Profil güncelle (yalnızca personalized)
   ├─ LLM yanıtını üret
   └─ Profil + mesajları kaydet
   ↓
-Kişiselleştirilmiş yanıt
-\`\`\`
+Kişiselleştirilmiş veya genel yanıt
+```
 
 ## 1. Gereksinimler
 
 - Node.js 22 LTS veya daha yeni bir desteklenen LTS sürüm
 - Supabase projesi
-- Hugging Face hesabı ve Inference Providers izni olan token
+- Hugging Face Inference Providers izni olan bir token
 
 ## 2. Kurulum
 
 Windows PowerShell:
 
-\`\`\`powershell
-cd dijital-ikiz-mvp\\dijital-ikiz-mvp
+```powershell
+cd dijital-ikiz-mvp\dijital-ikiz-mvp
 npm install
 Copy-Item .env.local.example .env.local
-\`\`\`
+```
 
-\`.env.local\`:
+`.env.local`:
 
-\`\`\`env
+```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
-\`\`\`
+```
 
-**Gizli anahtarları GitHub'a yüklemeyin.** \`.env.local\` \`.gitignore\` içindedir.
+**Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
 
 ## 3. Supabase kurulumu
 
-Supabase Dashboard → **SQL Editor** üzerinden \`supabase/schema.sql\` dosyasını çalıştırın.
+Supabase Dashboard → **SQL Editor** üzerinden `supabase/schema.sql` dosyasını çalıştırın.
 
 Bu SQL:
 
-- \`twin_profiles\` tablosunu oluşturur.
-- \`messages\` tablosunu oluşturur.
+- `twin_profiles` tablosunu oluşturur.
+- `messages` tablosunu oluşturur.
+- `message_feedback` tablosunu oluşturur.
 - RLS'yi etkinleştirir.
 - Kullanıcıların yalnızca kendi kayıtlarına erişmesini sınırlar.
-- API için \`authenticated\` rolüne gerekli tablo izinlerini verir.
+- API için `authenticated` rolüne gerekli tablo izinlerini verir.
 
 Supabase Data API ayarlarında otomatik tablo gösterimi kapalıysa, kullanılan tabloları Dashboard'daki **Data API** bölümünden açıkça expose etmeniz gerekir.
 
 ## 4. Hugging Face
 
-Hugging Face'de Inference Providers erişimi olan bir fine-grained token oluşturun ve yalnızca sunucu ortamında \`HF_TOKEN\` olarak tanımlayın.
+Hugging Face'de Inference Providers erişimi olan bir fine-grained token oluşturun ve yalnızca sunucu ortamında `HF_TOKEN` olarak tanımlayın.
 
-Uygulama, OpenAI-uyumlu \`https://router.huggingface.co/v1/chat/completions\` uç noktasını kullanır.
+Uygulama, OpenAI-uyumlu `https://router.huggingface.co/v1/chat/completions` uç noktasını kullanır.
+
+Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata çıktısına taşımamak üzere hata mesajlarını sınırlar. Geçici 408/429/5xx hatalarında sınırlı yeniden deneme uygulanır ve üretim uzunluğu MVP veri sınırına uygun tutulur.
 
 ## 5. Lokal çalıştırma
 
-\`\`\`powershell
+```powershell
 npm run typecheck
 npm run dev
-\`\`\`
+```
 
 Sonra:
 
-\`\`\`
+```
 http://localhost:3000
-\`\`\`
+```
 
 Health check:
 
-\`\`\`
+```
 http://localhost:3000/api/health
-\`\`\`
+```
 
 ## 6. Vercel dağıtımı
 
 Vercel'de GitHub repository'sini içe aktarın ve **Root Directory** olarak:
 
-\`\`\`
+```
 dijital-ikiz-mvp/dijital-ikiz-mvp
-\`\`\`
+```
 
 seçin.
 
 Vercel Environment Variables:
 
-\`\`\`text
+```text
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 HF_TOKEN
 HF_MODEL
-\`\`\`
+```
 
 Üretim, preview ve development ortamları için gerekli değişkenleri ekleyin.
 
@@ -126,11 +129,15 @@ Mevcut sürüm:
 - VAD için deneysel baseline göstergeleri,
 - Big Five için deneysel baseline göstergeleri,
 - ifade/üslup göstergeleri,
-- sohbet sırasında son mesaj bağlamı,
+- varyanta göre ayrıştırılmış sohbet geçmişi,
+- kişiselleştirilmiş ve genel koşulların profil durumunu karıştırmaması,
 - veri silme,
-- temel istek sınırlama,
+- kullanıcı başına temel istek sınırlama,
+- istek gövdesi ve sohbet geçmişi boyut sınırları,
+- mutasyon yapan tarayıcı API'lerinde same-origin kontrolü,
 - güvenlik HTTP başlıkları,
-- sistem talimatlarını korumaya yönelik temel prompt güvenliği
+- sistem talimatlarını ve güvenilmeyen konuşma verisini ayırmaya yönelik temel prompt güvenliği,
+- 1–5 geri bildirim ve varyant doğrulaması
 
 sağlar.
 
@@ -152,7 +159,11 @@ Deney yapılmadan sonuçlar bilimsel başarı olarak raporlanmamalıdır.
 
 ## 9. Güvenlik ve gizlilik
 
-Uygulama kullanıcı konuşmalarını ve çıkarılan profil verilerini saklar. Kullanıcı arayüzünden kendi sohbet ve profil verilerini silebilir.
+Uygulama kullanıcı konuşmalarını, geri bildirimlerini ve çıkarılan profil verilerini saklar. Kullanıcı arayüzünden kendi sohbet ve profil verilerini silebilir.
+
+Koruma katmanları arasında Supabase RLS, server-side kullanıcı doğrulaması, same-origin kontrolleri, girdi/çıktı boyut sınırları, process-local istek sınırlama ve güvenlik HTTP başlıkları bulunur.
+
+**Önemli:** process-local rate limiter, sunucusuz ortamlarda instance bazlı olduğu için dağıtık bir kötüye kullanım önleme sistemi değildir. Üretim trafiği büyüdüğünde merkezi bir rate-limit katmanına geçirilmelidir.
 
 Proje çocuklar veya psikolojik destek gibi alanlarda gerçek kullanıcı çalışmasına geçmeden önce uygun etik, ebeveyn/onam, veri koruma ve uzman denetimi süreçleri ayrıca değerlendirilmelidir.
 
@@ -160,8 +171,8 @@ Proje çocuklar veya psikolojik destek gibi alanlarda gerçek kullanıcı çalı
 
 PDF'deki üç ana modülün MVP karşılığı:
 
-- **Giriş Verisi Analiz Modülü:** \`lib/twin.ts\`
-- **Dijital İkiz profili/veritabanı:** \`supabase/schema.sql\` ve \`/api/chat\`
-- **Dijital İkiz sohbet motoru:** \`lib/huggingface.ts\` ve \`/api/chat\`
+- **Giriş Verisi Analiz Modülü:** `lib/twin.ts`
+- **Dijital İkiz profili/veritabanı:** `supabase/schema.sql` ve `/api/chat`
+- **Dijital İkiz sohbet motoru:** `lib/huggingface.ts` ve `/api/chat`
 
 MVP, rapordaki beş basamağın tamamlanmış bilimsel versiyonu değil; uygulama mimarisini ve ilk çalışan sohbet döngüsünü doğrulayan başlangıç sürümüdür.
