@@ -127,6 +127,17 @@ export function extractMemories(text: string) {
 
 export async function retrieveMemories(userId: string, queryText: string) {
   const supabase = await createClient()
+
+  // Avoid an external embedding call while the user has no stored memories.
+  const { data: existing, error: existingError } = await supabase
+    .from('memory_items')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1)
+
+  if (existingError) throw existingError
+  if (!existing || existing.length === 0) return []
+
   const embedder = new HuggingFaceEmbeddingProvider()
   const embedding = await embedder.embed(queryText, 'query')
 
@@ -164,20 +175,27 @@ export async function persistMemories(
 
   const supabase = await createClient()
   const embedder = new HuggingFaceEmbeddingProvider()
+  const candidates = extracted.slice(0, 4)
+
+  const embedded = await Promise.all(
+    candidates.map(async (memory) => ({
+      memory,
+      embedding: await embedder.embed(memory.content, 'passage')
+    }))
+  )
+
   let persisted = 0
 
-  for (const memory of extracted.slice(0, 4)) {
-    const embedding = await embedder.embed(memory.content, 'passage')
-
+  for (const item of embedded) {
     const { error } = await supabase
       .from('memory_items')
       .upsert(
         {
           user_id: userId,
-          memory_type: memory.memory_type,
-          content: memory.content,
-          importance: memory.importance,
-          embedding,
+          memory_type: item.memory.memory_type,
+          content: item.memory.content,
+          importance: item.memory.importance,
+          embedding: item.embedding,
           source_message_id: sourceMessageId,
           updated_at: new Date().toISOString()
         },
