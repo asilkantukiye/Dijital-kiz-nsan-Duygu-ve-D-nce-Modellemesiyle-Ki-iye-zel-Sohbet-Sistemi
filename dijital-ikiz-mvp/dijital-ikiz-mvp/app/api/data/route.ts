@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
+import { rejectCrossOrigin } from '@/lib/api-security'
 import { createClient } from '@/lib/supabase-server'
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
+    const originError = rejectCrossOrigin(req)
+    if (originError) return originError
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
