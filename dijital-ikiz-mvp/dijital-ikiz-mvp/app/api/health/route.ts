@@ -5,7 +5,7 @@ export async function GET() {
     {
       ok: true,
     service: 'dijital-ikiz-insan',
-    version: '0.2.0',
+    version: '0.3.0',
     configured: {
       supabase: Boolean(
         process.env.NEXT_PUBLIC_SUPABASE_URL &&
