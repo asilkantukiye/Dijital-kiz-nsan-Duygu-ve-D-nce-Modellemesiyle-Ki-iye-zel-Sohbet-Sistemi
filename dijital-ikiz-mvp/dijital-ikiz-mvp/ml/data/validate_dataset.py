@@ -55,6 +55,33 @@ def main() -> int:
     if any(not value for value in participant_ids):
         raise SystemExit("Boş participant_id bulundu.")
 
+    provenance_fields = ("source", "license_or_consent")
+    for field in provenance_fields:
+        if any(not str(row[field]).strip() for row in rows):
+            raise SystemExit(f"{field} boş olamaz; veri kaynağı/lisans veya açık rıza bilgisi zorunludur.")
+
+    for column in [
+        "valence",
+        "arousal",
+        "dominance",
+        "openness",
+        "conscientiousness",
+        "extraversion",
+        "agreeableness",
+        "neuroticism",
+        "style_informality",
+        "style_emoji_rate",
+        "style_slang_rate",
+        "style_humor",
+    ]:
+        for row in rows:
+            try:
+                value = float(row[column])
+            except ValueError:
+                raise SystemExit(f"{column} sayısal olmalıdır.")
+            if not 0 <= value <= 1:
+                raise SystemExit(f"{column} 0–1 aralığında olmalıdır.")
+
     print(f"Toplam örnek: {len(rows)}")
     print(f"Katılımcı sayısı: {len(set(participant_ids))}")
 
