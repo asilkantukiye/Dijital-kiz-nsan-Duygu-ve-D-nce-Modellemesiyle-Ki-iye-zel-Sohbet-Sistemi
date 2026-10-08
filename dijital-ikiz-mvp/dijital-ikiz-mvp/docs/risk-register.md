@@ -9,6 +9,8 @@
 | LLM istem manipülasyonu | Güvenlik sorunu | Sunucu oturumu, same-origin kontrolü, güvenilmeyen veri ayrımı ve bounded context | Kontrol altında |
 | API belleğinin sınırsız büyümesi | Kaynak tüketimi | Process-local rate limiter için sabit üst sınır + expired kayıt temizliği | Kontrol altında |
 | Sağlayıcı hata ayrıntılarının sızması | Gizli operasyonel bilgi ifşası | HF hata gövdelerini uygulama hatasına taşımama | Kontrol altında |
+| Bellek katmanına hassas veri yazılması | Gizlilik ihlali | Sınırlı memory çıkarımı, yüksek riskli terimlerin engellenmesi, RLS ve kullanıcı veri silme | Kontrol altında |
+| Embedding sağlayıcısı erişilemezliği | Sohbette gecikme/eksik kişiselleştirme | Memory hatalarında graceful fallback; ana sohbet akışı memory'ye bağımlı değil | Kontrol altında |
 | Çocuk kullanıcılarla erken deney | Etik/hukuki risk | Uygun onam/etik süreç olmadan gerçek çalışma yapılmaması | Bloklayıcı |
 | Vercel Git entegrasyonu yok | Dağıtım gecikmesi | Vercel Dashboard'dan GitHub bağlantısı | Açık |
 | Vercel deployment secrets eksik | Otomatik dağıtımın çalışmaması | GitHub Secrets'ta gerekli Vercel bilgilerini tanımlama | Açık |
