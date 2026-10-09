@@ -1,0 +1,57 @@
+name: Deploy InfinityFree landing page
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "infinityfree/**"
+      - ".github/workflows/infinityfree-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinityfree-deploy
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check FTP secrets exist
+        id: check
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.INFINITYFREE_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.INFINITYFREE_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.INFINITYFREE_FTP_PASSWORD }}
+        run: |
+          if [[ -n "$FTP_SERVER" && -n "$FTP_USERNAME" && -n "$FTP_PASSWORD" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "InfinityFree FTP secrets are available."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::INFINITYFREE_FTP_SERVER, INFINITYFREE_FTP_USERNAME ve/veya INFINITYFREE_FTP_PASSWORD GitHub Secrets içinde eksik. Yükleme atlanacak."
+          fi
+
+  deploy:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.ready == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Upload static landing page to InfinityFree
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.INFINITYFREE_FTP_SERVER }}
+          username: ${{ secrets.INFINITYFREE_FTP_USERNAME }}
+          password: ${{ secrets.INFINITYFREE_FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: infinityfree/
+          server-dir: /htdocs/
+          dangerous-clean-slate: false
