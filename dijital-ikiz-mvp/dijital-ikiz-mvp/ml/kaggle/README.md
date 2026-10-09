@@ -37,11 +37,11 @@ Hedef skorlar 0–1 aralığında sayısal etiketler olmalıdır. `source` ve `l
 2. İlk kontrol hücresi `/kaggle/input` altındaki CSV dosyalarını ve kolonları listeler.
 3. Her hedef için yalnızca bir uygun CSV varsa defter onu seçer. Birden fazla dosya varsa hata mesajındaki dosya yollarına bakarak `VAD_DATASET_PATH` ve/veya `BIG5_DATASET_PATH` değişkenlerine doğru tam yolu yaz.
 4. Veri kontrolü ve katılımcı bazlı bölme başarılı olmadan eğitim hücrelerine geçme.
-5. VAD ve Big Five eğitim hücrelerini çalıştır. Hata çıkarsa hata mesajını aynen paylaş; sırları, kişisel verileri veya özel token'ları paylaşma.
+5. Yalnızca uygun veri bulunan görevin eğitim hücresi çalışır; veri olmayan görev açıkça atlanır. Hata çıkarsa hata mesajını aynen paylaş; sırları, kişisel verileri veya özel token'ları paylaşma.
 
 ## 5. Beklenen çıktılar
 
-Başarılı gerçek çalıştırmadan sonra Kaggle `/kaggle/working/` altında şu çıktıları üretir:
+Başarılı gerçek çalıştırmadan sonra Kaggle `/kaggle/working/` altında yalnızca gerçekten eğitilmiş görevlerin çıktıları bulunur. Örneğin VAD verisi varsa VAD çıktıları oluşur; Big Five verisi yoksa Big Five modeli/ metriği üretilmez:
 
 - `artifacts/vad/best_model.pt`
 - `artifacts/vad/metrics.json`
