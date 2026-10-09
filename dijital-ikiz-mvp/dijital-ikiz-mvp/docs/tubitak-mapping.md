@@ -3,7 +3,7 @@
 ## Rapor Basamakları → Yazılım Karşılığı
 
 ### 1. Veri Toplama, Ön İşleme ve Etiketleme
-MVP'de henüz gerçek eğitim veri hattı yoktur. Bu aşama Kaggle/notebook deneyleri ve lisans/izin kontrollü veri hazırlama ile tamamlanacaktır.
+Kaggle notebook içinde VAD ve Big Five için ayrı çalıştırılabilen eğitim hattı, veri şeması kontrolleri ve katılımcı bazlı train/validation/test bölmesi bulunmaktadır. Ancak bu yazılım henüz gerçek, izin/lisansı doğrulanmış veri ile Kaggle üzerinde çalıştırılmış ve test metrikleri kaydedilmiş değildir. Bu nedenle deneysel sonuçlar beklemededir.
 
 ### 2. Duygu ve Kişilik Analizi
 MVP'deki \`lib/twin.ts\` dosyası yalnızca baseline/heuristic göstergeler üretir. Gerçek model eğitimi ve ölçüm bu yapının sonraki sürümüdür.
