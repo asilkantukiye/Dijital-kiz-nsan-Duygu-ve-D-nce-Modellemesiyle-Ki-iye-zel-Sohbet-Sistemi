@@ -31,6 +31,14 @@ jobs:
           cache: npm
           cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
 
+      - name: Set up Python for notebook validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate Kaggle notebook syntax
+        run: python ml/kaggle/validate_notebook.py
+
       - name: Install
         run: npm install
 
