@@ -6,6 +6,12 @@ import { extractMemories, type MemoryItem } from '@/lib/memory-text'
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
 
+const MIN_SIMILARITY = 0.72
+const MAX_MEMORY_ITEMS_PER_USER = 50
+const MEMORY_RETENTION_DAYS = 180
+const MEMORY_PRUNE_BATCH_SIZE = 500
+const MEMORY_RETENTION_MS = MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000
+
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: string) {
