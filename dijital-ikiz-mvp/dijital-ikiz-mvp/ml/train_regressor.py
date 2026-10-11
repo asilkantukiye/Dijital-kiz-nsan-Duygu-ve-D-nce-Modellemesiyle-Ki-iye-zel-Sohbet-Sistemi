@@ -14,6 +14,8 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 
+from data.split_integrity import validate_split_integrity
+
 
 class TextRegressionDataset(Dataset):
     def __init__(self, frame: pd.DataFrame, tokenizer, labels: list[str], max_length: int):
@@ -71,18 +73,27 @@ def set_seed(seed: int) -> None:
 def load_split(path: Path, labels: list[str]) -> pd.DataFrame:
     frame = pd.read_csv(path)
 
-    required = {"text", *labels}
+    required = {"sample_id", "participant_id", "text", *labels}
     missing = required - set(frame.columns)
     if missing:
         raise ValueError(f"{path} eksik kolonlar: {sorted(missing)}")
 
-    frame = frame.dropna(subset=["text", *labels]).copy()
+    for column in ("sample_id", "participant_id", "text"):
+        if frame[column].isna().any():
+            raise ValueError(f"{path}: {column} boş değer içeriyor.")
+        frame[column] = frame[column].astype(str).str.strip()
+        if frame[column].eq("").any():
+            raise ValueError(f"{path}: {column} boş değer içeriyor.")
+
+    if frame["sample_id"].duplicated().any():
+        raise ValueError(f"{path}: tekrarlanan sample_id bulundu.")
 
     for label in labels:
         frame[label] = pd.to_numeric(frame[label], errors="coerce")
-
-    frame = frame.dropna(subset=labels)
-    frame = frame[(frame[labels] >= 0).all(axis=1) & (frame[labels] <= 1).all(axis=1)]
+        if frame[label].isna().any():
+            raise ValueError(f"{path}: {label} sayısal olmayan veya boş etiket içeriyor.")
+        if ((frame[label] < 0) | (frame[label] > 1)).any():
+            raise ValueError(f"{path}: {label} etiketleri 0–1 aralığında olmalı.")
 
     if frame.empty:
         raise ValueError(f"{path} kullanılabilir etiketli örnek içermiyor.")
@@ -150,6 +161,17 @@ def main() -> int:
     train = load_split(args.train, args.labels)
     validation = load_split(args.validation, args.labels)
     test = load_split(args.test, args.labels)
+
+    # Refuse to report test metrics if the same participant or sample appears
+    # in more than one split. This protects against inflated research results.
+    validate_split_integrity({
+        "train": (train["participant_id"].tolist(), train["sample_id"].tolist()),
+        "validation": (
+            validation["participant_id"].tolist(),
+            validation["sample_id"].tolist(),
+        ),
+        "test": (test["participant_id"].tolist(), test["sample_id"].tolist()),
+    })
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
 

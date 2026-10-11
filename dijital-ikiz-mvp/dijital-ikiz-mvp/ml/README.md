@@ -48,10 +48,15 @@ Kişilik etiketlerinin tahmini için metin sahibinden doğrulanmış bir kişili
 
 Aynı kişinin metinleri eğitim ve test kümelerine karıştırılmamalıdır; aksi durumda kişiye özel bilgi sızıntısı oluşabilir.
 
+## Veri bölümlerinde sızıntı kontrolü
+
+Eğitim betiği `ml/train_regressor.py`, eğitimden önce `sample_id` ve `participant_id` alanlarını zorunlu tutar. Aynı katılımcının veya aynı örneğin train/validation/test bölümlerinden birden fazlasında bulunması durumunda eğitim durdurulur; böylece test metriğinin veri sızıntısıyla yapay biçimde yükselmesi önlenir. Boş kimlikler, yinelenen örnek kimlikleri ve 0–1 dışındaki/sayısal olmayan etiketler sessizce atlanmak yerine hata üretir.
+
+Saf Python standart kütüphanesi kullanan kontroller `ml/tests/test_split_integrity.py` dosyasındadır ve GitHub Actions içinde otomatik çalışır.
+
 ## Deney düzeni
 
 Minimum deney:
-
 - train,
 - validation,
 - test.

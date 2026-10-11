@@ -39,6 +39,9 @@ jobs:
       - name: Validate Kaggle notebook syntax
         run: python ml/kaggle/validate_notebook.py
 
+      - name: Validate ML split integrity
+        run: python -m unittest discover -s ml/tests -p "test_*.py"
+
       - name: Install
         run: npm install
 
