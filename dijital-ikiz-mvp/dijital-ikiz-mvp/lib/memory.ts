@@ -7,6 +7,7 @@ export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
 
 const MIN_SIMILARITY = 0.72
+const MAX_MEMORY_RESULTS = 5
 const MAX_MEMORY_ITEMS_PER_USER = 50
 const MEMORY_RETENTION_DAYS = 180
 const MEMORY_PRUNE_BATCH_SIZE = 500
