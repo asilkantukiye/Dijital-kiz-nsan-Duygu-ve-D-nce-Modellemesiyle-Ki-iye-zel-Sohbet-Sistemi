@@ -11,13 +11,6 @@ export type MemoryItem = {
 
 const MAX_MEMORY_TEXT = 240
 const MAX_MEMORY_RESULTS = 5
-const MIN_SIMILARITY = 0.72
-
-// Stage 5.1: keep memory bounded and expire records that have not been active.
-const MAX_MEMORY_ITEMS_PER_USER = 50
-const MEMORY_RETENTION_DAYS = 180
-const MEMORY_PRUNE_BATCH_SIZE = 500
-const MEMORY_RETENTION_MS = MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000
 
 const blockedTerms = [
   'şifre',
