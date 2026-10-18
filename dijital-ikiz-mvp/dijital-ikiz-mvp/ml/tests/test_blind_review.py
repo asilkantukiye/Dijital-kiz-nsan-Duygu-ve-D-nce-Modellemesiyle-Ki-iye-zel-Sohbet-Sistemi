@@ -72,7 +72,7 @@ class BlindReviewTests(unittest.TestCase):
             )
             self.assertEqual(
                 set(key[0]),
-                {"case_id", "response_label", "variant"},
+                {"case_id", "response_label", "variant", "participant_id"},
             )
             self.assertNotIn("variant", review[0])
             self.assertNotIn("pair_id", review[0])
@@ -85,6 +85,7 @@ class BlindReviewTests(unittest.TestCase):
                 self.assertEqual({row["response_label"] for row in review_rows}, {"A", "B"})
                 self.assertEqual({row["response_label"] for row in key_rows}, {"A", "B"})
                 self.assertEqual({row["variant"] for row in key_rows}, {"personalized", "baseline"})
+                self.assertEqual({row["participant_id"] for row in key_rows}, {"must-not-leak"})
 
     def test_rejects_pair_with_missing_variant(self):
         rows = [paired_rows()[0]]
@@ -143,6 +144,23 @@ class BlindReviewTests(unittest.TestCase):
             "style_fit_1_5", "emotion_fit_1_5"
         })
         self.assertEqual(rows, [], "Şablonda gerçek değerlendirici puanı bulunmamalı.")
+
+
+    def test_rejects_missing_pseudonymous_participant_id(self):
+        rows = paired_rows()
+        rows[0]["participant_id"] = ""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(ValueError, "participant_id boş olamaz"):
+                prepare_blind_review(rows, root / "review.csv", root / "key.csv", seed=1)
+
+    def test_rejects_pair_with_different_participant_ids(self):
+        rows = paired_rows()[:2]
+        rows[1]["participant_id"] = "another-participant"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(ValueError, "aynı takma participant_id"):
+                prepare_blind_review(rows, root / "review.csv", root / "key.csv", seed=1)
 
     def test_rejects_empty_prompt_or_response(self):
         rows = paired_rows()
