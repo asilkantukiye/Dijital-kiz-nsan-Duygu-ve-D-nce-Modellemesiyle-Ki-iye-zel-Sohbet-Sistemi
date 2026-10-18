@@ -158,3 +158,18 @@ Rapor; koşul başına puanlı katılımcı sayısını, katılımcı ortalamala
 `.github/workflows/kaggle-sentiment-pilot.yml` yalnızca `workflow_dispatch` ile çalışır. Gerekli repository secrets `KAGGLE_USERNAME` ve `KAGGLE_KEY` tanımlıysa seçilen Kaggle GPU ile notebook'u gönderir, tamamlanmasını bekler ve modeli/gerçek `metrics.json` çıktısını Actions artifact'ine yükler. GPU kotası harcamamak için push, PR veya normal CI tetikleyicileri bu workflow'u başlatmaz.
 
 Notebook çıktısı ancak gerçek Kaggle çalıştırması başarıyla biterse oluşur. Otomatik statik kontrollerin yeşil olması modelin eğitildiği anlamına gelmez.
+
+
+## Görev bazlı veri doğrulama
+
+VAD, Big Five ve üslup etiketleri ayrı veri kümelerinde bulunabileceğinden doğrulayıcı görev bazlı çalışır:
+
+```bash
+python ml/data/validate_dataset.py ml/data/vad.csv --task vad
+python ml/data/validate_dataset.py ml/data/big_five.csv --task big-five
+python ml/data/validate_dataset.py ml/data/style.csv --task style
+```
+
+Hiçbir görev seçilmezse varsayılan `all` seçeneği bütün hedef kolonlarını ister. Her görev ortak kimlik, metin, kaynak ve lisans/rıza açıklaması kolonlarını yine zorunlu tutar. Bu alanları doldurmak, kaynağın kullanım şartlarının ayrıca doğrulanması gereğini ortadan kaldırmaz.
+
+`sentiment_baseline.ipynb` sonuç paketini `artifacts/sentiment/` klasörünü koruyarak oluşturur; Kaggle Actions aynı ZIP içindeki `sentiment/metrics.json` yolunu doğrular. Bu iki yol arasındaki uyum otomatik testle kontrol edilir.

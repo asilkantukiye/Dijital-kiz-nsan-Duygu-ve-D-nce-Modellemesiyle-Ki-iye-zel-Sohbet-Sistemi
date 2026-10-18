@@ -27,25 +27,64 @@ def valid_row(sample_id: str = "s1", participant_id: str = "p1") -> dict[str, st
 
 
 class DatasetValidationTests(unittest.TestCase):
-    def run_validator(self, rows: list[dict[str, str]], columns=None):
+    def run_validator(self, rows: list[dict[str, str]], columns=None, task="all"):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "dataset.csv"
             fieldnames = list(columns or sorted(REQUIRED_COLUMNS))
             with path.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=fieldnames)
                 writer.writeheader()
-                writer.writerows(rows)
+                writer.writerows([
+                    {key: row.get(key, "") for key in fieldnames}
+                    for row in rows
+                ])
             return subprocess.run(
-                [sys.executable, str(VALIDATOR), str(path)],
+                [sys.executable, str(VALIDATOR), str(path), "--task", task],
                 capture_output=True,
                 text=True,
                 check=False,
             )
 
-    def test_accepts_finite_valid_synthetic_row(self):
+    def test_accepts_finite_valid_complete_synthetic_row(self):
         result = self.run_validator([valid_row()])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Veri şeması temel kontrollerden geçti", result.stdout)
+
+    def test_accepts_vad_only_schema_without_personality_or_style_labels(self):
+        columns = sorted({
+            "sample_id", "participant_id", "text", "source", "license_or_consent",
+            "valence", "arousal", "dominance",
+        })
+        result = self.run_validator([valid_row()], columns=columns, task="vad")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Görev: vad", result.stdout)
+
+    def test_accepts_big_five_only_schema_without_vad_or_style_labels(self):
+        columns = sorted({
+            "sample_id", "participant_id", "text", "source", "license_or_consent",
+            "openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism",
+        })
+        result = self.run_validator([valid_row()], columns=columns, task="big-five")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Görev: big-five", result.stdout)
+
+    def test_accepts_style_only_schema_without_vad_or_personality_labels(self):
+        columns = sorted({
+            "sample_id", "participant_id", "text", "source", "license_or_consent",
+            "style_informality", "style_emoji_rate", "style_slang_rate", "style_humor",
+        })
+        result = self.run_validator([valid_row()], columns=columns, task="style")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Görev: style", result.stdout)
+
+    def test_vad_task_rejects_missing_vad_target(self):
+        columns = sorted({
+            "sample_id", "participant_id", "text", "source", "license_or_consent",
+            "valence", "arousal",
+        })
+        result = self.run_validator([valid_row()], columns=columns, task="vad")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("dominance", result.stderr)
 
     def test_rejects_nan_label(self):
         row = valid_row()
