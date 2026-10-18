@@ -207,24 +207,32 @@ export default function Home() {
       return
     }
 
-    const response = await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messageId,
-        rating,
-        variant: messageVariant
+    setError('')
+
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          rating,
+          variant: messageVariant
+        })
       })
-    })
 
-    const data = await response.json().catch(() => ({}))
+      const data = await response.json().catch(() => ({}))
 
-    if (!response.ok) {
-      setError(data.error || 'Geri bildirim kaydedilemedi.')
-      return
+      if (!response.ok) {
+        setError(data.error || 'Geri bildirim kaydedilemedi.')
+        return
+      }
+
+      setFeedback((current) => ({ ...current, [messageId]: rating }))
+    } catch {
+      setError(
+        'Bağlantı kesildi. Yanıt puanının kaydedilip kaydedilmediği doğrulanamadı; lütfen yeniden kontrol edin.'
+      )
     }
-
-    setFeedback((current) => ({ ...current, [messageId]: rating }))
   }
 
   async function clearData() {
@@ -238,22 +246,35 @@ export default function Home() {
 
     setError('')
 
-    const response = await fetch('/api/data', { method: 'DELETE' })
-    const data = await response.json().catch(() => ({}))
+    try {
+      const response = await fetch('/api/data', { method: 'DELETE' })
+      const data = await response.json().catch(() => ({}))
 
-    if (!response.ok) {
-      setError(data.error || 'Veriler silinemedi.')
-      return
+      if (!response.ok) {
+        setError(data.error || 'Veriler silinemedi.')
+        return
+      }
+
+      setMessages([])
+      setProfile(emptyProfile)
+      setFeedback({})
+    } catch {
+      setError(
+        'Bağlantı kesildi. Verilerin silinip silinmediği doğrulanamadı; silme durumunu yeniden kontrol edin.'
+      )
     }
-
-    setMessages([])
-    setProfile(emptyProfile)
-    setFeedback({})
   }
 
   async function signOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    setError('')
+
+    try {
+      const supabase = createClient()
+      const { error: signOutError } = await supabase.auth.signOut()
+      if (signOutError) throw signOutError
+    } catch {
+      setError('Çıkış yapılamadı. Lütfen bağlantınızı kontrol edip tekrar deneyin.')
+    }
   }
 
   if (loadingSession) {
