@@ -111,8 +111,9 @@ def main() -> int:
 
     if len(groups) < 3:
         raise SystemExit(
-            "Train/validation/test için en az 3 bağımsız katılımcı/metin grubu gerekli. "
-            "Aynı normalize edilmiş metinle bağlı katılımcıları ayrı bölümlere ayırmak "
+            "Train/validation/test için en az 3 farklı katılımcı ve en az 3 bağımsız "
+            "katılımcı/metin grubu gerekli. Aynı normalize edilmiş metinle bağlı "
+            "katılımcıları ayrı bölümlere ayırmak "
             "test verisi sızıntısı oluşturabileceğinden bölme yapılmadı."
         )
 
