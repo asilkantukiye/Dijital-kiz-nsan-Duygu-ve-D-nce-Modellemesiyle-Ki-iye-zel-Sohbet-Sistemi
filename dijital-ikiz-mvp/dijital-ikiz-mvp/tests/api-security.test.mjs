@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { isAllowedOrigin } from '../lib/api-security.ts'
+import { isAllowedOrigin } from '../lib/origin-validation.ts'
 
 const requestUrl = 'https://app.example.test/api/feedback'
 
