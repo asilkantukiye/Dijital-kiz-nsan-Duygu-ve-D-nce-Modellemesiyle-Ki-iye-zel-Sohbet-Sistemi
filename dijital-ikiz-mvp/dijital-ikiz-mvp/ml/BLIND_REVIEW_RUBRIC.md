@@ -66,3 +66,19 @@ Kör değerlendirme yalnızca puanlanan örneklemde algılanan yararlılık/üsl
 ## Gizli anahtarda katılımcı eşleme
 
 Kaynak dosyanın zorunlu sütunları `pair_id,participant_id,prompt_text,response_text,variant` şeklindedir. `participant_id` önceden takma ada çevrilmiş olmalı; anahtar dosyasında saklanır ama değerlendirici paketine aktarılmaz. Böylece kör puanlar raporlanırken her katılımcıdan gelen birden fazla istemin aynı kişi altında kümelenebilmesi sağlanır.
+
+
+## Kör puanların analizi
+
+Puan dosyasında `rater_id,case_id,response_label,helpfulness_1_5,style_fit_1_5,emotion_fit_1_5` sütunları bulunur. Değerlendirici her A/B yanıtını ayrı satırda puanlar; birden fazla değerlendirici varsa her biri için takma `rater_id` kullanılır. Koşul bilgisi puan dosyasına yazılmaz.
+
+Puanları koşullara açmak için yalnızca araştırmacı gizli `condition_key.csv` dosyasını analiz aracına verir:
+
+```bash
+python ml/analyze_blind_review.py \
+  ml/results/blind_review_ratings.csv \
+  ml/private/condition_key.csv \
+  --output ml/results/blind_review_analysis.json
+```
+
+Araç önce aynı yanıt için değerlendiricilerin puanlarını ortalar, sonra istem/vaka ortalamalarını katılımcı düzeyinde özetler. Her metrik için personalized eksi baseline farkı, bootstrap %95 güven aralığı ve iki taraflı işaret-değiştirme permütasyon testi hesaplanır. Rapor takma katılımcı kodlarını, vaka kimliklerini veya metinleri dışarı vermez. Değerlendiriciler arası uyum istatistiğini hesaplamaz; bunu ayrıca raporlamak gerekir.
