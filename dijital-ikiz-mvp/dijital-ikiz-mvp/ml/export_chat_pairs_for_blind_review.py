@@ -170,6 +170,12 @@ def build_blind_review_input(
     baseline = records_by_variant["baseline"]
     paired_identities = sorted(set(personalized) & set(baseline))
 
+
+    if not paired_identities:
+        raise ValueError(
+            "personalized ve baseline koşullarında aynı isteme ait eşleşmiş kayıt bulunamadı."
+        )
+
     output_rows: list[dict[str, str]] = []
     for pseudonym, normalized_prompt, occurrence in paired_identities:
         left = personalized[(pseudonym, normalized_prompt, occurrence)]
