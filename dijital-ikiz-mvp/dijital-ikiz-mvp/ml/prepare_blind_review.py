@@ -10,7 +10,7 @@ from typing import Iterable, Mapping
 
 VARIANTS = ("personalized", "baseline")
 REVIEW_FIELDS = ("case_id", "response_label", "prompt_text", "response_text")
-KEY_FIELDS = ("case_id", "response_label", "variant")
+KEY_FIELDS = ("case_id", "response_label", "variant", "participant_id")
 
 
 def _normalize_prompt(value: str) -> str:
@@ -40,12 +40,17 @@ def prepare_blind_review(
     grouped: dict[str, dict[str, dict[str, str]]] = defaultdict(dict)
     for row_number, row in enumerate(rows, start=2):
         pair_id = str(row.get("pair_id") or "").strip()
+        participant_id = str(row.get("participant_id") or "").strip()
         variant = str(row.get("variant") or "").strip().lower()
         prompt = str(row.get("prompt_text") or "").strip()
         response = str(row.get("response_text") or "").strip()
 
         if not pair_id:
             raise ValueError(f"CSV satırı {row_number}: pair_id boş olamaz.")
+        if not participant_id:
+            raise ValueError(
+                f"CSV satırı {row_number}: participant_id boş olamaz; önce takma ada çevir."
+            )
         if variant not in VARIANTS:
             raise ValueError(
                 f"CSV satırı {row_number}: variant personalized veya baseline olmalı."
@@ -60,6 +65,7 @@ def prepare_blind_review(
             )
 
         grouped[pair_id][variant] = {
+            "participant_id": participant_id,
             "prompt_text": prompt,
             "response_text": response,
         }
@@ -73,6 +79,9 @@ def prepare_blind_review(
             raise ValueError(
                 "Her pair_id için tam olarak bir personalized ve bir baseline yanıtı gerekli."
             )
+
+        if variants["personalized"]["participant_id"] != variants["baseline"]["participant_id"]:
+            raise ValueError("Aynı pair_id içindeki iki koşul aynı takma participant_id'ye ait olmalı.")
 
         personalized_prompt = _normalize_prompt(variants["personalized"]["prompt_text"])
         baseline_prompt = _normalize_prompt(variants["baseline"]["prompt_text"])
@@ -107,6 +116,7 @@ def prepare_blind_review(
                 "case_id": case_id,
                 "response_label": response_label,
                 "variant": variant,
+                "participant_id": record["participant_id"],
             })
 
     # Randomize packet case order as a separate step so source CSV order is not a cue.
