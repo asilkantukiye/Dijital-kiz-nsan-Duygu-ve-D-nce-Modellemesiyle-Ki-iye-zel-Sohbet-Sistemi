@@ -67,7 +67,7 @@ Ardından katılımcı bazlı bölme yapılır:
 python ml/data/split_by_participant.py ml/data/your_dataset.csv ml/data/splits
 ```
 
-Bölücü aynı katılımcıyı yalnızca bir bölüme yerleştirir. Train/validation/test dosyalarının üçünü de üretir ve en az üç farklı katılımcı ister; küçük veri kümelerinde oranlar yaklaşık olabilir. Eğitim betiği, dosyalar arasında örnek veya katılımcı sızıntısı bulursa eğitime başlamadan durur.
+Bölücü aynı katılımcıyı ve normalize edildiğinde aynı metni paylaşan katılımcıları tek, bölünemez bir grupta tutar. Train/validation/test dosyalarının üçünü de üretir; en az üç bağımsız katılımcı/metin grubu gerekir. Yinelenen metinler grupları bağlayıp bu sayıyı azaltabilir. Küçük veri kümelerinde oranlar yaklaşık olabilir. Eğitim betiği ayrıca dosyalar arasında örnek, katılımcı veya normalize edilmiş metin sızıntısı bulursa eğitime başlamadan durur.
 
 Bu kontroller ve sentetik fixture testleri standart Python kütüphanesiyle çalışır; GitHub Actions içindeki unittest keşfiyle otomatik doğrulanır.
 
@@ -264,6 +264,6 @@ Model deposunun değişmez commit SHA'sını doğruladıktan sonra aynı ağırl
 
 ## Train/validation/test arasında yinelenen metin kontrolü
 
-Regresyon eğitim betiği, katılımcı ve örnek kimliklerini kontrol etmenin yanında aynı metnin farklı CSV bölümlerinde bulunup bulunmadığını da denetler. Metinler Unicode NFKC, büyük/küçük harf ve boşluk farklılıkları normalize edildikten sonra karşılaştırılır. Böylece farklı `sample_id` veya `participant_id` ile kopyalanmış aynı metnin test sonucunu yapay biçimde yükseltmesi engellenir.
+Bölme aracı, Unicode NFKC, büyük/küçük harf ve boşluk farkları normalize edildiğinde aynı metni paylaşan katılımcıları aynı bölünemez gruba bağlar. Bu nedenle kopyalanmış aynı metin farklı `sample_id` veya `participant_id` altında olsa bile train/validation/test bölümleri arasına dağılmaz. Eğer bu bağlantılar üçten az bağımsız grup bırakırsa araç bölme işlemini reddeder.
 
-Aynı metnin tek bir bölüm içinde tekrarlanması bu kontrol tarafından engellenmez; fakat metin train/validation/test arasında görünüyorsa eğitim güvenli biçimde durur. Yinelenen örnekleri incele, kopyaların tamamını tek bölümde tut veya doğrulanmış bir deduplikasyon kararı ver. Hata mesajı metnin kendisini göstermez. Bu, birebir/normalleştirilmiş eşleşme kontrolüdür; anlamca benzer paraphrase'leri yakaladığını iddia etmez.
+Regresyon eğitim betiği yine de ikinci bir kontrol yapar ve dosyalar arasında normalize edilmiş metin sızıntısı bulursa durur. Tek bölüm içindeki tekrarlar izinlidir. Hata mesajı metnin kendisini göstermez. Bu, birebir/normalleştirilmiş eşleşme kontrolüdür; anlamca benzer paraphrase'leri yakaladığını iddia etmez.

@@ -3,13 +3,64 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-from collections import defaultdict
+import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from data.split_integrity import normalize_text  # noqa: E402
 
 
 def bucket(participant_id: str, seed: str) -> float:
     digest = hashlib.sha256(f"{seed}:{participant_id}".encode("utf-8")).hexdigest()
     return int(digest[:8], 16) / 0xFFFFFFFF
+
+
+def group_participants_by_shared_text(
+    rows: Sequence[Mapping[str, object]],
+) -> list[list[str]]:
+    """Keep participants connected by identical normalized text in one split.
+
+    If participant A shares a text with B, and B shares another text with C,
+    all three belong to one indivisible group. This prevents copies from
+    crossing train/validation/test even when participant and sample IDs differ.
+    """
+    parent: dict[str, str] = {}
+
+    def find(participant: str) -> str:
+        while parent[participant] != participant:
+            parent[participant] = parent[parent[participant]]
+            participant = parent[participant]
+        return participant
+
+    def union(left: str, right: str) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            # Lexical root choice keeps group identity deterministic.
+            lower, upper = sorted((left_root, right_root))
+            parent[upper] = lower
+
+    first_participant_by_text: dict[str, str] = {}
+    for index, row in enumerate(rows, start=2):
+        participant = str(row.get("participant_id") or "").strip()
+        if not participant or participant.casefold() in {"nan", "none", "null"}:
+            raise ValueError(f"dataset: participant_id boş değer içeriyor (satır {index}).")
+        parent.setdefault(participant, participant)
+        text = normalize_text(row.get("text"), split="dataset", index=index)
+        first_participant = first_participant_by_text.get(text)
+        if first_participant is None:
+            first_participant_by_text[text] = participant
+        else:
+            union(participant, first_participant)
+
+    members_by_root: dict[str, list[str]] = {}
+    for participant in parent:
+        members_by_root.setdefault(find(participant), []).append(participant)
+    return sorted(
+        (sorted(members) for members in members_by_root.values()),
+        key=lambda members: members[0],
+    )
 
 
 def main() -> int:
@@ -35,7 +86,7 @@ def main() -> int:
         rows = list(reader)
         fieldnames = reader.fieldnames or []
 
-    missing = {"participant_id", "sample_id"} - set(fieldnames)
+    missing = {"participant_id", "sample_id", "text"} - set(fieldnames)
     if missing:
         raise SystemExit(f"Eksik kolonlar: {', '.join(sorted(missing))}")
     if not rows:
@@ -52,32 +103,43 @@ def main() -> int:
         raise SystemExit("Tekrarlanan sample_id bulundu; bölme yapılmadı.")
 
     participants = sorted(set(participant_values))
-    if len(participants) < 3:
+    participant_count = len(participants)
+    try:
+        groups = group_participants_by_shared_text(rows)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    if len(groups) < 3:
         raise SystemExit(
-            "Train/validation/test için en az 3 farklı katılımcı gerekli. "
-            "Daha az katılımcıyla bilimsel olarak ayrı üç bölüm oluşturulamaz."
+            "Train/validation/test için en az 3 farklı katılımcı ve en az 3 bağımsız "
+            "katılımcı/metin grubu gerekli. Aynı normalize edilmiş metinle bağlı "
+            "katılımcıları ayrı bölümlere ayırmak "
+            "test verisi sızıntısı oluşturabileceğinden bölme yapılmadı."
         )
 
-    # Hash ordering makes the split deterministic. Minimum one participant in
-    # each split avoids silently omitting validation/test files on small datasets.
-    ranked = sorted(participants, key=lambda value: (bucket(value, args.seed), value))
-    participant_count = len(ranked)
-    train_count = max(1, min(participant_count - 2, round(participant_count * args.train)))
+    # Participants sharing any normalized text stay together as one group.
+    # Hash ordering keeps the split deterministic and avoids text leakage.
+    ranked_groups = sorted(groups, key=lambda group: (bucket(group[0], args.seed), group[0]))
+    group_count = len(ranked_groups)
+    train_count = max(1, min(group_count - 2, round(group_count * args.train)))
     validation_count = max(
         1,
         min(
-            participant_count - train_count - 1,
-            round(participant_count * (args.train + args.validation)) - train_count,
+            group_count - train_count - 1,
+            round(group_count * (args.train + args.validation)) - train_count,
         ),
     )
 
     assignments: dict[str, str] = {}
-    for participant in ranked[:train_count]:
-        assignments[participant] = "train"
-    for participant in ranked[train_count : train_count + validation_count]:
-        assignments[participant] = "validation"
-    for participant in ranked[train_count + validation_count :]:
-        assignments[participant] = "test"
+    for group in ranked_groups[:train_count]:
+        for participant in group:
+            assignments[participant] = "train"
+    for group in ranked_groups[train_count : train_count + validation_count]:
+        for participant in group:
+            assignments[participant] = "validation"
+    for group in ranked_groups[train_count + validation_count :]:
+        for participant in group:
+            assignments[participant] = "test"
 
     grouped: dict[str, list[dict[str, str]]] = {
         "train": [],
@@ -101,7 +163,11 @@ def main() -> int:
         )
 
     print(f"Toplam katılımcı: {participant_count}")
-    print("Aynı katılımcı yalnızca tek bölümde yer alır; oranlar küçük veri kümelerinde yaklaşık olabilir.")
+    print(f"Bağımsız katılımcı/metin grubu: {group_count}")
+    print(
+        "Aynı katılımcılar ve normalize edilmiş metin kopyalarını paylaşan katılımcılar "
+        "yalnızca tek bölümde yer alır; oranlar küçük veri kümelerinde yaklaşık olabilir."
+    )
     return 0
 
 
