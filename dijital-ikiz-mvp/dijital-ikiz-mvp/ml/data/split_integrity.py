@@ -68,7 +68,7 @@ def validate_split_integrity(
 
 
 
-def _normalise_text(value: object, *, split: str, index: int) -> str:
+def normalize_text(value: object, *, split: str, index: int) -> str:
     """Normalize harmless Unicode, case, and whitespace differences."""
     if value is None:
         raise ValueError(f"{split}: text boş değer içeriyor (satır {index}).")
@@ -100,7 +100,7 @@ def validate_text_split_integrity(splits: Mapping[str, Iterable[object]]) -> Non
         if not values:
             raise ValueError(f"{name}: text listesi boş.")
         normalized_values = [
-            _normalise_text(value, split=name, index=index)
+            normalize_text(value, split=name, index=index)
             for index, value in enumerate(values, start=1)
         ]
         texts_by_split[name] = set(normalized_values)
