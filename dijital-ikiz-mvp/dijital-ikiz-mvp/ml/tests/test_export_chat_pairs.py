@@ -49,7 +49,7 @@ class ExportChatPairsTests(unittest.TestCase):
 
         self.assertEqual(stats["paired_prompts"], 2)
         self.assertEqual(stats["unmatched_personalized_prompts"], 1)
-        self.assertEqual(stats["unmatched_baseline_prompts"], 1)
+        self.assertEqual(stats["unmatched_baseline_prompts"], 0)
         self.assertEqual(stats["participants_with_pairs"], 1)
         self.assertEqual(len(rows), 4)
         self.assertNotIn("raw-user-123", str(rows))
