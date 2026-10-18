@@ -175,7 +175,7 @@ def main() -> int:
 
     with args.input_csv.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
-        required = {"pair_id", "prompt_text", "response_text", "variant"}
+        required = {"pair_id", "participant_id", "prompt_text", "response_text", "variant"}
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise SystemExit(f"Eksik kolonlar: {', '.join(sorted(missing))}")
