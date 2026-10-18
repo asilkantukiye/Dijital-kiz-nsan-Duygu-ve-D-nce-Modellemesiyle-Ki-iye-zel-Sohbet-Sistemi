@@ -151,3 +151,10 @@ Rapor; koşul başına puanlı katılımcı sayısını, katılımcı ortalamala
 ## Kullanıcı değerlendirmesi protokolü
 
 Önceden tanımlı keşifsel karşılaştırma, gönüllü katılım, anonimleştirme, aynı istemleri iki koşulda deneme ve sonuç sınırları için [deney protokolüne](ml/EXPERIMENT_PROTOCOL.md) bak. Bu belge gerçek katılımcı verisi veya sonuç içermez.
+
+
+## Kaggle eğitiminin GitHub Actions üzerinden başlatılması
+
+`.github/workflows/kaggle-sentiment-pilot.yml` yalnızca `workflow_dispatch` ile çalışır. Gerekli repository secrets `KAGGLE_USERNAME` ve `KAGGLE_KEY` tanımlıysa seçilen Kaggle GPU ile notebook'u gönderir, tamamlanmasını bekler ve modeli/gerçek `metrics.json` çıktısını Actions artifact'ine yükler. GPU kotası harcamamak için push, PR veya normal CI tetikleyicileri bu workflow'u başlatmaz.
+
+Notebook çıktısı ancak gerçek Kaggle çalıştırması başarıyla biterse oluşur. Otomatik statik kontrollerin yeşil olması modelin eğitildiği anlamına gelmez.
