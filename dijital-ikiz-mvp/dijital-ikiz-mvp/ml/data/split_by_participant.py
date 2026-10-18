@@ -4,6 +4,7 @@ import argparse
 import csv
 import hashlib
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -72,6 +73,11 @@ def main() -> int:
     parser.add_argument("--train", type=float, default=0.8)
     parser.add_argument("--validation", type=float, default=0.1)
     parser.add_argument("--seed", default="digital-twin-v1")
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Mevcut train/validation/test CSV dosyalarının üstüne yazmaya izin ver.",
+    )
     args = parser.parse_args()
 
     if (
@@ -149,18 +155,41 @@ def main() -> int:
     for row, participant in zip(rows, participant_values):
         grouped[assignments[participant]].append(row)
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    for split in ("train", "validation", "test"):
-        output = args.output_dir / f"{split}.csv"
-        with output.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(grouped[split])
-
-        print(
-            f"{split}: {len(grouped[split])} örnek, "
-            f"{len({row['participant_id'].strip() for row in grouped[split]})} katılımcı"
+    output_paths = {
+        split: args.output_dir / f"{split}.csv"
+        for split in ("train", "validation", "test")
+    }
+    existing_outputs = [
+        output.name for output in output_paths.values() if output.exists()
+    ]
+    if existing_outputs and not args.overwrite:
+        raise SystemExit(
+            "Mevcut split dosyaları korunmak için değiştirilmedi: "
+            + ", ".join(existing_outputs)
+            + ". Üzerlerine yazmak istediğinden eminsen --overwrite kullan."
         )
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    # Write every CSV to a staging directory first. A serialization/write error
+    # cannot leave newly truncated partial train/validation/test output files.
+    with tempfile.TemporaryDirectory(
+        prefix=".split-staging-", dir=args.output_dir
+    ) as staging_dir:
+        staged_paths: dict[str, Path] = {}
+        for split in ("train", "validation", "test"):
+            staged = Path(staging_dir) / f"{split}.csv"
+            with staged.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(grouped[split])
+            staged_paths[split] = staged
+
+        for split in ("train", "validation", "test"):
+            staged_paths[split].replace(output_paths[split])
+            print(
+                f"{split}: {len(grouped[split])} örnek, "
+                f"{len({row['participant_id'].strip() for row in grouped[split]})} katılımcı"
+            )
 
     print(f"Toplam katılımcı: {participant_count}")
     print(f"Bağımsız katılımcı/metin grubu: {group_count}")
