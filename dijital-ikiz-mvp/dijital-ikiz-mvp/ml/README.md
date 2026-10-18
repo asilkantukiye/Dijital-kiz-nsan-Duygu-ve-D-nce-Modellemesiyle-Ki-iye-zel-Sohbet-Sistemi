@@ -120,3 +120,14 @@ python ml/train_regressor.py \
 ```
 
 Bu komutların ürettiği `metrics.json`, deney günlüğüne eklenmelidir. Sonuçlar çalıştırılmadan önceden doldurulmamalıdır.
+
+
+## Türkçe duygu polaritesi pilotu
+
+Notebook: `ml/kaggle/sentiment_baseline.ipynb`.
+
+Bu ayrı pilot, Hugging Face üzerinde CC BY-SA 4.0 olarak sunulan [winvoker Türkçe duygu analizi veri kümesini](https://huggingface.co/datasets/winvoker/turkish-sentiment-analysis-dataset) kullanır. Veri kümesinde olumlu, nötr ve olumsuz etiketler vardır. Model BERTurk tabanlı üç sınıflı sınıflandırıcıdır ve test accuracy, macro-F1, weighted-F1, sınıf bazlı precision/recall/F1 ile confusion matrix üretir.
+
+Bu görev **VAD regresyonundan ve Big Five kişilik tahmininden ayrıdır**. Polarite sınıflandırması, arousal/dominance ölçümü veya kişi düzeyinde dijital ikiz tutarlılığı olarak sunulamaz. Kaynak veride katılımcı kimlikleri olmadığından bu pilot örnek düzeyinde değerlendirilir; yinelenen metinlerin train-test arasında bulunması engellenir. Eğitimden önce veri kartı ve kaynakların kullanım koşulları kontrol edilmeli; veri atfı ve CC BY-SA koşulları korunmalıdır.
+
+Notebook veri dosyalarını sabitlenmiş veri sürümünden indirir, küçük bir pilot örneklemi ile modeli eğitir ve gerçek çalıştırmadan sonra `metrics.json` üretir. CI yalnızca notebook sözdizimini kontrol eder; Kaggle eğitimini otomatik çalıştırmaz ve model başarısı iddiası oluşturmaz.

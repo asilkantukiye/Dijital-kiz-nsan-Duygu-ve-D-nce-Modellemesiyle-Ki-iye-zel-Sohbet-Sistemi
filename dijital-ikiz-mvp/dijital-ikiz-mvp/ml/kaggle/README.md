@@ -54,3 +54,15 @@ Notebook sonunda ZIP paketini Kaggle'dan indir. Model ağırlıklarını ve sonu
 ## 6. Şu anki doğrulama sınırı
 
 GitHub Actions notebook'un JSON ve Python sözdizimini statik olarak kontrol eder. Bu kontrol Kaggle GPU eğitimini çalıştırmaz, veri etiketlerinin bilimsel kalitesini doğrulamaz ve model performansı iddiası oluşturmaz. Gerçek deney için Kaggle'da hücrelerin çalıştırılması ve üretilen test metriklerinin kaydedilmesi gerekir.
+
+
+## Türkçe duygu polaritesi pilotu
+
+VAD/Big Five regresyon notebook'undan bağımsız ilk sınıflandırma deneyi `ml/kaggle/sentiment_baseline.ipynb` dosyasındadır.
+
+1. GitHub'dan notebook'u indir ve Kaggle'a aktar.
+2. Kaggle ayarlarında Internet'i aç; GPU varsa seç.
+3. Hücreleri sırayla çalıştır. Notebook, lisans bilgisi Hugging Face'te CC BY-SA 4.0 olarak belirtilen veri kümesinin sabitlenmiş sürümünü indirir.
+4. En sonda `/kaggle/working/dijital-ikiz-sentiment-pilot.zip` dosyasını indir; içindeki `metrics.json` gerçek test sonuçlarını içerir.
+
+Bu yalnızca olumlu/nötr/olumsuz metin sınıflandırma pilotudur. Sürekli VAD (özellikle dominance) ve Big Five için ayrı uygun etiketli veri ve ayrı değerlendirme gerekir. Notebook gerçek eğitimden önce sentetik başarı sonucu üretmez ve %75 hedefi iddia etmez.
