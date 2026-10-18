@@ -66,3 +66,19 @@ VAD/Big Five regresyon notebook'undan bağımsız ilk sınıflandırma deneyi `m
 4. En sonda `/kaggle/working/dijital-ikiz-sentiment-pilot.zip` dosyasını indir; içindeki `metrics.json` gerçek test sonuçlarını içerir.
 
 Bu yalnızca olumlu/nötr/olumsuz metin sınıflandırma pilotudur. Sürekli VAD (özellikle dominance) ve Big Five için ayrı uygun etiketli veri ve ayrı değerlendirme gerekir. Notebook gerçek eğitimden önce sentetik başarı sonucu üretmez ve %75 hedefi iddia etmez.
+
+
+## Tek tıklamayla Kaggle eğitimini başlatma
+
+GitHub deposunda **Settings → Secrets and variables → Actions** bölümünde şu repository secret'larının olması gerekir:
+
+- `KAGGLE_USERNAME`: Kaggle kullanıcı adın
+- `KAGGLE_KEY`: Kaggle API anahtarın
+
+API anahtarını sohbet, kaynak kodu veya loglara yazma. Secret'lar zaten tanımlıysa yeniden oluşturma.
+
+Ardından GitHub deposunda **Actions → Run Kaggle sentiment pilot → Run workflow** yolunu izle. Varsayılan `NvidiaTeslaT4` seçeneğiyle başlat; erişim hatası olursa Kaggle hesabındaki kullanılabilir hızlandırıcıyı kontrol et. Akış yalnızca elle başlatıldığında Kaggle kernel'ini gönderir ve çalıştırır; her GitHub push'unda GPU başlatmaz.
+
+Başarılı çalıştırma sonunda Actions run sayfasındaki `kaggle-sentiment-pilot-results` artifact'ini indir. İçinde gerçek test sonuçlarını içeren `metrics.json` ve model ZIP'i bulunur. Notebook gerçekten tamamlanmadıysa artifact üretilmez; Kaggle notebook loglarını incelemek gerekir.
+
+Resmî Kaggle CLI belgeleri: [kernel push/status/output](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md) ve [kernel metadata](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels_metadata.md).
