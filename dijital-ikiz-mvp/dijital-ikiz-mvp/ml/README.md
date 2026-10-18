@@ -267,3 +267,14 @@ Model deposunun değişmez commit SHA'sını doğruladıktan sonra aynı ağırl
 Bölme aracı, Unicode NFKC, büyük/küçük harf ve boşluk farkları normalize edildiğinde aynı metni paylaşan katılımcıları aynı bölünemez gruba bağlar. Bu nedenle kopyalanmış aynı metin farklı `sample_id` veya `participant_id` altında olsa bile train/validation/test bölümleri arasına dağılmaz. Eğer bu bağlantılar üçten az bağımsız grup bırakırsa araç bölme işlemini reddeder.
 
 Regresyon eğitim betiği yine de ikinci bir kontrol yapar ve dosyalar arasında normalize edilmiş metin sızıntısı bulursa durur. Tek bölüm içindeki tekrarlar izinlidir. Hata mesajı metnin kendisini göstermez. Bu, birebir/normalleştirilmiş eşleşme kontrolüdür; anlamca benzer paraphrase'leri yakaladığını iddia etmez.
+
+
+## Split dosyalarını kazara ezmeye karşı koruma
+
+`ml/data/split_by_participant.py`, hedef klasörde `train.csv`, `validation.csv` veya `test.csv` zaten varsa varsayılan olarak durur; önceki sonuçları sessizce silmez. Bunları bilinçli olarak yenilemek için `--overwrite` parametresini açıkça ver:
+
+```bash
+python ml/data/split_by_participant.py ml/data/your_dataset.csv ml/data/splits --overwrite
+```
+
+Araç önce üç CSV'yi geçici bir hazırlama klasörüne tamamen yazar, sonra hedef dosyaları günceller. Bu, yazma/serileştirme hatasında kısmen yazılmış yeni CSV'ler bırakma riskini azaltır; mevcut veri setlerini ise otomatik olarak yedeklemez. Yeniden bölmeden önce önemli çıktıların ayrı, erişim kontrollü bir kopyasını sakla.
