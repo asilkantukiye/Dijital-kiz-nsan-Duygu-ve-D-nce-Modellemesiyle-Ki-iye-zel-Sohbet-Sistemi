@@ -146,3 +146,8 @@ Girdi CSV'si `participant_id,variant,rating` kolonlarını ister; isteğe bağl�
 Rapor; koşul başına puanlı katılımcı sayısını, katılımcı ortalamalarını, eşleştirilmiş ortalama farkını, bootstrap %95 güven aralığını ve iki taraflı işaret-değiştirme permütasyon testini üretir. 15 veya daha az eşleştirilmiş katılımcıda permütasyon testi tam hesaplanır; daha fazlasında sabit tohumlu Monte Carlo yaklaşımı kullanılır.
 
 **Önemli sınır:** Koşullar rastgele ve aynı istemlerle atanmadıkça bu keşifsel karşılaştırma nedensel bir A/B testi değildir. Puanlar algılanan yanıt kalitesini ölçer; VAD/Big Five doğruluğunu veya psikolojik faydayı kanıtlamaz. Gerçek veri yoksa sentetik testlerden proje sonucu çıkarılmaz.
+
+
+## Kullanıcı değerlendirmesi protokolü
+
+Önceden tanımlı keşifsel karşılaştırma, gönüllü katılım, anonimleştirme, aynı istemleri iki koşulda deneme ve sonuç sınırları için [deney protokolüne](ml/EXPERIMENT_PROTOCOL.md) bak. Bu belge gerçek katılımcı verisi veya sonuç içermez.
