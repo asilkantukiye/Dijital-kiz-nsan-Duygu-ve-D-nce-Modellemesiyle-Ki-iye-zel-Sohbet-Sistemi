@@ -119,6 +119,8 @@ def prepare_blind_review(
     review_path.parent.mkdir(parents=True, exist_ok=True)
     key_path.parent.mkdir(parents=True, exist_ok=True)
 
+    review_existed_before = review_path.exists()
+    key_existed_before = key_path.exists()
     try:
         with review_path.open("x" if not overwrite else "w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=REVIEW_FIELDS)
@@ -130,11 +132,12 @@ def prepare_blind_review(
             writer.writeheader()
             writer.writerows(key_rows)
     except Exception:
-        # Do not leave a seemingly complete blind pack if writing the key fails.
-        if review_path.exists() and key_path.exists():
-            pass
-        elif review_path.exists():
+        # If either newly-created output fails, remove any partial new file.
+        # Existing files are left alone when overwrite=False.
+        if not review_existed_before and review_path.exists():
             review_path.unlink()
+        if not key_existed_before and key_path.exists():
+            key_path.unlink()
         raise
 
     return len(pairs)
