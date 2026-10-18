@@ -131,3 +131,18 @@ Bu ayrı pilot, Hugging Face üzerinde CC BY-SA 4.0 olarak sunulan [winvoker Tü
 Bu görev **VAD regresyonundan ve Big Five kişilik tahmininden ayrıdır**. Polarite sınıflandırması, arousal/dominance ölçümü veya kişi düzeyinde dijital ikiz tutarlılığı olarak sunulamaz. Kaynak veride katılımcı kimlikleri olmadığından bu pilot örnek düzeyinde değerlendirilir; yinelenen metinlerin train-test arasında bulunması engellenir. Eğitimden önce veri kartı ve kaynakların kullanım koşulları kontrol edilmeli; veri atfı ve CC BY-SA koşulları korunmalıdır.
 
 Notebook veri dosyalarını sabitlenmiş veri sürümünden indirir, küçük bir pilot örneklemi ile modeli eğitir ve gerçek çalıştırmadan sonra `metrics.json` üretir. CI yalnızca notebook sözdizimini kontrol eder; Kaggle eğitimini otomatik çalıştırmaz ve model başarısı iddiası oluşturmaz.
+
+
+## Kullanıcı puanlarıyla kişiselleştirme karşılaştırması
+
+Uygulama asistan yanıtlarına 1–5 puan verebilir ve mesaj varyantını `personalized` veya `baseline` olarak saklar. Puanlar toplandıktan sonra analiz aracı, aynı takma kimlik altında her iki koşulu da puanlayan katılımcıların koşul ortalamalarını karşılaştırır:
+
+```bash
+python ml/analyze_feedback.py ml/data/anonymized_feedback.csv --output ml/results/feedback_analysis.json
+```
+
+Girdi CSV'si `participant_id,variant,rating` kolonlarını ister; isteğe bağlı `message_id` yinelenen puanları denetlemek için kullanılabilir. `participant_id` ham Supabase `user_id` olmamalı, önceden takma ada çevrilmelidir. Mesaj metnini, yorumları, e-postayı veya başka doğrudan tanımlayıcı bilgileri dışa aktarma ya da GitHub'a yükleme. `ml/data/feedback_template.csv` yalnızca boş şablondur; gerçek sonuç veya gerçek kullanıcı verisi değildir.
+
+Rapor; koşul başına puanlı katılımcı sayısını, katılımcı ortalamalarını, eşleştirilmiş ortalama farkını, bootstrap %95 güven aralığını ve iki taraflı işaret-değiştirme permütasyon testini üretir. 15 veya daha az eşleştirilmiş katılımcıda permütasyon testi tam hesaplanır; daha fazlasında sabit tohumlu Monte Carlo yaklaşımı kullanılır.
+
+**Önemli sınır:** Koşullar rastgele ve aynı istemlerle atanmadıkça bu keşifsel karşılaştırma nedensel bir A/B testi değildir. Puanlar algılanan yanıt kalitesini ölçer; VAD/Big Five doğruluğunu veya psikolojik faydayı kanıtlamaz. Gerçek veri yoksa sentetik testlerden proje sonucu çıkarılmaz.
