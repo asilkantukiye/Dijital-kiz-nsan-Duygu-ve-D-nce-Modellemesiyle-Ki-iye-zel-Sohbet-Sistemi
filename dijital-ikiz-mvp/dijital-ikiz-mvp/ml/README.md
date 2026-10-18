@@ -246,3 +246,10 @@ python ml/export_chat_pairs_for_blind_review.py ml/data/supabase_messages_export
 Dönüştürücü yalnızca her iki koşulda da **aynı metin istemi** bulunan, tam user→assistant çiftlerini eşleştirir. Aynı katılımcı bir istemi birkaç kez yazmışsa oluşum sırasına göre eşleştirir. Zaman damgası aynıysa, sıra belirsizse veya eksik çift oluşmuşsa tahmin yürütmez ve hata verir. `--since` kullanırken tam bir çiftin ortasından başlamamaya dikkat et.
 
 **Gizlilik:** Ham dışa aktarma, üretilen sohbet metinli CSV ve koşul anahtarı kişisel veri içerebilir. Bunları Git'e gönderme; `.gitignore` bu yerel dosyaları dışarıda bırakır. Bu araç yalnızca izinli/etik onaylı araştırma verileriyle, kısıtlı erişimli bir yerel ortamda kullanılmalıdır. Eski kayıtların zaman damgaları eşitse araç onları bilerek reddeder; yeni zaman damgalarının uygulama sürümü dağıtıldıktan sonra üretilen tam kayıtları seç.
+
+
+## Kaynak/lisans alanı eğitim öncesi zorunluluğu
+
+Hem `validate_dataset.py` hem de `train_regressor.py` artık her split satırında `source` ve `license_or_consent` ister. Boş alanlar ile `unknown`, `bilinmiyor`, `not verified`, `TBD` gibi yer tutucu durumlar reddedilir; eğitim kaynağı hakkında kanıt yokken eğitim sessizce başlamaz.
+
+Bu kontrol lisansın hukuken geçerli olduğunu **kanıtlamaz**. Veri sahibinin şartları, birleşik veri kümesindeki alt kaynaklar ve gerekli onam/etik süreçler yine araştırmacı tarafından ayrıca doğrulanmalıdır.
