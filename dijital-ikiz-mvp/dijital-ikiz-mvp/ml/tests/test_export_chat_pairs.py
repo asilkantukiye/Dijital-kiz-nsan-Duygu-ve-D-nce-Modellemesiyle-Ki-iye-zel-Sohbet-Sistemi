@@ -33,9 +33,13 @@ def fixture_messages():
             message(f"{variant}-a1", "raw-user-123", "assistant", variant, response_one, "2026-10-18T10:00:01.000Z"),
             message(f"{variant}-u2", "raw-user-123", "user", variant, "Başka bir istem.", "2026-10-18T10:00:02.000Z"),
             message(f"{variant}-a2", "raw-user-123", "assistant", variant, response_two, "2026-10-18T10:00:03.000Z"),
-            message(f"{variant}-u3", "raw-user-123", "user", variant, "Yalnızca bu koşulda.", "2026-10-18T10:00:04.000Z"),
-            message(f"{variant}-a3", "raw-user-123", "assistant", variant, "Unmatched response", "2026-10-18T10:00:05.000Z"),
         ])
+
+    # Deliberately add an unmatched prompt to only one condition.
+    rows.extend([
+        message("personalized-u3", "raw-user-123", "user", "personalized", "Yalnızca bu koşulda.", "2026-10-18T10:00:04.000Z"),
+        message("personalized-a3", "raw-user-123", "assistant", "personalized", "Unmatched response", "2026-10-18T10:00:05.000Z"),
+    ])
     return rows
 
 
