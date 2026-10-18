@@ -24,7 +24,7 @@ python ml/train_regressor.py \
   --test ml/data/splits/test.csv \
   --labels valence arousal dominance \
   --model dbmdz/bert-base-turkish-cased \
-  --model-revision <MODEL_DEPOSUNDA_DOGRULANAN_COMMIT_SHA> \
+  --model-revision PASTE_VERIFIED_MODEL_COMMIT_SHA \
   --output artifacts/vad
 ```
 
