@@ -51,8 +51,8 @@ jobs:
       - name: Install
         run: npm install
 
-      - name: Memory safety tests
-        run: npm run test:memory
+      - name: Unit tests (memory and API validation)
+        run: npm run test:unit
 
       - name: Typecheck
         run: npm run typecheck
