@@ -19,6 +19,100 @@ METRICS = (
 KEY_FIELDS = ("case_id", "response_label", "variant", "participant_id")
 
 
+def holm_adjust_pvalues(
+    p_values: Mapping[str, float | None],
+) -> dict[str, float | None]:
+    """Apply Holm-Bonferroni correction to available p-values."""
+    available: list[tuple[str, float]] = []
+    for name, value in p_values.items():
+        if value is None:
+            continue
+        if not 0 <= value <= 1:
+            raise ValueError("p-değerleri 0 ile 1 arasında olmalı.")
+        available.append((name, value))
+
+    available.sort(key=lambda pair: pair[1])
+    count = len(available)
+    adjusted: dict[str, float | None] = {name: None for name in p_values}
+    running_max = 0.0
+
+    for rank, (name, value) in enumerate(available):
+        candidate = min(1.0, (count - rank) * value)
+        running_max = max(running_max, candidate)
+        adjusted[name] = running_max
+
+    return adjusted
+
+
+def _quadratic_weighted_cohen_kappa(
+    left: list[int],
+    right: list[int],
+) -> float | None:
+    """Quadratic weighted Cohen kappa for two raters on matched ordinal 1-5 scores."""
+    if len(left) != len(right) or len(left) < 2:
+        return None
+
+    categories = range(1, 6)
+    count = len(left)
+    observed = 0.0
+    expected = 0.0
+
+    left_counts = {category: left.count(category) / count for category in categories}
+    right_counts = {category: right.count(category) / count for category in categories}
+
+    for left_category in categories:
+        for right_category in categories:
+            weight = 1 - ((left_category - right_category) / 4) ** 2
+            observed_count = sum(
+                1 for a, b in zip(left, right)
+                if a == left_category and b == right_category
+            )
+            observed += (observed_count / count) * weight
+            expected += left_counts[left_category] * right_counts[right_category] * weight
+
+    denominator = 1 - expected
+    if abs(denominator) < 1e-12:
+        return None
+    return (observed - expected) / denominator
+
+
+def _pairwise_rater_agreement(
+    rater_scores: Mapping[str, Mapping[tuple[str, str], Mapping[str, int]]],
+    rater_ids: set[str],
+) -> dict[str, dict[str, object]]:
+    from itertools import combinations
+
+    output: dict[str, dict[str, object]] = {}
+    for metric, unit_scores in rater_scores.items():
+        coefficients: list[float] = []
+        common_units_total = 0
+
+        for left_rater, right_rater in combinations(sorted(rater_ids), 2):
+            left: list[int] = []
+            right: list[int] = []
+            for ratings in unit_scores.values():
+                if left_rater in ratings and right_rater in ratings:
+                    left.append(ratings[left_rater])
+                    right.append(ratings[right_rater])
+
+            common_units_total += len(left)
+            kappa = _quadratic_weighted_cohen_kappa(left, right)
+            if kappa is not None:
+                coefficients.append(kappa)
+
+        output[metric] = {
+            "method": "mean pairwise quadratic weighted Cohen kappa",
+            "rater_pair_count": len(rater_ids) * (len(rater_ids) - 1) // 2,
+            "defined_pair_count": len(coefficients),
+            "common_scored_units_total": common_units_total,
+            "mean": statistics.mean(coefficients) if coefficients else None,
+            "minimum": min(coefficients) if coefficients else None,
+            "maximum": max(coefficients) if coefficients else None,
+        }
+
+    return output
+
+
 def _read_condition_key(
     rows: Iterable[Mapping[str, object]],
 ) -> dict[tuple[str, str], dict[str, str]]:
@@ -101,6 +195,9 @@ def analyze_blind_review_rows(
     # within participant and condition so repeated prompts are not counted as
     # independent participants.
     case_scores: dict[tuple[str, str, str, str], list[int]] = defaultdict(list)
+    rater_scores: dict[str, dict[tuple[str, str], dict[str, int]]] = {
+        metric: defaultdict(dict) for metric in METRICS
+    }
     rating_row_count = 0
     skipped_metric_cells = 0
     rater_ids: set[str] = set()
@@ -152,6 +249,7 @@ def analyze_blind_review_rows(
                     metric,
                 )
             ].append(value)
+            rater_scores[metric][(case_id, label)][rater_id] = value
 
     if rating_row_count == 0:
         raise ValueError("Puan CSV'sinde değerlendirici kaydı bulunamadı.")
@@ -245,12 +343,35 @@ def analyze_blind_review_rows(
             },
         }
 
+    # Correct for the three related rubric outcomes; confidence intervals remain
+    # nominal per-metric intervals and should be interpreted accordingly.
+    raw_p_values: dict[str, float | None] = {}
+    for metric, details in report_metrics.items():
+        difference = details["difference_personalized_minus_baseline"]
+        permutation = difference["permutation_test"]
+        raw_p_values[metric] = (
+            float(permutation["p_value_two_sided"])
+            if permutation is not None else None
+        )
+    holm_adjusted = holm_adjust_pvalues(raw_p_values)
+    for metric, adjusted_p in holm_adjusted.items():
+        if adjusted_p is not None:
+            permutation = report_metrics[metric]["difference_personalized_minus_baseline"]["permutation_test"]
+            if permutation is not None:
+                permutation["p_value_holm_adjusted"] = adjusted_p
+
+    inter_rater_agreement = _pairwise_rater_agreement(rater_scores, rater_ids)
     warnings = [
         "Koşul anahtarı gizli tutulmalı; bu rapora ham katılımcı kodları, metinler veya e-posta dahil edilmez.",
         "Rapor, yalnızca bu kör puan örneklemindeki algılanan yararlılık/üslup/ton uygunluğunu özetler; VAD/Big Five doğruluğunu veya psikolojik faydayı kanıtlamaz.",
-        "Puan analizi değerlendiriciler arası uyumu hesaplamaz; gerekliyse ordinal ölçeğe uygun bir uyum ölçüsünü ayrıca raporla.",
+        "Üç rubrik ölçütünün p-değerleri Holm düzeltmesiyle raporlanır; güven aralıkları her ölçüt için ayrı nominal %95 aralıktır.",
+        "Pairwise weighted kappa birden fazla değerlendirici arasındaki uyumun özetidir; katılımcı ve vaka sayılarıyla birlikte raporlanmalı, tek başına kesin güvenilirlik kanıtı sayılmamalıdır.",
         "Puanlar eksik olabilir; metrik başına yalnızca o metriğe puan veren kayıtlar kullanılır.",
     ]
+    if len(rater_ids) < 2:
+        warnings.append("İki veya daha fazla kör değerlendirici olmadığından değerlendiriciler arası uyum hesaplanamaz.")
+    elif any(item["defined_pair_count"] < item["rater_pair_count"] for item in inter_rater_agreement.values()):
+        warnings.append("Bazı rater çiftleri için weighted kappa tanımsız olabilir (ör. puan dağılımı sabit veya ortak puan sayısı yetersiz).")
     min_paired = min(total_paired_participant_counts) if total_paired_participant_counts else 0
     if min_paired < 10:
         warnings.append(
@@ -268,6 +389,7 @@ def analyze_blind_review_rows(
         "rating_rows": rating_row_count,
         "missing_metric_cells": skipped_metric_cells,
         "metrics": report_metrics,
+        "inter_rater_agreement": inter_rater_agreement,
         "warnings": warnings,
         "scientific_note": (
             "For each metric, ratings are first averaged across raters per response, then across prompts per participant and condition. "
