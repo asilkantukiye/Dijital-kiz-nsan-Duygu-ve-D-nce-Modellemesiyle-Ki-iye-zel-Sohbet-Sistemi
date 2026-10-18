@@ -75,6 +75,13 @@ class DatasetValidationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("license_or_consent boş olamaz", result.stderr)
 
+    def test_rejects_empty_text(self):
+        row = valid_row()
+        row["text"] = "  "
+        result = self.run_validator([row])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Boş text", result.stderr)
+
     def test_rejects_duplicate_sample_ids(self):
         result = self.run_validator([
             valid_row("same", "p1"),
