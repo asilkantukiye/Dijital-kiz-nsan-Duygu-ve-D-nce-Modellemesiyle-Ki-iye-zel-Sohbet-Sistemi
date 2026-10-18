@@ -72,10 +72,11 @@ Bu yalnızca olumlu/nötr/olumsuz metin sınıflandırma pilotudur. Sürekli VAD
 
 GitHub deposunda **Settings → Secrets and variables → Actions** bölümünde şu repository secret'larının olması gerekir:
 
-- `KAGGLE_USERNAME`: Kaggle kullanıcı adın
-- `KAGGLE_KEY`: Kaggle API anahtarın
+- `KAGGLE_USERNAME`: Kaggle kullanıcı adın (kernel sahipliği için zorunlu)
+- `KAGGLE_API_TOKEN`: Kaggle API ayarlarından alınan güncel token (**tercih edilen yöntem**)
+- `KAGGLE_KEY`: yalnızca eski/legacy API anahtarı kullanıyorsan gereken alternatif
 
-API anahtarını sohbet, kaynak kodu veya loglara yazma. Secret'lar zaten tanımlıysa yeniden oluşturma.
+`KAGGLE_USERNAME` ile birlikte `KAGGLE_API_TOKEN` **veya** `KAGGLE_KEY` tanımlı olmalıdır. İki kimlik doğrulama yönteminin de değerlerini aynı secret dosyasına koyma; doğru olanı Actions Secrets olarak kaydet. Token/anahtar değerlerini sohbet, kaynak kodu veya loglara yazma. Secret'lar zaten tanımlıysa ve çalışıyorsa sırf bu güncelleme için tekrar oluşturma.
 
 Ardından GitHub deposunda **Actions → Run Kaggle sentiment pilot → Run workflow** yolunu izle. Varsayılan `NvidiaTeslaT4` seçeneğiyle başlat; erişim hatası olursa Kaggle hesabındaki kullanılabilir hızlandırıcıyı kontrol et. Akış yalnızca elle başlatıldığında Kaggle kernel'ini gönderir ve çalıştırır; her GitHub push'unda GPU başlatmaz.
 

@@ -155,7 +155,7 @@ Rapor; koşul başına puanlı katılımcı sayısını, katılımcı ortalamala
 
 ## Kaggle eğitiminin GitHub Actions üzerinden başlatılması
 
-`.github/workflows/kaggle-sentiment-pilot.yml` yalnızca `workflow_dispatch` ile çalışır. Gerekli repository secrets `KAGGLE_USERNAME` ve `KAGGLE_KEY` tanımlıysa seçilen Kaggle GPU ile notebook'u gönderir, tamamlanmasını bekler ve modeli/gerçek `metrics.json` çıktısını Actions artifact'ine yükler. GPU kotası harcamamak için push, PR veya normal CI tetikleyicileri bu workflow'u başlatmaz.
+`.github/workflows/kaggle-sentiment-pilot.yml` yalnızca `workflow_dispatch` ile çalışır. Repository secrets içinde `KAGGLE_USERNAME` ile birlikte `KAGGLE_API_TOKEN` (tercih edilen) veya legacy `KAGGLE_KEY` tanımlıysa seçilen Kaggle GPU ile notebook'u gönderir, tamamlanmasını bekler ve modeli/gerçek `metrics.json` çıktısını Actions artifact'ine yükler. GPU kotası harcamamak için push, PR veya normal CI tetikleyicileri bu workflow'u başlatmaz.
 
 Notebook çıktısı ancak gerçek Kaggle çalıştırması başarıyla biterse oluşur. Otomatik statik kontrollerin yeşil olması modelin eğitildiği anlamına gelmez.
 
