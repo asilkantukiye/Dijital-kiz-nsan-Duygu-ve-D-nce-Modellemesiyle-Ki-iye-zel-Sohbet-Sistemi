@@ -206,4 +206,4 @@ python ml/prepare_blind_review.py ml/data/blind_review_input.csv \
 
 Kaynak CSV sütunları `pair_id,prompt_text,response_text,variant` olmalıdır. `pair_id` ham kullanıcı kimliği değil, aynı katılımcı/istem çiftini eşleyen rastgele takma vaka anahtarıdır. Değerlendirici dosyası koşul etiketini ve kaynak kimliğini içermez; `ml/private/condition_key.csv` gizli tutulmalı ve değerlendiriciye verilmemelidir. Araç eksik koşul, aynı çiftte farklı istem veya yinelenen varyant varsa durur; var olan çıktı dosyasının üstüne varsayılan olarak yazmaz.
 
-Puanlama rubric'i ve raporlama sınırları `ml/BLIND_REVIEW_RUBRIC.md` dosyasındadır. Bu araç insan değerlendirmesi hazırlamayı kolaylaştırır; mevcut canlı arayüzün koşul etiketini otomatik gizlediğini iddia etmez.
+Puanlama rubric'i ve raporlama sınırları `ml/BLIND_REVIEW_RUBRIC.md` dosyasındadır. Bu araç insan değerlendirmesi hazırlamayı kolaylaştırır; mevcut canlı arayüzün koşul etiketini otomatik gizlediğini iddia etmez. Boş puan formu `ml/data/blind_review_rating_template.csv` dosyasındadır; her A/B yanıtını ayrı satır olarak değerlendir ve `case_id,response_label` eşleşmesini koru.
