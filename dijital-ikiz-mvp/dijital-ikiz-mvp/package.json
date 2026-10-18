@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:memory": "node --experimental-strip-types --test tests/memory-text.test.mjs"
+    "test:memory": "node --experimental-strip-types --test tests/memory-text.test.mjs",
+    "test:unit": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@huggingface/inference": "4.13.30",
