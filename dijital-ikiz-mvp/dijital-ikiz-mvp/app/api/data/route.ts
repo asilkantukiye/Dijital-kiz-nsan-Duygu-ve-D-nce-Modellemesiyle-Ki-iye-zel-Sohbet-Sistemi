@@ -6,22 +6,21 @@ export async function DELETE(req: Request) {
   try {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Oturum bulunamadı.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
     }
 
-    const [{ error: messagesError }, { error: profileError }, { error: memoryError }] = await Promise.all([
-      supabase.from('messages').delete().eq('user_id', user.id),
-      supabase.from('twin_profiles').delete().eq('user_id', user.id),
-      supabase.from('memory_items').delete().eq('user_id', user.id)
-    ])
-
-    if (messagesError) throw messagesError
-    if (profileError) throw profileError
-    if (memoryError) throw memoryError
+    // Keep deletion in one Postgres function call so a database error cannot
+    // leave only some of the requested chat/profile/memory data removed.
+    const { error } = await supabase.rpc('delete_my_chat_data')
+    if (error) throw error
 
     return NextResponse.json(
       { ok: true },
