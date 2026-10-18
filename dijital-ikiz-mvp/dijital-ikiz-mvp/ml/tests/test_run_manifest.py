@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from data.run_manifest import build_split_manifest, sha256_file
+ML_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ML_DIR))
+from data.run_manifest import build_split_manifest, sha256_file  # noqa: E402
 
 
 class RunManifestTests(unittest.TestCase):
