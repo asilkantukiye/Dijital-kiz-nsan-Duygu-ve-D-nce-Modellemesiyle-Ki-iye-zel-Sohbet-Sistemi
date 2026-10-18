@@ -253,3 +253,10 @@ Dönüştürücü yalnızca her iki koşulda da **aynı metin istemi** bulunan, 
 Hem `validate_dataset.py` hem de `train_regressor.py` artık her split satırında `source` ve `license_or_consent` ister. Boş alanlar ile `unknown`, `bilinmiyor`, `not verified`, `TBD` gibi yer tutucu durumlar reddedilir; eğitim kaynağı hakkında kanıt yokken eğitim sessizce başlamaz.
 
 Bu kontrol lisansın hukuken geçerli olduğunu **kanıtlamaz**. Veri sahibinin şartları, birleşik veri kümesindeki alt kaynaklar ve gerekli onam/etik süreçler yine araştırmacı tarafından ayrıca doğrulanmalıdır.
+
+
+## Eğitim koşusu tekrarlanabilirlik manifesti
+
+`train_regressor.py` tarafından üretilen `metrics.json`, artık train/validation/test dosyalarının SHA-256 özetlerini, split boyutlarını, benzersiz örnek/katılımcı sayılarını ve hedef kolonlarını içerir. Ayrıca Python, NumPy, pandas, PyTorch ve Transformers sürümleri raporlanır. Kaynak/lisans değerlerinin kendileri, örnek metinleri veya katılımcı kimlikleri rapora kopyalanmaz.
+
+Model deposunun değişmez commit SHA'sını doğruladıktan sonra aynı ağırlıkları yeniden kullanmak için `--model-revision` verilebilir. Örnek komut ve manifestin kapsamı için [tekrarlanabilirlik notlarına](ml/REPRODUCIBILITY.md) bak. Revision verilmezse raporda bu bilgi `null` görünür. SHA-256 dosya bütünlüğünü eşleştirmeye yarar; anonimleştirme, lisans doğrulaması veya eğitim başarısı kanıtı değildir.
