@@ -115,6 +115,48 @@ class AnalyzeBlindReviewTests(unittest.TestCase):
         self.assertEqual(agreement["defined_pair_count"], 1)
         self.assertAlmostEqual(agreement["mean"], 1.0)
 
+
+    def test_paired_difference_uses_only_the_same_cases_in_both_conditions(self):
+        key = [
+            {"case_id": "pair-1", "response_label": "A", "variant": "personalized", "participant_id": "P01"},
+            {"case_id": "pair-1", "response_label": "B", "variant": "baseline", "participant_id": "P01"},
+            {"case_id": "pair-2", "response_label": "A", "variant": "personalized", "participant_id": "P01"},
+            {"case_id": "pair-2", "response_label": "B", "variant": "baseline", "participant_id": "P01"},
+        ]
+        ratings = [
+            {"rater_id": "R1", "case_id": "pair-1", "response_label": "A", "helpfulness_1_5": "3", "style_fit_1_5": "", "emotion_fit_1_5": ""},
+            {"rater_id": "R1", "case_id": "pair-1", "response_label": "B", "helpfulness_1_5": "3", "style_fit_1_5": "", "emotion_fit_1_5": ""},
+            # A score for personalized exists for pair-2, but baseline's
+            # helpfulness score is missing. It must not enter the paired delta.
+            {"rater_id": "R1", "case_id": "pair-2", "response_label": "A", "helpfulness_1_5": "5", "style_fit_1_5": "", "emotion_fit_1_5": ""},
+            {"rater_id": "R1", "case_id": "pair-2", "response_label": "B", "helpfulness_1_5": "", "style_fit_1_5": "3", "emotion_fit_1_5": ""},
+        ]
+
+        report = analyze_blind_review_rows(
+            ratings,
+            key,
+            seed=1,
+            bootstrap_repetitions=100,
+            permutation_repetitions=100,
+        )
+        metric = report["metrics"]["helpfulness_1_5"]
+
+        self.assertEqual(metric["paired_participant_count"], 1)
+        self.assertEqual(metric["paired_case_count"], 1)
+        self.assertAlmostEqual(
+            metric["difference_personalized_minus_baseline"]["mean"],
+            0.0,
+        )
+        # Descriptive condition summaries still show all available scores.
+        self.assertAlmostEqual(
+            metric["variant_summary"]["personalized"]["mean_participant_score"],
+            4.0,
+        )
+        self.assertAlmostEqual(
+            metric["variant_summary"]["baseline"]["mean_participant_score"],
+            3.0,
+        )
+
     def test_rejects_duplicate_rater_response_score(self):
         key = fixture_key()
         ratings = fixture_ratings()

@@ -218,4 +218,4 @@ python ml/analyze_blind_review.py \
   --output ml/results/blind_review_analysis.json
 ```
 
-Analiz değerlendiricilerin puanlarını önce yanıt/vaka düzeyinde, ardından katılımcı düzeyinde toplar; kimlikleri ve metinleri rapora yazmaz. Değerlendiriciler arası uyum ayrıca analiz edilmelidir.
+Analiz değerlendiricilerin puanlarını önce aynı yanıt/vaka düzeyinde ortalar, ardından aynı katılımcının her iki koşulda da puanlanmış aynı istemleri üzerinden eşleştirilmiş farkı hesaplar. Eksik koşul puanını başka istemin puanıyla ikame etmez. Rapor kimlikleri ve metinleri dışarı vermez; üç rubrik ölçütünün p-değerleri için Holm düzeltmesi ve birden fazla değerlendirici varsa ölçüt başına ortalama ikili quadratic weighted Cohen kappa özeti içerir. Bu uyum özeti, rater dağılımı ve ortak puanlı vaka sayısıyla birlikte yorumlanmalıdır.

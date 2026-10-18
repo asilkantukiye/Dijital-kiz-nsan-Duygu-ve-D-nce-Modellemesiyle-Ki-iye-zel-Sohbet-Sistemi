@@ -254,15 +254,18 @@ def analyze_blind_review_rows(
     if rating_row_count == 0:
         raise ValueError("Puan CSV'sinde değerlendirici kaydı bulunamadı.")
 
-    # Average across raters for each individual response, then across cases per participant.
+    # Average independent raters per response/case/condition first. For paired
+    # effect estimates, compare only the SAME cases scored in both conditions
+    # within each participant; do not compare condition means from different prompts.
     participant_case_means: dict[tuple[str, str, str], dict[str, float]] = defaultdict(dict)
+    participant_case_metric_scores: dict[tuple[str, str, str, str], float] = {}
     for (participant_id, variant, case_id, metric), values in case_scores.items():
-        participant_case_means[(participant_id, variant, case_id)][metric] = statistics.mean(values)
+        mean_value = statistics.mean(values)
+        participant_case_means[(participant_id, variant, case_id)][metric] = mean_value
+        participant_case_metric_scores[(participant_id, variant, case_id, metric)] = mean_value
 
     participant_variant_metric: dict[tuple[str, str, str], list[float]] = defaultdict(list)
-    variant_case_counts: dict[str, set[tuple[str, str]]] = defaultdict(set)
     for (participant_id, variant, case_id), metric_values in participant_case_means.items():
-        variant_case_counts[variant].add((participant_id, case_id))
         for metric, value in metric_values.items():
             participant_variant_metric[(participant_id, variant, metric)].append(value)
 
@@ -283,28 +286,46 @@ def analyze_blind_review_rows(
                 for participant_id in participant_means
                 if metric in participant_means[participant_id][variant]
             ]
+            rated_cases = {
+                (participant_id, case_id)
+                for (participant_id, used_variant, case_id, used_metric) in participant_case_metric_scores
+                if used_variant == variant and used_metric == metric
+            }
             variant_summary[variant] = {
                 "rated_participant_count": len(means),
-                "rated_case_count": len([
-                    (participant_id, case_id)
-                    for (participant_id, used_variant, case_id, used_metric) in case_scores
-                    if used_variant == variant and used_metric == metric
-                ]),
+                "rated_case_count": len(rated_cases),
                 "mean_participant_score": statistics.mean(means) if means else None,
                 "median_participant_score": statistics.median(means) if means else None,
             }
 
-        paired_ids = [
-            participant_id
-            for participant_id, variants in participant_means.items()
-            if metric in variants["personalized"] and metric in variants["baseline"]
-        ]
-        differences = [
-            participant_means[participant_id]["personalized"][metric]
-            - participant_means[participant_id]["baseline"][metric]
-            for participant_id in paired_ids
-        ]
-        total_paired_participant_counts.append(len(paired_ids))
+        scores_by_participant_case: dict[str, dict[str, dict[str, float]]] = defaultdict(
+            lambda: {variant: {} for variant in VARIANTS}
+        )
+        for (participant_id, variant, case_id, used_metric), score in participant_case_metric_scores.items():
+            if used_metric == metric:
+                scores_by_participant_case[participant_id][variant][case_id] = score
+
+        differences: list[float] = []
+        paired_case_count = 0
+        for participant_id, variant_scores in scores_by_participant_case.items():
+            common_cases = (
+                set(variant_scores["personalized"])
+                & set(variant_scores["baseline"])
+            )
+            if not common_cases:
+                continue
+
+            # Each participant contributes one mean of matched per-case
+            # differences, regardless of how many prompts they rated.
+            per_case_differences = [
+                variant_scores["personalized"][case_id]
+                - variant_scores["baseline"][case_id]
+                for case_id in sorted(common_cases)
+            ]
+            differences.append(statistics.mean(per_case_differences))
+            paired_case_count += len(common_cases)
+
+        total_paired_participant_counts.append(len(differences))
         ci = (
             bootstrap_mean_ci(
                 differences,
@@ -322,19 +343,10 @@ def analyze_blind_review_rows(
             if differences else None
         )
 
-        paired_cases = 0
-        case_values: dict[tuple[str, str, str], dict[str, float]] = defaultdict(dict)
-        for (participant_id, variant, case_id, used_metric), values in case_scores.items():
-            if used_metric == metric:
-                case_values[(participant_id, case_id, used_metric)][variant] = statistics.mean(values)
-        for values in case_values.values():
-            if "personalized" in values and "baseline" in values:
-                paired_cases += 1
-
         report_metrics[metric] = {
             "variant_summary": variant_summary,
-            "paired_participant_count": len(paired_ids),
-            "paired_case_count": paired_cases,
+            "paired_participant_count": len(differences),
+            "paired_case_count": paired_case_count,
             "difference_personalized_minus_baseline": {
                 "mean": statistics.mean(differences) if differences else None,
                 "median": statistics.median(differences) if differences else None,
