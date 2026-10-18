@@ -61,3 +61,8 @@ Bu ölçüt gerçek içsel duyguyu veya VAD modelinin bilimsel doğruluğunu öl
 ## Raporlama sınırları
 
 Kör değerlendirme yalnızca puanlanan örneklemde algılanan yararlılık/üslup/ton uygunluğunu destekler. Tek başına kişilik kopyalama doğruluğunu, klinik faydayı veya VAD/Big Five modelinin doğruluğunu kanıtlamaz. Rastgele atama, sabit istemler, koşul sırası ve katılımcı/etik izinler belgelenmeden nedensel iddiada bulunma.
+
+
+## Gizli anahtarda katılımcı eşleme
+
+Kaynak dosyanın zorunlu sütunları `pair_id,participant_id,prompt_text,response_text,variant` şeklindedir. `participant_id` önceden takma ada çevrilmiş olmalı; anahtar dosyasında saklanır ama değerlendirici paketine aktarılmaz. Böylece kör puanlar raporlanırken her katılımcıdan gelen birden fazla istemin aynı kişi altında kümelenebilmesi sağlanır.
