@@ -248,6 +248,7 @@ export default function Home() {
 
     setMessages([])
     setProfile(emptyProfile)
+    setFeedback({})
   }
 
   async function signOut() {
