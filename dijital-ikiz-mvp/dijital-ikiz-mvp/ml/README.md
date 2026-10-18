@@ -182,3 +182,8 @@ VAD/Big Five/üslup regresyon eğitim betiği her hedef için MAE, RMSE, R², Pe
 Test sonucunun tek başına iyi olup olmadığını anlamak için ayrıca basit bir referans model kullanılır: her hedefte yalnızca **train** bölümünün ortalamasını tahmin eden model. `metrics.json` hem eğitilmiş modelin hem bu referansın test metriklerini ve `mae_improvement_over_train_mean_baseline` farkını içerir. Pozitif fark modelin MAE açısından referansı geçtiğini; negatif fark ise geçemediğini gösterir. Bu fark bir başarı yüzdesi değildir.
 
 Kullanım parametreleri için `epochs`, `batch-size`, `max-length` ve `learning-rate` pozitif değerlerle doğrulanır. Ölçüm yardımcı fonksiyonu standart Python kütüphanesiyle test edilebilir; CI bu testlerde GPU veya büyük dil modeli indirmeden çalışır.
+
+
+## Veri toplama ve etiketleme yönergesi
+
+VAD, Big Five ve üslup için ayrı, boş CSV şablonları `ml/data/vad_template.csv`, `ml/data/big_five_template.csv` ve `ml/data/style_template.csv` dosyalarındadır. Etiketleme ölçekleri, anonimleştirme, izin/lisans gereksinimleri, kişi bazlı bölme ve raporlama asgari koşulları `ml/DATA_ANNOTATION_GUIDE.md` içinde açıklanmıştır. Şablonlarda kasıtlı olarak hiç veri satırı yoktur; sentetik test verileri gerçek eğitim verisi veya sonuç yerine kullanılamaz.
