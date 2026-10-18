@@ -62,7 +62,8 @@ class TransformerRegressor(nn.Module):
         revision: str | None = None,
     ):
         super().__init__()
-        self.encoder = AutoModel.from_pretrained(model_name, revision=revision)
+        model_kwargs = {"revision": revision} if revision else {}
+        self.encoder = AutoModel.from_pretrained(model_name, **model_kwargs)
         hidden_size = self.encoder.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         self.head = nn.Linear(hidden_size, output_dim)
@@ -202,7 +203,8 @@ def main() -> int:
         },
     }
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.model_revision)
+    tokenizer_kwargs = {"revision": args.model_revision} if args.model_revision else {}
+    tokenizer = AutoTokenizer.from_pretrained(args.model, **tokenizer_kwargs)
 
     train_ds = TextRegressionDataset(train, tokenizer, args.labels, args.max_length)
     val_ds = TextRegressionDataset(validation, tokenizer, args.labels, args.max_length)
