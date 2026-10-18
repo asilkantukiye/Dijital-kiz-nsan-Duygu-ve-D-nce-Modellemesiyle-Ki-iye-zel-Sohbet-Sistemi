@@ -36,6 +36,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Compile ML Python sources
+        run: python -m compileall -q ml
+
       - name: Validate Kaggle notebook syntax
         run: python ml/kaggle/validate_notebook.py
 

@@ -9,11 +9,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 
+from data.regression_metrics import calculate_regression_metrics
 from data.split_integrity import validate_split_integrity
 
 
@@ -92,6 +92,8 @@ def load_split(path: Path, labels: list[str]) -> pd.DataFrame:
         frame[label] = pd.to_numeric(frame[label], errors="coerce")
         if frame[label].isna().any():
             raise ValueError(f"{path}: {label} sayısal olmayan veya boş etiket içeriyor.")
+        if not np.isfinite(frame[label].to_numpy(dtype=float)).all():
+            raise ValueError(f"{path}: {label} sonlu olmayan etiket içeriyor.")
         if ((frame[label] < 0) | (frame[label] > 1)).any():
             raise ValueError(f"{path}: {label} etiketleri 0–1 aralığında olmalı.")
 
@@ -111,31 +113,12 @@ def evaluate(model, loader, device, labels):
         inputs = {k: batch[k].to(device) for k in ("input_ids", "attention_mask")}
         output = model(**inputs).detach().cpu().numpy()
         target = batch["labels"].numpy()
-
         predictions.append(output)
         targets.append(target)
 
-    y_pred = np.concatenate(predictions)
+    y_pred = np.clip(np.concatenate(predictions), 0, 1)
     y_true = np.concatenate(targets)
-
-    y_pred = np.clip(y_pred, 0, 1)
-
-    per_label = {}
-    for i, label in enumerate(labels):
-        true_col = y_true[:, i]
-        pred_col = y_pred[:, i]
-        r2 = None if len(np.unique(true_col)) < 2 else float(r2_score(true_col, pred_col))
-        per_label[label] = {
-            "mae": float(mean_absolute_error(true_col, pred_col)),
-            "rmse": float(math.sqrt(mean_squared_error(true_col, pred_col))),
-            "r2": r2,
-        }
-
-    return {
-        "mae": float(mean_absolute_error(y_true, y_pred)),
-        "rmse": float(math.sqrt(mean_squared_error(y_true, y_pred))),
-        "per_label": per_label,
-    }
+    return calculate_regression_metrics(y_true.tolist(), y_pred.tolist(), labels)
 
 
 def main() -> int:
@@ -153,10 +136,16 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    set_seed(args.seed)
-
     if not 1 <= len(args.labels) <= 8:
         raise SystemExit("1-8 hedef kolonu destekleniyor.")
+    if len(set(args.labels)) != len(args.labels):
+        raise SystemExit("Aynı hedef kolonu birden fazla kez seçilemez.")
+    if args.epochs < 1 or args.batch_size < 1 or args.max_length < 1:
+        raise SystemExit("epochs, batch-size ve max-length pozitif tam sayılar olmalı.")
+    if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
+        raise SystemExit("learning-rate pozitif ve sonlu bir sayı olmalı.")
+
+    set_seed(args.seed)
 
     train = load_split(args.train, args.labels)
     validation = load_split(args.validation, args.labels)
@@ -210,7 +199,6 @@ def main() -> int:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-
             losses.append(float(loss.detach().cpu()))
 
         val_metrics = evaluate(model, val_loader, device, args.labels)
@@ -226,6 +214,20 @@ def main() -> int:
     model.load_state_dict(torch.load(args.output / "best_model.pt", map_location=device))
     test_metrics = evaluate(model, test_loader, device, args.labels)
 
+    # A train-mean predictor is a simple, transparent reference baseline. Its
+    # means are estimated on train only; the test split remains untouched.
+    training_target_mean = train[args.labels].mean().to_numpy(dtype=float)
+    baseline_predictions = np.repeat(
+        training_target_mean.reshape(1, -1),
+        repeats=len(test),
+        axis=0,
+    )
+    baseline_metrics = calculate_regression_metrics(
+        test[args.labels].to_numpy(dtype=float).tolist(),
+        baseline_predictions.tolist(),
+        args.labels,
+    )
+
     report = {
         "model": args.model,
         "labels": args.labels,
@@ -238,15 +240,32 @@ def main() -> int:
         "train_rows": len(train),
         "validation_rows": len(validation),
         "test_rows": len(test),
+        "selection_metric": "validation_mae",
+        "baseline": {
+            "type": "per_target_train_mean",
+            "description": "Her hedef için yalnızca eğitim kümesinin ortalamasını tahmin eder.",
+            "test_metrics": baseline_metrics,
+        },
         "test_metrics": test_metrics,
-        "scientific_note": "Bu sonuçlar yalnızca çalıştırılan test seti içindir; rapora deney sonucu olarak ancak gerçek çalıştırmadan sonra eklenmelidir."
+        "mae_improvement_over_train_mean_baseline": (
+            baseline_metrics["mae"] - test_metrics["mae"]
+        ),
+        "scientific_note": (
+            "Pearson ve Spearman korelasyonları hedef veya tahmin sabit olduğunda null olabilir. "
+            "Sonuçlar yalnızca bu katılımcı-ayrılmış test kümesi içindir; gerçek eğitim "
+            "çalıştırılmadan başarı iddiası olarak raporlanmamalıdır."
+        ),
     }
 
     with (args.output / "metrics.json").open("w", encoding="utf-8") as handle:
         json.dump(report, handle, ensure_ascii=False, indent=2)
 
     tokenizer.save_pretrained(args.output / "tokenizer")
-    print(json.dumps(test_metrics, ensure_ascii=False, indent=2))
+    print(json.dumps({
+        "test_metrics": test_metrics,
+        "baseline_metrics": baseline_metrics,
+        "mae_improvement_over_train_mean_baseline": report["mae_improvement_over_train_mean_baseline"],
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
