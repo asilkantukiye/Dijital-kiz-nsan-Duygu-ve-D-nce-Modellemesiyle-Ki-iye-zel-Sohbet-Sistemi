@@ -13,6 +13,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 
+from data.provenance import validate_provenance
 from data.regression_metrics import calculate_regression_metrics
 from data.split_integrity import validate_split_integrity
 
@@ -77,6 +78,14 @@ def load_split(path: Path, labels: list[str]) -> pd.DataFrame:
     missing = required - set(frame.columns)
     if missing:
         raise ValueError(f"{path} eksik kolonlar: {sorted(missing)}")
+
+    # Direct training entry points must enforce the same provenance policy as
+    # the standalone CSV validator; never let an ad-hoc split bypass it.
+    validate_provenance(
+        frame.columns,
+        frame.to_dict(orient="records"),
+        str(path),
+    )
 
     for column in ("sample_id", "participant_id", "text"):
         if frame[column].isna().any():
