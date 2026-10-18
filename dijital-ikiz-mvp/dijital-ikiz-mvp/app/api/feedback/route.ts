@@ -1,35 +1,32 @@
 import { NextResponse } from 'next/server'
 import { rejectCrossOrigin } from '@/lib/api-security'
 import { createClient } from '@/lib/supabase-server'
+import { validateFeedbackPayload } from '@/lib/feedback-validation'
 
 export async function POST(req: Request) {
   try {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
 
-    const body = await req.json().catch(() => ({}))
-    const messageId = String(body.messageId ?? '').trim()
-    const rating = Number(body.rating)
-    const comment = typeof body.comment === 'string' ? body.comment.trim() : null
-    const rawVariant = body.variant
+    const body = await req.json().catch(() => null)
+    const validation = validateFeedbackPayload(body)
 
-    if (rawVariant !== 'personalized' && rawVariant !== 'baseline') {
-      return NextResponse.json({ error: 'Geçersiz deney varyantı.' }, { status: 400 })
+    if (!validation.ok) {
+      return NextResponse.json(
+        { error: validation.error },
+        {
+          status: 400,
+          headers: { 'Cache-Control': 'no-store' }
+        }
+      )
     }
 
-    const requestedVariant = rawVariant as 'personalized' | 'baseline'
-
-    if (!messageId) {
-      return NextResponse.json({ error: 'Mesaj kimliği gerekli.' }, { status: 400 })
-    }
-
-    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'Puan 1 ile 5 arasında olmalıdır.' }, { status: 400 })
-    }
-
-    if (comment && comment.length > 1000) {
-      return NextResponse.json({ error: 'Yorum en fazla 1000 karakter olabilir.' }, { status: 400 })
-    }
+    const {
+      messageId,
+      rating,
+      comment,
+      variant: requestedVariant
+    } = validation.value
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -55,7 +52,10 @@ export async function POST(req: Request) {
     if (message.variant !== requestedVariant) {
       return NextResponse.json(
         { error: 'Geri bildirim varyantı mesajla eşleşmiyor.' },
-        { status: 409 }
+        {
+          status: 409,
+          headers: { 'Cache-Control': 'no-store' }
+        }
       )
     }
 
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
           user_id: user.id,
           rating,
           variant: message.variant,
-          comment: comment || null
+          comment
         },
         { onConflict: 'message_id,user_id' }
       )
