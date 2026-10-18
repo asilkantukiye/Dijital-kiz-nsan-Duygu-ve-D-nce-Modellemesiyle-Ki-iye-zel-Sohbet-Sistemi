@@ -46,6 +46,7 @@ def main() -> int:
 
     sample_ids = [str(row["sample_id"] or "").strip() for row in rows]
     participant_ids = [str(row["participant_id"] or "").strip() for row in rows]
+    text_values = [str(row["text"] or "").strip() for row in rows]
 
     if any(not value or value.casefold() in {"nan", "none", "null"} for value in sample_ids):
         raise SystemExit("Boş sample_id bulundu.")
@@ -55,6 +56,9 @@ def main() -> int:
 
     if any(not value or value.casefold() in {"nan", "none", "null"} for value in participant_ids):
         raise SystemExit("Boş participant_id bulundu.")
+
+    if any(not value for value in text_values):
+        raise SystemExit("Boş text bulundu; her örnek analiz edilebilir metin içermeli.")
 
     provenance_fields = ("source", "license_or_consent")
     for field in provenance_fields:
