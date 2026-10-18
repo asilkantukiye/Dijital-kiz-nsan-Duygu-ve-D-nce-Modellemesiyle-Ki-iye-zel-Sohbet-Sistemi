@@ -173,3 +173,12 @@ python ml/data/validate_dataset.py ml/data/style.csv --task style
 Hiçbir görev seçilmezse varsayılan `all` seçeneği bütün hedef kolonlarını ister. Her görev ortak kimlik, metin, kaynak ve lisans/rıza açıklaması kolonlarını yine zorunlu tutar. Bu alanları doldurmak, kaynağın kullanım şartlarının ayrıca doğrulanması gereğini ortadan kaldırmaz.
 
 `sentiment_baseline.ipynb` sonuç paketini `artifacts/sentiment/` klasörünü koruyarak oluşturur; Kaggle Actions aynı ZIP içindeki `sentiment/metrics.json` yolunu doğrular. Bu iki yol arasındaki uyum otomatik testle kontrol edilir.
+
+
+## Regresyon ölçümleri ve basit referans modeli
+
+VAD/Big Five/üslup regresyon eğitim betiği her hedef için MAE, RMSE, R², Pearson korelasyonu ve Spearman sıra korelasyonunu raporlar. Hedef veya tahmin sütunu sabitse korelasyonun matematiksel olarak tanımsız olması nedeniyle değer `null` olur; JSON'a NaN yazılmaz.
+
+Test sonucunun tek başına iyi olup olmadığını anlamak için ayrıca basit bir referans model kullanılır: her hedefte yalnızca **train** bölümünün ortalamasını tahmin eden model. `metrics.json` hem eğitilmiş modelin hem bu referansın test metriklerini ve `mae_improvement_over_train_mean_baseline` farkını içerir. Pozitif fark modelin MAE açısından referansı geçtiğini; negatif fark ise geçemediğini gösterir. Bu fark bir başarı yüzdesi değildir.
+
+Kullanım parametreleri için `epochs`, `batch-size`, `max-length` ve `learning-rate` pozitif değerlerle doğrulanır. Ölçüm yardımcı fonksiyonu standart Python kütüphanesiyle test edilebilir; CI bu testlerde GPU veya büyük dil modeli indirmeden çalışır.
