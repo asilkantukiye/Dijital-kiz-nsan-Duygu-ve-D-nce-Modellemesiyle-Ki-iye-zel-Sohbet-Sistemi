@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+import unicodedata
 
 
 REQUIRED_SPLITS = ("train", "validation", "test")
@@ -63,4 +64,53 @@ def validate_split_integrity(
                 raise ValueError(
                     f"Örnek sızıntısı: {left}/{right} arasında "
                     f"{len(sample_overlap)} ortak sample_id var."
+                )
+
+
+
+def _normalise_text(value: object, *, split: str, index: int) -> str:
+    """Normalize harmless Unicode, case, and whitespace differences."""
+    if value is None:
+        raise ValueError(f"{split}: text boş değer içeriyor (satır {index}).")
+    value_text = str(value).strip()
+    if value_text.casefold() in {"", "nan", "none", "null"}:
+        raise ValueError(f"{split}: text boş değer içeriyor (satır {index}).")
+
+    normalized = unicodedata.normalize("NFKC", value_text).casefold()
+    normalized = " ".join(normalized.split())
+    if not normalized:
+        raise ValueError(f"{split}: text boş değer içeriyor (satır {index}).")
+    return normalized
+
+
+def validate_text_split_integrity(splits: Mapping[str, Iterable[object]]) -> None:
+    """Reject exact normalized text appearing in multiple data splits.
+
+    Text is never included in the error message. Repeated examples inside one
+    split are allowed, but the same normalized example must not cross
+    train/validation/test because that can inflate held-out metrics.
+    """
+    missing = [name for name in REQUIRED_SPLITS if name not in splits]
+    if missing:
+        raise ValueError(f"Eksik veri bölümleri: {', '.join(missing)}")
+
+    texts_by_split: dict[str, set[str]] = {}
+    for name in REQUIRED_SPLITS:
+        values = list(splits[name])
+        if not values:
+            raise ValueError(f"{name}: text listesi boş.")
+        normalized_values = [
+            _normalise_text(value, split=name, index=index)
+            for index, value in enumerate(values, start=1)
+        ]
+        texts_by_split[name] = set(normalized_values)
+
+    for index, left in enumerate(REQUIRED_SPLITS):
+        for right in REQUIRED_SPLITS[index + 1 :]:
+            overlap = texts_by_split[left] & texts_by_split[right]
+            if overlap:
+                raise ValueError(
+                    f"Metin sızıntısı: {left}/{right} arasında "
+                    f"{len(overlap)} ortak normalize edilmiş metin var. "
+                    "Yinelenen metinleri tek bir bölümde tut veya yinelenen örnekleri incele."
                 )

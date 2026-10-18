@@ -260,3 +260,10 @@ Bu kontrol lisansın hukuken geçerli olduğunu **kanıtlamaz**. Veri sahibinin 
 `train_regressor.py` tarafından üretilen `metrics.json`, artık train/validation/test dosyalarının SHA-256 özetlerini, split boyutlarını, benzersiz örnek/katılımcı sayılarını ve hedef kolonlarını içerir. Ayrıca Python, NumPy, pandas, PyTorch ve Transformers sürümleri raporlanır. Kaynak/lisans değerlerinin kendileri, örnek metinleri veya katılımcı kimlikleri rapora kopyalanmaz.
 
 Model deposunun değişmez commit SHA'sını doğruladıktan sonra aynı ağırlıkları yeniden kullanmak için `--model-revision` verilebilir. Örnek komut ve manifestin kapsamı için [tekrarlanabilirlik notlarına](ml/REPRODUCIBILITY.md) bak. Revision verilmezse raporda bu bilgi `null` görünür. SHA-256 dosya bütünlüğünü eşleştirmeye yarar; anonimleştirme, lisans doğrulaması veya eğitim başarısı kanıtı değildir.
+
+
+## Train/validation/test arasında yinelenen metin kontrolü
+
+Regresyon eğitim betiği, katılımcı ve örnek kimliklerini kontrol etmenin yanında aynı metnin farklı CSV bölümlerinde bulunup bulunmadığını da denetler. Metinler Unicode NFKC, büyük/küçük harf ve boşluk farklılıkları normalize edildikten sonra karşılaştırılır. Böylece farklı `sample_id` veya `participant_id` ile kopyalanmış aynı metnin test sonucunu yapay biçimde yükseltmesi engellenir.
+
+Aynı metnin tek bir bölüm içinde tekrarlanması bu kontrol tarafından engellenmez; fakat metin train/validation/test arasında görünüyorsa eğitim güvenli biçimde durur. Yinelenen örnekleri incele, kopyaların tamamını tek bölümde tut veya doğrulanmış bir deduplikasyon kararı ver. Hata mesajı metnin kendisini göstermez. Bu, birebir/normalleştirilmiş eşleşme kontrolüdür; anlamca benzer paraphrase'leri yakaladığını iddia etmez.

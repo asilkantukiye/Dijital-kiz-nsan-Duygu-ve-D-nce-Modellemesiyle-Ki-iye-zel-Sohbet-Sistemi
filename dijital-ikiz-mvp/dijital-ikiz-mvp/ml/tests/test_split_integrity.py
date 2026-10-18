@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data.split_integrity import validate_split_integrity
+from data.split_integrity import validate_split_integrity, validate_text_split_integrity
 
 
 def valid_splits():
@@ -51,6 +51,50 @@ class SplitIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Eksik veri bölümleri"):
             validate_split_integrity(splits)
 
+
+
+    def test_rejects_same_text_across_splits_after_case_and_whitespace_normalization(self):
+        splits = {
+            "train": ["Merhaba    DÜNYA"],
+            "validation": ["  merhaba dünya  "],
+            "test": ["Bağımsız bir örnek"],
+        }
+        with self.assertRaisesRegex(ValueError, "Metin sızıntısı"):
+            validate_text_split_integrity(splits)
+
+    def test_rejects_unicode_compatibility_duplicates(self):
+        splits = {
+            "train": ["ＡＢＣ"],
+            "validation": ["abc"],
+            "test": ["başka"],
+        }
+        with self.assertRaisesRegex(ValueError, "Metin sızıntısı"):
+            validate_text_split_integrity(splits)
+
+    def test_allows_repeated_text_within_only_one_split(self):
+        splits = {
+            "train": ["aynı metin", " AYNI   METİN "],
+            "validation": ["doğrulama metni"],
+            "test": ["test metni"],
+        }
+        validate_text_split_integrity(splits)
+
+    def test_rejects_empty_text_without_echoing_text_content(self):
+        splits = {
+            "train": ["train metni"],
+            "validation": [""],
+            "test": ["test metni"],
+        }
+        with self.assertRaisesRegex(ValueError, "text boş"):
+            validate_text_split_integrity(splits)
+
+    def test_text_guard_requires_all_splits(self):
+        splits = {
+            "train": ["train metni"],
+            "validation": ["validation metni"],
+        }
+        with self.assertRaisesRegex(ValueError, "Eksik veri bölümleri"):
+            validate_text_split_integrity(splits)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

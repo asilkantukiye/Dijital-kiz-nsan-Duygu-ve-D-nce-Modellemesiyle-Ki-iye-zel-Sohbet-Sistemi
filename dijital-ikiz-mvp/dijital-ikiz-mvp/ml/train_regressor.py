@@ -18,7 +18,7 @@ from transformers import AutoModel, AutoTokenizer
 from data.provenance import validate_provenance
 from data.run_manifest import build_split_manifest
 from data.regression_metrics import calculate_regression_metrics
-from data.split_integrity import validate_split_integrity
+from data.split_integrity import validate_split_integrity, validate_text_split_integrity
 
 
 class TextRegressionDataset(Dataset):
@@ -184,6 +184,13 @@ def main() -> int:
             validation["sample_id"].tolist(),
         ),
         "test": (test["participant_id"].tolist(), test["sample_id"].tolist()),
+    })
+    # IDs alone do not prevent the same prompt copied under different IDs
+    # from leaking between train/validation/test.
+    validate_text_split_integrity({
+        "train": train["text"].tolist(),
+        "validation": validation["text"].tolist(),
+        "test": test["text"].tolist(),
     })
 
     # Capture hashes before the lengthy training run so the report binds to
