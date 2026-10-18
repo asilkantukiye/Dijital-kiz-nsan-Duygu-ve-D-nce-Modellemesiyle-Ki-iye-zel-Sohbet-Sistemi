@@ -35,3 +35,8 @@ ml/data/anonymized_feedback.csv
 ml/data/blind_review_input.csv
 ml/results/
 ml/private/
+
+
+# Local Supabase table exports (may contain direct identifiers and chat text)
+ml/data/supabase_messages_export.csv
+ml/data/supabase_feedback_export.csv

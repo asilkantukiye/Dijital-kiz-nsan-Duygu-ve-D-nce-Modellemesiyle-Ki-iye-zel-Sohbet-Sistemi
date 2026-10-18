@@ -219,3 +219,30 @@ python ml/analyze_blind_review.py \
 ```
 
 Analiz değerlendiricilerin puanlarını önce aynı yanıt/vaka düzeyinde ortalar, ardından aynı katılımcının her iki koşulda da puanlanmış aynı istemleri üzerinden eşleştirilmiş farkı hesaplar. Eksik koşul puanını başka istemin puanıyla ikame etmez. Rapor kimlikleri ve metinleri dışarı vermez; üç rubrik ölçütünün p-değerleri için Holm düzeltmesi ve birden fazla değerlendirici varsa ölçüt başına ortalama ikili quadratic weighted Cohen kappa özeti içerir. Bu uyum özeti, rater dağılımı ve ortak puanlı vaka sayısıyla birlikte yorumlanmalıdır.
+
+
+## Uygulama sohbet dışa aktarımını kör değerlendirmeye hazırlama
+
+Yetkili olarak dışa aktardığın `messages` CSV'si için şu sütunlar gerekli: `id,user_id,role,variant,content,created_at`. Dönüştürücü yerel dosyadaki ham `user_id` değerlerini yalnızca bellekte gruplama için kullanır; dışa aktardığı dosyada geri döndürülemez şekilde takma ada çevirir. Bunun için en az 32 baytlık özel bir ortam değişkeni şarttır; aynı araştırma boyunca aynı tuz değerini çevrimdışı ve gizli tut.
+
+Linux/macOS örneği:
+
+```bash
+export BLIND_REVIEW_PSEUDONYM_SALT='buraya-guclu-ve-gizli-en-az-32-baytlik-deger'
+python ml/export_chat_pairs_for_blind_review.py ml/data/supabase_messages_export.csv \
+  --output ml/data/blind_review_input.csv
+python ml/prepare_blind_review.py ml/data/blind_review_input.csv \
+  --review-output ml/results/blind_review.csv \
+  --key-output ml/private/condition_key.csv
+```
+
+PowerShell örneği:
+
+```powershell
+$env:BLIND_REVIEW_PSEUDONYM_SALT = "buraya-guclu-ve-gizli-en-az-32-baytlik-deger"
+python ml/export_chat_pairs_for_blind_review.py ml/data/supabase_messages_export.csv --output ml/data/blind_review_input.csv
+```
+
+Dönüştürücü yalnızca her iki koşulda da **aynı metin istemi** bulunan, tam user→assistant çiftlerini eşleştirir. Aynı katılımcı bir istemi birkaç kez yazmışsa oluşum sırasına göre eşleştirir. Zaman damgası aynıysa, sıra belirsizse veya eksik çift oluşmuşsa tahmin yürütmez ve hata verir. `--since` kullanırken tam bir çiftin ortasından başlamamaya dikkat et.
+
+**Gizlilik:** Ham dışa aktarma, üretilen sohbet metinli CSV ve koşul anahtarı kişisel veri içerebilir. Bunları Git'e gönderme; `.gitignore` bu yerel dosyaları dışarıda bırakır. Bu araç yalnızca izinli/etik onaylı araştırma verileriyle, kısıtlı erişimli bir yerel ortamda kullanılmalıdır. Eski kayıtların zaman damgaları eşitse araç onları bilerek reddeder; yeni zaman damgalarının uygulama sürümü dağıtıldıktan sonra üretilen tam kayıtları seç.
