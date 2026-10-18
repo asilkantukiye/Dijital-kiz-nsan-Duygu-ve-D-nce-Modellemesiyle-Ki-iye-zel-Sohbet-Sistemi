@@ -3,7 +3,12 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import sys
 from pathlib import Path
+
+# This script is invoked by path (ml/data/validate_dataset.py), so ensure the
+# ml/ directory is importable before loading its shared data helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data.provenance import validate_provenance
 
