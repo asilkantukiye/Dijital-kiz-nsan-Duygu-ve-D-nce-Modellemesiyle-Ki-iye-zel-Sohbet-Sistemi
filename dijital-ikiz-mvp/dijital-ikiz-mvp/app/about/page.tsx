@@ -23,7 +23,11 @@ export default function About() {
 
           <h2>Gizlilik</h2>
           <p className="small">
-            Sohbet ve profil verileri kullanıcı hesabına bağlanır. Kullanıcı uygulama içinden kendi sohbet ve profil verilerini silebilir.
+            Sohbet, profil ve bellek kayıtları Supabase'te tutulabilir. Yanıt üretimi ve kişiselleştirilmiş bellek işlemleri için gerekli metin parçaları Hugging Face hizmetlerine gönderilebilir. Ayrıntılar için gizlilik ve veri işleme sayfasını inceleyin.
+          </p>
+          <p className="small">
+            Uygulamadaki veri silme işlemi oturum hesabını silmez; harici sağlayıcıların kendi veri işleme uygulamalarını da bu prototip bağımsız olarak denetlemez.
+            {' '}<Link href="/privacy">Gizlilik ve veri işleme</Link>
           </p>
 
           <Link href="/" className="btn" style={{ display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>

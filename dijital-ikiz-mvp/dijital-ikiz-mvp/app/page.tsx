@@ -305,6 +305,7 @@ export default function Home() {
             </a>
             <p className="small privacy-note">
               Araştırma prototipidir; psikolojik tanı veya profesyonel terapi hizmeti sunmaz.
+              {' '}<a href="/privacy">Gizlilik ve veri işleme</a>
             </p>
           </div>
         </main>
@@ -339,7 +340,7 @@ export default function Home() {
         </header>
 
         <div className="privacy-banner">
-          <strong>Deneysel sistem:</strong> Profil skorları doğrulanmış psikolojik ölçüm değildir. Bu sürüm Ar-Ge mimarisini ve sohbet akışını test etmek içindir.
+          <strong>Deneysel sistem:</strong> Profil skorları doğrulanmış psikolojik ölçüm değildir. Mesajlar yanıt üretimi için harici yapay zekâ hizmetlerine gönderilebilir. <a href="/privacy">Gizlilik ve veri işleme</a>
         </div>
 
         <div className="grid">
