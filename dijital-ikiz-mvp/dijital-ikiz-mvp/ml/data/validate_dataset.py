@@ -5,40 +5,68 @@ import csv
 import math
 from pathlib import Path
 
-REQUIRED_COLUMNS = {
+COMMON_COLUMNS = {
     "sample_id",
     "participant_id",
     "text",
     "source",
     "license_or_consent",
-    "valence",
-    "arousal",
-    "dominance",
+}
+
+VAD_COLUMNS = ("valence", "arousal", "dominance")
+BIG_FIVE_COLUMNS = (
     "openness",
     "conscientiousness",
     "extraversion",
     "agreeableness",
     "neuroticism",
+)
+STYLE_COLUMNS = (
     "style_informality",
     "style_emoji_rate",
     "style_slang_rate",
     "style_humor",
+)
+TASK_LABEL_COLUMNS = {
+    "vad": VAD_COLUMNS,
+    "big-five": BIG_FIVE_COLUMNS,
+    "style": STYLE_COLUMNS,
+    "all": VAD_COLUMNS + BIG_FIVE_COLUMNS + STYLE_COLUMNS,
 }
+
+# Backwards-compatible set for callers and tests that validate a complete record.
+REQUIRED_COLUMNS = COMMON_COLUMNS | set(TASK_LABEL_COLUMNS["all"])
+
+
+def required_columns_for_task(task: str) -> set[str]:
+    if task not in TASK_LABEL_COLUMNS:
+        raise ValueError(f"Bilinmeyen görev: {task}")
+    return COMMON_COLUMNS | set(TASK_LABEL_COLUMNS[task])
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="VAD, Big Five veya üslup regresyon verisini doğrular."
+    )
     parser.add_argument("csv_path", type=Path)
+    parser.add_argument(
+        "--task",
+        choices=tuple(TASK_LABEL_COLUMNS),
+        default="all",
+        help="Doğrulanacak etiket grubu (varsayılan: all).",
+    )
     args = parser.parse_args()
+
+    label_columns = TASK_LABEL_COLUMNS[args.task]
 
     with args.csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         columns = set(reader.fieldnames or [])
-
-        missing = REQUIRED_COLUMNS - columns
+        missing = required_columns_for_task(args.task) - columns
         if missing:
-            raise SystemExit(f"Eksik kolonlar: {', '.join(sorted(missing))}")
-
+            raise SystemExit(
+                f"Eksik kolonlar ({args.task}): {', '.join(sorted(missing))}"
+            )
         rows = list(reader)
 
     if not rows:
@@ -60,41 +88,31 @@ def main() -> int:
     if any(not value for value in text_values):
         raise SystemExit("Boş text bulundu; her örnek analiz edilebilir metin içermeli.")
 
-    provenance_fields = ("source", "license_or_consent")
-    for field in provenance_fields:
+    for field in ("source", "license_or_consent"):
         if any(not str(row[field] or "").strip() for row in rows):
             raise SystemExit(
                 f"{field} boş olamaz; veri kaynağı/lisans veya açık rıza bilgisi zorunludur."
             )
 
-    label_columns = [
-        "valence",
-        "arousal",
-        "dominance",
-        "openness",
-        "conscientiousness",
-        "extraversion",
-        "agreeableness",
-        "neuroticism",
-        "style_informality",
-        "style_emoji_rate",
-        "style_slang_rate",
-        "style_humor",
-    ]
     for column in label_columns:
         for row_number, row in enumerate(rows, start=2):
             try:
                 value = float(row[column])
             except (TypeError, ValueError):
-                raise SystemExit(f"{column} sayısal olmalıdır (CSV satırı {row_number}).")
+                raise SystemExit(
+                    f"{column} sayısal olmalıdır (CSV satırı {row_number})."
+                )
             if not math.isfinite(value):
                 raise SystemExit(
                     f"{column} sonlu bir sayı olmalıdır; NaN/sonsuz değer kabul edilmez "
                     f"(CSV satırı {row_number})."
                 )
             if not 0 <= value <= 1:
-                raise SystemExit(f"{column} 0–1 aralığında olmalıdır (CSV satırı {row_number}).")
+                raise SystemExit(
+                    f"{column} 0–1 aralığında olmalıdır (CSV satırı {row_number})."
+                )
 
+    print(f"Görev: {args.task}")
     print(f"Toplam örnek: {len(rows)}")
     print(f"Katılımcı sayısı: {len(set(participant_ids))}")
 
