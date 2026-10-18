@@ -3,17 +3,20 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import platform
 import random
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
+import transformers
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 
 from data.provenance import validate_provenance
+from data.run_manifest import build_split_manifest
 from data.regression_metrics import calculate_regression_metrics
 from data.split_integrity import validate_split_integrity
 
@@ -51,9 +54,15 @@ class TextRegressionDataset(Dataset):
 
 
 class TransformerRegressor(nn.Module):
-    def __init__(self, model_name: str, output_dim: int, dropout: float = 0.1):
+    def __init__(
+        self,
+        model_name: str,
+        output_dim: int,
+        dropout: float = 0.1,
+        revision: str | None = None,
+    ):
         super().__init__()
-        self.encoder = AutoModel.from_pretrained(model_name)
+        self.encoder = AutoModel.from_pretrained(model_name, revision=revision)
         hidden_size = self.encoder.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         self.head = nn.Linear(hidden_size, output_dim)
@@ -137,6 +146,11 @@ def main() -> int:
     parser.add_argument("--test", type=Path, required=True)
     parser.add_argument("--labels", nargs="+", required=True)
     parser.add_argument("--model", default="dbmdz/bert-base-turkish-cased")
+    parser.add_argument(
+        "--model-revision",
+        default=None,
+        help="Hugging Face model revision; değişmez commit SHA kullanılması önerilir.",
+    )
     parser.add_argument("--output", type=Path, default=Path("artifacts/regressor"))
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=8)
@@ -171,7 +185,7 @@ def main() -> int:
         "test": (test["participant_id"].tolist(), test["sample_id"].tolist()),
     })
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.model_revision)
 
     train_ds = TextRegressionDataset(train, tokenizer, args.labels, args.max_length)
     val_ds = TextRegressionDataset(validation, tokenizer, args.labels, args.max_length)
@@ -182,7 +196,11 @@ def main() -> int:
     test_loader = DataLoader(test_ds, batch_size=args.batch_size)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = TransformerRegressor(args.model, len(args.labels)).to(device)
+    model = TransformerRegressor(
+        args.model,
+        len(args.labels),
+        revision=args.model_revision,
+    ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     loss_fn = nn.MSELoss()
@@ -249,6 +267,29 @@ def main() -> int:
         "train_rows": len(train),
         "validation_rows": len(validation),
         "test_rows": len(test),
+        "model_revision": args.model_revision,
+        "model_revision_supplied": args.model_revision is not None,
+        "runtime": {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+            "torch": str(torch.__version__),
+            "transformers": transformers.__version__,
+        },
+        "dataset_manifest": {
+            "hash_algorithm": "sha256",
+            "splits": {
+                "train": build_split_manifest(
+                    args.train, train.to_dict(orient="records"), args.labels
+                ),
+                "validation": build_split_manifest(
+                    args.validation, validation.to_dict(orient="records"), args.labels
+                ),
+                "test": build_split_manifest(
+                    args.test, test.to_dict(orient="records"), args.labels
+                ),
+            },
+        },
         "selection_metric": "validation_mae",
         "baseline": {
             "type": "per_target_train_mean",
