@@ -192,3 +192,18 @@ VAD, Big Five ve üslup için ayrı, boş CSV şablonları `ml/data/vad_template
 ## Veri kaynağı uygunluk denetimi
 
 Kamuya açık veri adaylarının görev uyumu, lisans/erişim durumu ve açık koşulları `ml/DATASET_SOURCE_AUDIT.md` içinde kayıtlıdır. Lisans belirsizliği olan veya erişimi kapalı kaynaklar otomatik olarak kullanılabilir kabul edilmemelidir.
+
+
+## Kör insan değerlendirmesi için A/B yanıt paketi
+
+Aynı takma vaka anahtarına bağlı, aynı isteme ait bir `personalized` ve bir `baseline` yanıt için `ml/prepare_blind_review.py` kullanılır. Araç rastgele A/B etiketleri atar, vaka sırasını karıştırır ve değerlendiriciye gönderilebilecek bir paket ile ayrı bir koşul anahtarı üretir.
+
+```bash
+python ml/prepare_blind_review.py ml/data/blind_review_input.csv \
+  --review-output ml/results/blind_review.csv \
+  --key-output ml/private/condition_key.csv
+```
+
+Kaynak CSV sütunları `pair_id,prompt_text,response_text,variant` olmalıdır. `pair_id` ham kullanıcı kimliği değil, aynı katılımcı/istem çiftini eşleyen rastgele takma vaka anahtarıdır. Değerlendirici dosyası koşul etiketini ve kaynak kimliğini içermez; `ml/private/condition_key.csv` gizli tutulmalı ve değerlendiriciye verilmemelidir. Araç eksik koşul, aynı çiftte farklı istem veya yinelenen varyant varsa durur; var olan çıktı dosyasının üstüne varsayılan olarak yazmaz.
+
+Puanlama rubric'i ve raporlama sınırları `ml/BLIND_REVIEW_RUBRIC.md` dosyasındadır. Bu araç insan değerlendirmesi hazırlamayı kolaylaştırır; mevcut canlı arayüzün koşul etiketini otomatik gizlediğini iddia etmez.
