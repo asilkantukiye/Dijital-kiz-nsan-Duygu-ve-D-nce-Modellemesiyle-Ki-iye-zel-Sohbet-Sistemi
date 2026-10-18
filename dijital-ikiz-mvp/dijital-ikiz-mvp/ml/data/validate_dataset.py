@@ -3,7 +3,14 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import sys
 from pathlib import Path
+
+# This script is invoked by path (ml/data/validate_dataset.py), so ensure the
+# ml/ directory is importable before loading its shared data helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from data.provenance import validate_provenance
 
 COMMON_COLUMNS = {
     "sample_id",
@@ -88,11 +95,10 @@ def main() -> int:
     if any(not value for value in text_values):
         raise SystemExit("Boş text bulundu; her örnek analiz edilebilir metin içermeli.")
 
-    for field in ("source", "license_or_consent"):
-        if any(not str(row[field] or "").strip() for row in rows):
-            raise SystemExit(
-                f"{field} boş olamaz; veri kaynağı/lisans veya açık rıza bilgisi zorunludur."
-            )
+    try:
+        validate_provenance(reader.fieldnames or [], rows, str(args.csv_path))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
     for column in label_columns:
         for row_number, row in enumerate(rows, start=2):
