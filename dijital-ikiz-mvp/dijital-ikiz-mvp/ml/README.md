@@ -187,3 +187,8 @@ Kullanım parametreleri için `epochs`, `batch-size`, `max-length` ve `learning-
 ## Veri toplama ve etiketleme yönergesi
 
 VAD, Big Five ve üslup için ayrı, boş CSV şablonları `ml/data/vad_template.csv`, `ml/data/big_five_template.csv` ve `ml/data/style_template.csv` dosyalarındadır. Etiketleme ölçekleri, anonimleştirme, izin/lisans gereksinimleri, kişi bazlı bölme ve raporlama asgari koşulları `ml/DATA_ANNOTATION_GUIDE.md` içinde açıklanmıştır. Şablonlarda kasıtlı olarak hiç veri satırı yoktur; sentetik test verileri gerçek eğitim verisi veya sonuç yerine kullanılamaz.
+
+
+## Veri kaynağı uygunluk denetimi
+
+Kamuya açık veri adaylarının görev uyumu, lisans/erişim durumu ve açık koşulları `ml/DATASET_SOURCE_AUDIT.md` içinde kayıtlıdır. Lisans belirsizliği olan veya erişimi kapalı kaynaklar otomatik olarak kullanılabilir kabul edilmemelidir.
