@@ -130,6 +130,20 @@ class BlindReviewTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "farklı dosyalar"):
                 prepare_blind_review(paired_rows(), path, path)
 
+
+    def test_rating_template_has_blind_scoring_columns_and_no_data(self):
+        template_path = ML_DIR / "data" / "blind_review_rating_template.csv"
+        with template_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fields = set(reader.fieldnames or [])
+            rows = list(reader)
+
+        self.assertEqual(fields, {
+            "case_id", "response_label", "helpfulness_1_5",
+            "style_fit_1_5", "emotion_fit_1_5"
+        })
+        self.assertEqual(rows, [], "Şablonda gerçek değerlendirici puanı bulunmamalı.")
+
     def test_rejects_empty_prompt_or_response(self):
         rows = paired_rows()
         rows[0]["response_text"] = "  "
