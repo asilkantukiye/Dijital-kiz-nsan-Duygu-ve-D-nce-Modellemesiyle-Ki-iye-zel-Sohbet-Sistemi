@@ -100,5 +100,53 @@ class SplitByParticipantTests(unittest.TestCase):
             )
 
 
+
+    def test_cli_preserves_existing_outputs_unless_overwrite_is_explicit(self):
+        rows = [
+            {"sample_id": "s1", "participant_id": "p1", "text": "shared one"},
+            {"sample_id": "s2", "participant_id": "p2", "text": "SHARED   ONE"},
+            {"sample_id": "s3", "participant_id": "p3", "text": "shared two"},
+            {"sample_id": "s4", "participant_id": "p4", "text": "shared TWO"},
+            {"sample_id": "s5", "participant_id": "p5", "text": "unique five"},
+            {"sample_id": "s6", "participant_id": "p6", "text": "unique six"},
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_path = root / "dataset.csv"
+            output_dir = root / "splits"
+            output_dir.mkdir()
+            existing_train = output_dir / "train.csv"
+            existing_train.write_text("do-not-overwrite\\n", encoding="utf-8")
+            with input_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["sample_id", "participant_id", "text"])
+                writer.writeheader()
+                writer.writerows(rows)
+
+            command = [sys.executable, str(SPLITTER), str(input_path), str(output_dir)]
+            refused = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("--overwrite", refused.stderr)
+            self.assertEqual(existing_train.read_text(encoding="utf-8"), "do-not-overwrite\\n")
+            self.assertFalse((output_dir / "validation.csv").exists())
+            self.assertFalse((output_dir / "test.csv").exists())
+
+            allowed = subprocess.run(
+                [*command, "--overwrite"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(allowed.returncode, 0, allowed.stderr or allowed.stdout)
+            for split_name in ("train", "validation", "test"):
+                self.assertTrue((output_dir / f"{split_name}.csv").exists())
+            self.assertNotEqual(existing_train.read_text(encoding="utf-8"), "do-not-overwrite\\n")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
