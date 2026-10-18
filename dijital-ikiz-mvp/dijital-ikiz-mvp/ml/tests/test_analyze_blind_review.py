@@ -7,7 +7,7 @@ from pathlib import Path
 ML_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ML_DIR))
 
-from analyze_blind_review import analyze_blind_review_rows  # noqa: E402
+from analyze_blind_review import analyze_blind_review_rows, holm_adjust_pvalues  # noqa: E402
 
 
 def fixture_key():
@@ -33,7 +33,7 @@ def fixture_key():
 def fixture_ratings():
     rows = []
     for key_row in fixture_key():
-        for rater_id, delta in (("R1", 0), ("R2", -1)):
+        for rater_id, delta in (("R1", 0), ("R2", 0)):
             if key_row["variant"] == "personalized":
                 scores = (5 + delta, 4 + delta, 4 + delta)
             else:
@@ -70,15 +70,50 @@ class AnalyzeBlindReviewTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             metric["variant_summary"]["personalized"]["mean_participant_score"],
-            4.5,
+            5.0,
         )
         self.assertAlmostEqual(
             metric["variant_summary"]["baseline"]["mean_participant_score"],
-            2.5,
+            3.0,
+        )
+        self.assertAlmostEqual(
+            report["inter_rater_agreement"]["helpfulness_1_5"]["mean"],
+            1.0,
+        )
+        self.assertIn(
+            "p_value_holm_adjusted",
+            metric["difference_personalized_minus_baseline"]["permutation_test"],
         )
         serialized = str(report)
         self.assertNotIn("P001", serialized)
         self.assertNotIn("case-0-0", serialized)
+
+
+    def test_holm_adjustment_controls_familywise_inflation(self):
+        adjusted = holm_adjust_pvalues({
+            "helpfulness": 0.01,
+            "style": 0.04,
+            "emotion": 0.03,
+            "not_available": None,
+        })
+
+        self.assertAlmostEqual(adjusted["helpfulness"], 0.03)
+        self.assertAlmostEqual(adjusted["emotion"], 0.06)
+        self.assertAlmostEqual(adjusted["style"], 0.06)
+        self.assertIsNone(adjusted["not_available"])
+
+    def test_quadratic_weighted_agreement_is_reported_for_multiple_raters(self):
+        report = analyze_blind_review_rows(
+            fixture_ratings(),
+            fixture_key(),
+            seed=1,
+            bootstrap_repetitions=100,
+            permutation_repetitions=100,
+        )
+        agreement = report["inter_rater_agreement"]["style_fit_1_5"]
+        self.assertEqual(agreement["rater_pair_count"], 1)
+        self.assertEqual(agreement["defined_pair_count"], 1)
+        self.assertAlmostEqual(agreement["mean"], 1.0)
 
     def test_rejects_duplicate_rater_response_score(self):
         key = fixture_key()
