@@ -114,6 +114,13 @@ class DatasetValidationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("license_or_consent boş olamaz", result.stderr)
 
+    def test_rejects_unknown_license_in_dataset_csv(self):
+        row = valid_row()
+        row["license_or_consent"] = "unknown"
+        result = self.run_validator([row])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("doğrulanmamış/yer tutucu", result.stderr)
+
     def test_rejects_empty_text(self):
         row = valid_row()
         row["text"] = "  "
