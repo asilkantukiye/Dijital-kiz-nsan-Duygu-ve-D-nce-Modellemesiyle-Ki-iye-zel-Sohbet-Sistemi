@@ -140,7 +140,7 @@ class BlindReviewTests(unittest.TestCase):
             rows = list(reader)
 
         self.assertEqual(fields, {
-            "case_id", "response_label", "helpfulness_1_5",
+            "rater_id", "case_id", "response_label", "helpfulness_1_5",
             "style_fit_1_5", "emotion_fit_1_5"
         })
         self.assertEqual(rows, [], "Şablonda gerçek değerlendirici puanı bulunmamalı.")
