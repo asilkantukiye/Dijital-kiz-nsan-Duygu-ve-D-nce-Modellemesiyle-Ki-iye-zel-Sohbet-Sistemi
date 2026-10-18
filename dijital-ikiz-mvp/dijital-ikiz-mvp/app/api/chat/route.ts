@@ -230,6 +230,9 @@ export async function POST(req: Request) {
 
     modelMessages.push({ role: 'user', content: message })
 
+    // Store distinct event times so an authorised local research export can
+    // safely reconstruct user→assistant pairs without guessing on tied timestamps.
+    const userMessageCreatedAt = new Date().toISOString()
     const rawReply = await qwenChat(modelMessages)
     const reply = boundReply(rawReply)
 
@@ -237,7 +240,12 @@ export async function POST(req: Request) {
       throw new Error('Model boş yanıt döndürdü.')
     }
 
-    const now = new Date().toISOString()
+    const assistantTimestamp = Math.max(
+      Date.now(),
+      new Date(userMessageCreatedAt).getTime() + 1
+    )
+    const assistantMessageCreatedAt = new Date(assistantTimestamp).toISOString()
+    const now = assistantMessageCreatedAt
 
     if (variant === 'personalized') {
       const { error: upsertError } = await supabase
@@ -260,14 +268,16 @@ export async function POST(req: Request) {
           role: 'user',
           variant,
           content: message,
-          profile_snapshot: profileSnapshot
+          profile_snapshot: profileSnapshot,
+          created_at: userMessageCreatedAt
         },
         {
           user_id: user.id,
           role: 'assistant',
           variant,
           content: reply,
-          profile_snapshot: profileSnapshot
+          profile_snapshot: profileSnapshot,
+          created_at: assistantMessageCreatedAt
         }
       ])
       .select('id,role')
