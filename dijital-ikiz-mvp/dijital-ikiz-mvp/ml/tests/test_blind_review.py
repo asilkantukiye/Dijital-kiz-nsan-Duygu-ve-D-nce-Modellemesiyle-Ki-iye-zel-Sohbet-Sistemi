@@ -132,6 +132,19 @@ class BlindReviewTests(unittest.TestCase):
                 prepare_blind_review(paired_rows(), path, path)
 
 
+
+    def test_blind_input_template_matches_required_columns_and_is_empty(self):
+        template_path = ML_DIR / "data" / "blind_review_input_template.csv"
+        with template_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fields = set(reader.fieldnames or [])
+            rows = list(reader)
+
+        self.assertEqual(fields, {
+            "pair_id", "participant_id", "prompt_text", "response_text", "variant"
+        })
+        self.assertEqual(rows, [], "Girdi şablonu örnek katılımcı verisi içermemeli.")
+
     def test_rating_template_has_blind_scoring_columns_and_no_data(self):
         template_path = ML_DIR / "data" / "blind_review_rating_template.csv"
         with template_path.open("r", encoding="utf-8", newline="") as handle:
