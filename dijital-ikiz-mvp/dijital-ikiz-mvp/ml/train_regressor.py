@@ -185,6 +185,23 @@ def main() -> int:
         "test": (test["participant_id"].tolist(), test["sample_id"].tolist()),
     })
 
+    # Capture hashes before the lengthy training run so the report binds to
+    # the input files used for this run, without copying raw rows into output.
+    dataset_manifest = {
+        "hash_algorithm": "sha256",
+        "splits": {
+            "train": build_split_manifest(
+                args.train, train.to_dict(orient="records"), args.labels
+            ),
+            "validation": build_split_manifest(
+                args.validation, validation.to_dict(orient="records"), args.labels
+            ),
+            "test": build_split_manifest(
+                args.test, test.to_dict(orient="records"), args.labels
+            ),
+        },
+    }
+
     tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.model_revision)
 
     train_ds = TextRegressionDataset(train, tokenizer, args.labels, args.max_length)
@@ -276,20 +293,7 @@ def main() -> int:
             "torch": str(torch.__version__),
             "transformers": transformers.__version__,
         },
-        "dataset_manifest": {
-            "hash_algorithm": "sha256",
-            "splits": {
-                "train": build_split_manifest(
-                    args.train, train.to_dict(orient="records"), args.labels
-                ),
-                "validation": build_split_manifest(
-                    args.validation, validation.to_dict(orient="records"), args.labels
-                ),
-                "test": build_split_manifest(
-                    args.test, test.to_dict(orient="records"), args.labels
-                ),
-            },
-        },
+        "dataset_manifest": dataset_manifest,
         "selection_metric": "validation_mae",
         "baseline": {
             "type": "per_target_train_mean",
