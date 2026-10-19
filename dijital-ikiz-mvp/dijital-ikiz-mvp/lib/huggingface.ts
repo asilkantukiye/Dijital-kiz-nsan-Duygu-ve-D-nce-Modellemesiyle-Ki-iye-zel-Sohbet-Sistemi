@@ -1,4 +1,5 @@
 import { InferenceClient } from '@huggingface/inference'
+import { withAbortTimeout } from '@/lib/abort-timeout'
 
 const EMBEDDING_DIMENSION = 384
 const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
@@ -101,8 +102,6 @@ export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
       : new Error('Embedding üretimi başarısız oldu.')
   }
 }
-
-import { withAbortTimeout } from '@/lib/abort-timeout'
 
 export async function qwenChat(
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
