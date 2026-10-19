@@ -1,4 +1,5 @@
 import { InferenceClient } from '@huggingface/inference'
+import { withAbortTimeout } from './abort-timeout.js'
 
 const EMBEDDING_DIMENSION = 384
 const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
@@ -103,10 +104,12 @@ export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
 }
 
 export async function qwenChat(
-  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  timeoutMs = 30_000
 ) {
   const token = process.env.HF_TOKEN
   const model = process.env.HF_MODEL || 'Qwen/Qwen3-4B-Instruct-2507'
+  const timeoutMessage = 'Yapay zekâ yanıtı zaman aşımına uğradı. Lütfen tekrar deneyin.'
 
   if (!token) {
     throw new Error('HF_TOKEN tanımlı değil.')
@@ -115,36 +118,54 @@ export async function qwenChat(
   let lastError: unknown = null
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    let res: Response
+    let completion: { response: Response; data?: unknown }
 
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30_000)
+      completion = await withAbortTimeout(
+        timeoutMs,
+        async (signal) => {
+          const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model,
+              messages,
+              temperature: 0.7,
+              top_p: 0.8,
+              max_tokens: 600,
+              stream: false
+            }),
+            signal,
+            cache: 'no-store'
+          })
 
-      try {
-        res = await fetch('https://router.huggingface.co/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model,
-            messages,
-            temperature: 0.7,
-            top_p: 0.8,
-            max_tokens: 600,
-            stream: false
-          }),
-          signal: controller.signal,
-          cache: 'no-store'
-        })
-      } finally {
-        clearTimeout(timeout)
-      }
+          if (!response.ok) {
+            return { response }
+          }
+
+          let data: unknown
+          try {
+            // Keep the same abort signal active while the response body is read.
+            // Fetch resolving headers does not mean response.json() has completed.
+            data = await response.json()
+          } catch {
+            throw new Error('Model yanıtı okunamadı.')
+          }
+
+          return { response, data }
+        },
+        timeoutMessage
+      )
     } catch (error: unknown) {
-      lastError = error instanceof Error && error.name === 'AbortError'
-        ? new Error('Yapay zekâ yanıtı zaman aşımına uğradı. Lütfen tekrar deneyin.')
+      if (error instanceof Error && error.message === 'Model yanıtı okunamadı.') {
+        throw error
+      }
+
+      lastError = error instanceof Error && error.message === timeoutMessage
+        ? error
         : new Error('Hugging Face bağlantısı kurulamadı.')
 
       if (attempt < 2) {
@@ -154,6 +175,8 @@ export async function qwenChat(
 
       throw lastError
     }
+
+    const { response: res, data } = completion
 
     if (!res.ok) {
       const error =
@@ -174,14 +197,10 @@ export async function qwenChat(
       throw error
     }
 
-    let data: any
-    try {
-      data = await res.json()
-    } catch {
-      throw new Error('Model yanıtı okunamadı.')
-    }
-
-    const reply = data?.choices?.[0]?.message?.content
+    const parsed = data as {
+      choices?: Array<{ message?: { content?: unknown } }>
+    } | undefined
+    const reply = parsed?.choices?.[0]?.message?.content
 
     if (typeof reply !== 'string' || !reply.trim()) {
       throw new Error('Model geçerli bir yanıt döndürmedi.')
