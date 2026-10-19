@@ -15,7 +15,7 @@ test('Vercel workflow requires one access token and a configured team scope', as
 
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
-  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 2)
+  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
