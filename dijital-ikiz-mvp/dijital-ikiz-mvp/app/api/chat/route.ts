@@ -131,13 +131,16 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Oturum bulunamadı.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
     }
 
     if (!allowRequest(user.id)) {
       return NextResponse.json(
         { error: 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.' },
-        { status: 429 }
+        { status: 429, headers: { 'Cache-Control': 'no-store' } }
       )
     }
 
