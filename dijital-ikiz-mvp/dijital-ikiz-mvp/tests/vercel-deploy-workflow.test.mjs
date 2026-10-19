@@ -24,6 +24,12 @@ test('skipped production deployment is explained in the Actions summary without 
   assert.match(workflow, /## Vercel deployment not run/)
   assert.match(workflow, /VERCEL_TOKEN/)
   assert.match(workflow, /VERCEL_ORG_ID/)
+  // Keep literal backticks out of double-quoted shell echo strings: Bash
+  // interprets them as command substitution rather than Markdown formatting.
+  assert.match(workflow, /echo "- VERCEL_TOKEN"/)
+  assert.match(workflow, /echo "- VERCEL_ORG_ID"/)
+  assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
+  assert.doesNotMatch(workflow, /echo "- `VERCEL_ORG_ID`"/)
   assert.match(workflow, /A green preflight with a skipped deploy job does not mean production was updated/)
   assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
 })
