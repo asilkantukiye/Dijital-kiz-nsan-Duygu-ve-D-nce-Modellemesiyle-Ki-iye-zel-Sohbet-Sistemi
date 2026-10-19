@@ -82,7 +82,17 @@ create policy "users own feedback"
   on public.message_feedback
   for all
   to authenticated
-  using ((select auth.uid()) = user_id)
+  using (
+    (select auth.uid()) = user_id
+    and exists (
+      select 1
+      from public.messages as referenced_message
+      where referenced_message.id = message_feedback.message_id
+        and referenced_message.user_id = (select auth.uid())
+        and referenced_message.role = 'assistant'
+        and referenced_message.variant = message_feedback.variant
+    )
+  )
   with check (
     (select auth.uid()) = user_id
     and exists (
