@@ -48,7 +48,7 @@ async function main() {
   }
 
   try {
-    process.stdout.write(extractVercelDeploymentUrl(input) + '\\n')
+    process.stdout.write(extractVercelDeploymentUrl(input) + '\n')
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not parse deployment URL.'
     console.error(message)
