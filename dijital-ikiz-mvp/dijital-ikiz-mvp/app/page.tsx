@@ -72,20 +72,38 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true
+    let supabase: ReturnType<typeof createClient>
 
-    const supabase = createClient()
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session)
-        setLoadingSession(false)
+    try {
+      supabase = createClient()
+    } catch {
+      setError('Supabase ayarlarına erişilemedi. Bağlantı yapılandırmasını kontrol edin.')
+      setLoadingSession(false)
+      return () => {
+        mounted = false
       }
-    })
+    }
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return
       setSession(nextSession)
       setLoadingSession(false)
     })
+
+    supabase.auth.getSession()
+      .then(({ data: sessionData, error: sessionError }) => {
+        if (sessionError) throw sessionError
+        if (!mounted) return
+        setSession(sessionData.session)
+        setLoadingSession(false)
+        setError('')
+      })
+      .catch(() => {
+        if (!mounted) return
+        setSession(null)
+        setError('Oturum doğrulanamadı. İnternet bağlantını ve Supabase hizmetinin durumunu kontrol edip tekrar dene.')
+        setLoadingSession(false)
+      })
 
     return () => {
       mounted = false
@@ -104,37 +122,41 @@ export default function Home() {
 
     async function loadData() {
       setLoadingData(true)
-      const supabase = createClient()
 
-      const [
-        { data: storedMessages, error: messageError },
-        { data: storedProfile, error: profileError },
-        { data: storedFeedback, error: feedbackError }
-      ] = await Promise.all([
-        supabase
-          .from('messages')
-          .select('id,role,content,variant')
-          .eq('user_id', session.user.id)
-          .eq('variant', variant)
-          .order('created_at', { ascending: true })
-          .limit(100),
-        supabase
-          .from('twin_profiles')
-          .select('profile')
-          .eq('user_id', session.user.id)
-          .maybeSingle(),
-        supabase
-          .from('message_feedback')
-          .select('message_id,rating')
-          .eq('user_id', session.user.id)
-      ])
+      try {
+        const supabase = createClient()
 
-      if (!mounted) return
+        const [
+          { data: storedMessages, error: messageError },
+          { data: storedProfile, error: profileError },
+          { data: storedFeedback, error: feedbackError }
+        ] = await Promise.all([
+          supabase
+            .from('messages')
+            .select('id,role,content,variant')
+            .eq('user_id', session.user.id)
+            .eq('variant', variant)
+            .order('created_at', { ascending: true })
+            .limit(100),
+          supabase
+            .from('twin_profiles')
+            .select('profile')
+            .eq('user_id', session.user.id)
+            .maybeSingle(),
+          supabase
+            .from('message_feedback')
+            .select('message_id,rating')
+            .eq('user_id', session.user.id)
+        ])
 
-      if (messageError || profileError || feedbackError) {
-        console.error('Data loading error', messageError || profileError || feedbackError)
-        setError('Kayıtlı veriler yüklenemedi. Lütfen tekrar deneyin.')
-      } else {
+        if (!mounted) return
+
+        if (messageError || profileError || feedbackError) {
+          console.error('Data loading failed.')
+          setError('Kayıtlı veriler yüklenemedi. Bağlantını kontrol edip tekrar dene.')
+          return
+        }
+
         setMessages((storedMessages ?? []) as Message[])
         setProfile(
           variant === 'personalized'
@@ -149,9 +171,12 @@ export default function Home() {
         }
         setFeedback(loadedFeedback)
         setError('')
+      } catch {
+        if (!mounted) return
+        setError('Kayıtlı veriler yüklenemedi. İnternet bağlantını ve Supabase hizmetinin durumunu kontrol edip tekrar dene.')
+      } finally {
+        if (mounted) setLoadingData(false)
       }
-
-      setLoadingData(false)
     }
 
     loadData()
@@ -162,19 +187,25 @@ export default function Home() {
   }, [session?.user?.id, variant])
 
   async function send() {
-    if (!text.trim() || loading || !session?.user?.id) return
+    if (!text.trim() || loading || loadingData || !session?.user?.id) return
 
     const userText = text.trim()
+    const requestVariant = variant
+    const optimisticUserMessage: Message = {
+      role: 'user',
+      content: userText,
+      variant: requestVariant
+    }
     setText('')
     setError('')
-    setMessages((current) => [...current, { role: 'user', content: userText, variant }])
+    setMessages((current) => [...current, optimisticUserMessage])
     setLoading(true)
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, variant })
+        body: JSON.stringify({ message: userText, variant: requestVariant })
       })
 
       const data = await response.json().catch(() => ({}))
@@ -185,13 +216,13 @@ export default function Home() {
 
       setMessages((current) => [
         ...current,
-        { id: data.messageId ?? undefined, role: 'assistant', content: data.reply, variant: data.variant ?? variant }
+        { id: data.messageId ?? undefined, role: 'assistant', content: data.reply, variant: data.variant ?? requestVariant }
       ])
       if (data.profile) setProfile(data.profile)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Bir hata oluştu.'
       setError(message)
-      setMessages((current) => current.slice(0, -1))
+      setMessages((current) => current.filter((item) => item !== optimisticUserMessage))
     } finally {
       setLoading(false)
     }
@@ -300,6 +331,7 @@ export default function Home() {
             <p className="sub">
               Konuşma örneklerinden deneysel duygu, kişilik ve üslup göstergeleri çıkaran kişiselleştirilmiş sohbet prototipi.
             </p>
+            {error && <p className="small" role="alert">{error}</p>}
             <a className="btn" style={{ display: 'inline-block', textDecoration: 'none' }} href="/login">
               Giriş / Kayıt
             </a>
@@ -329,13 +361,20 @@ export default function Home() {
           <div className="toolbar">
             <button
               className="btn secondary"
-              onClick={() => setVariant(variant === 'personalized' ? 'baseline' : 'personalized')}
+              disabled={loading || loadingData}
+              onClick={() => {
+                setError('')
+                setMessages([])
+                setFeedback({})
+                setProfile(emptyProfile)
+                setVariant(variant === 'personalized' ? 'baseline' : 'personalized')
+              }}
               title="Araştırma karşılaştırma koşulunu değiştir"
             >
               Test: {variant === 'personalized' ? 'Kişiselleştirilmiş' : 'Genel'}
             </button>
-            <button className="btn secondary" onClick={clearData}>Verilerimi sil</button>
-            <button className="btn" onClick={signOut}>Çıkış</button>
+            <button className="btn secondary" disabled={loading || loadingData} onClick={clearData}>Verilerimi sil</button>
+            <button className="btn" disabled={loading || loadingData} onClick={signOut}>Çıkış</button>
           </div>
         </header>
 
@@ -397,6 +436,7 @@ export default function Home() {
             <div className="composer">
               <input
                 value={text}
+                disabled={loading || loadingData}
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
@@ -408,7 +448,7 @@ export default function Home() {
                 placeholder="Mesajını yaz…"
                 aria-label="Mesaj"
               />
-              <button className="btn" disabled={loading || !text.trim()} onClick={send}>
+              <button className="btn" disabled={loading || loadingData || !text.trim()} onClick={send}>
                 Gönder
               </button>
             </div>
