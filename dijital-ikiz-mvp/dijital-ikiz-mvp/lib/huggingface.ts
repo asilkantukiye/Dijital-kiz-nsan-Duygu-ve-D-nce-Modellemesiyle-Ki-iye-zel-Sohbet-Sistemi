@@ -1,5 +1,5 @@
 import { InferenceClient } from '@huggingface/inference'
-import { withAbortTimeout } from './abort-timeout.ts'
+import { withAbortTimeout } from './abort-timeout.js'
 
 const EMBEDDING_DIMENSION = 384
 const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
