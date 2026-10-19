@@ -81,11 +81,12 @@ test('enforces the 4000-character limit after sanitation', () => {
   }
 })
 
-test('chat route validates parsed JSON before reading message properties', async () => {
+test('chat route bounds body bytes before validating message properties', async () => {
   const route = await readFile(routePath, 'utf8')
 
-  assert.match(route, /req\.json\(\)\.catch\(\(\) => null\)/)
-  assert.match(route, /validateChatPayload\(body\)/)
+  assert.match(route, /readJsonBodyLimited\(req,\s*16\s*\*\s*1024\)/)
+  assert.match(route, /validateChatPayload\(bodyResult\.value\)/)
+  assert.doesNotMatch(route, /req\.json\(\)/)
   assert.match(route, /sanitizeChatText\(item\.content\)/)
   assert.doesNotMatch(route, /sanitizeText\(body\.message\)/)
 })
