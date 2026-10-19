@@ -47,7 +47,8 @@ jobs:
               echo ""
               echo "After saving the secret, open **Actions → Vercel Deploy → Run workflow**. A green preflight with a skipped deploy job does not mean production was updated."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::VERCEL_TOKEN GitHub Actions secret is missing. Deployment will be skipped."
+            echo "::error::VERCEL_TOKEN GitHub Actions secret is missing. No production deployment was attempted."
+            exit 1
           fi
 
   validate:
