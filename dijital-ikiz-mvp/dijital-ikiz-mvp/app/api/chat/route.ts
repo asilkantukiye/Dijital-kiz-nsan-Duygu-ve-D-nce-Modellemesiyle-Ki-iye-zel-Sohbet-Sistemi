@@ -8,8 +8,9 @@ import {
 } from '@/lib/twin'
 import { qwenChat } from '@/lib/huggingface'
 import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
+import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
 
-const MAX_MESSAGE_LENGTH = 4000
+const MAX_MESSAGE_LENGTH = MAX_CHAT_MESSAGE_LENGTH
 const MAX_HISTORY = 8
 const MAX_HISTORY_ITEM_LENGTH = 2000
 const MAX_HISTORY_CHARS = 12000
@@ -53,12 +54,6 @@ function allowRequest(userId: string) {
 
   current.count += 1
   return true
-}
-
-function sanitizeText(value: unknown) {
-  return String(value ?? '')
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-    .trim()
 }
 
 function boundReply(text: string) {
@@ -107,26 +102,19 @@ export async function POST(req: Request) {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
 
-    const body = await req.json().catch(() => ({}))
-    const message = sanitizeText(body.message)
-    const rawVariant = body.variant
-
-    if (rawVariant !== 'personalized' && rawVariant !== 'baseline') {
-      return NextResponse.json({ error: 'Geçersiz deney varyantı.' }, { status: 400 })
-    }
-
-    const variant = rawVariant as 'personalized' | 'baseline'
-
-    if (!message) {
-      return NextResponse.json({ error: 'Mesaj boş.' }, { status: 400 })
-    }
-
-    if (message.length > MAX_MESSAGE_LENGTH) {
+    const body = await req.json().catch(() => null)
+    const validation = validateChatPayload(body)
+    if (!validation.ok) {
       return NextResponse.json(
-        { error: 'Mesaj en fazla 4000 karakter olabilir.' },
-        { status: 413 }
+        { error: validation.error },
+        {
+          status: validation.status,
+          headers: { 'Cache-Control': 'no-store' }
+        }
       )
     }
+
+    const { message, variant } = validation.value
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -184,7 +172,7 @@ export async function POST(req: Request) {
       )
       .map((item) => ({
         role: item.role as 'user' | 'assistant',
-        content: sanitizeText(item.content)
+        content: sanitizeChatText(item.content)
       }))
 
     const safeHistory = boundHistory(rawHistory)
