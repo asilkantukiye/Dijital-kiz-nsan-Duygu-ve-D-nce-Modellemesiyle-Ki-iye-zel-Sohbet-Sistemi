@@ -22,14 +22,20 @@ function extractFeedbackPolicy(sql) {
 
 function assertFeedbackPolicyEnforcesMessageOwnership(sql) {
   const policy = extractFeedbackPolicy(sql)
+  const checkIndex = policy.toLowerCase().indexOf('with check')
+  assert.notEqual(checkIndex, -1, 'feedback policy must have WITH CHECK')
+  const usingClause = policy.slice(policy.toLowerCase().indexOf('using'), checkIndex)
+  const checkClause = policy.slice(checkIndex)
 
   assert.match(policy, /for all/i)
-  assert.match(policy, /using\s*\(\s*\(select auth\.uid\(\)\)\s*=\s*user_id\s*\)/i)
-  assert.match(policy, /with check\s*\([\s\S]*?exists\s*\(/i)
-  assert.match(policy, /referenced_message\.id\s*=\s*message_feedback\.message_id/i)
-  assert.match(policy, /referenced_message\.user_id\s*=\s*\(select auth\.uid\(\)\)/i)
-  assert.match(policy, /referenced_message\.role\s*=\s*'assistant'/i)
-  assert.match(policy, /referenced_message\.variant\s*=\s*message_feedback\.variant/i)
+  for (const [label, clause] of [['USING', usingClause], ['WITH CHECK', checkClause]]) {
+    assert.match(clause, /\(select auth\.uid\(\)\)\s*=\s*user_id/i, label)
+    assert.match(clause, /exists\s*\(/i, label)
+    assert.match(clause, /referenced_message\.id\s*=\s*message_feedback\.message_id/i, label)
+    assert.match(clause, /referenced_message\.user_id\s*=\s*\(select auth\.uid\(\)\)/i, label)
+    assert.match(clause, /referenced_message\.role\s*=\s*'assistant'/i, label)
+    assert.match(clause, /referenced_message\.variant\s*=\s*message_feedback\.variant/i, label)
+  }
 }
 
 test('feedback RLS binds new and updated feedback to the caller own assistant message and variant', async () => {
