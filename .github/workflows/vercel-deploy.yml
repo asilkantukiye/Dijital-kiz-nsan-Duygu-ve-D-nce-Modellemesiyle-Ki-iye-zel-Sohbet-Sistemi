@@ -50,9 +50,57 @@ jobs:
             echo "::warning::VERCEL_TOKEN GitHub Actions secret is missing. Deployment will be skipped."
           fi
 
-  deploy:
+  validate:
     needs: preflight
     if: ${{ needs.preflight.outputs.ready == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+
+      - name: Set up Python for notebook validation
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Compile ML Python sources
+        run: python -m compileall -q ml
+
+      - name: Validate Kaggle notebook syntax
+        run: python ml/kaggle/validate_notebook.py
+
+      - name: Validate sentiment baseline notebook syntax
+        run: python ml/kaggle/validate_notebook.py ml/kaggle/sentiment_baseline.ipynb
+
+      - name: Validate ML dataset, splits, and leakage guardrails
+        run: python -m unittest discover -s ml/tests -p "test_*.py"
+
+      - name: Install
+        run: npm install
+
+      - name: Unit tests (memory and API validation)
+        run: npm run test:unit
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    needs: [preflight, validate]
+    if: ${{ needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
     runs-on: ubuntu-latest
     defaults:
       run:
