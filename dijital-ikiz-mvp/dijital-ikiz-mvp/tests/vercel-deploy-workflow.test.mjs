@@ -37,7 +37,7 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /GitHub Actions üzerinden dağıtım/)
   assert.match(readme, /Settings → Secrets and variables → Actions/)
   assert.match(readme, /VERCEL_TOKEN/)
-  assert.doesNotMatch(readme, /VERCEL_ORG_ID.*secret/i)
+  assert.match(readme, /VERCEL_ORG_ID.*gerekmez/i)
   assert.match(readme, /help-70c6/)
   assert.match(readme, /üretim güncellenmiş değildir/)
 })
