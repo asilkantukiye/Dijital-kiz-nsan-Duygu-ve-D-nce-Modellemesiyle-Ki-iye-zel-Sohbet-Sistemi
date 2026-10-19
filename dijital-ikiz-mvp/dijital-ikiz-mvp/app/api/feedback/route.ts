@@ -2,14 +2,25 @@ import { NextResponse } from 'next/server'
 import { rejectCrossOrigin } from '@/lib/api-security'
 import { createClient } from '@/lib/supabase-server'
 import { validateFeedbackPayload } from '@/lib/feedback-validation'
+import { readJsonBodyLimited } from '@/lib/request-body'
 
 export async function POST(req: Request) {
   try {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
 
-    const body = await req.json().catch(() => null)
-    const validation = validateFeedbackPayload(body)
+    const bodyResult = await readJsonBodyLimited(req, 8 * 1024)
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        { error: bodyResult.error },
+        {
+          status: bodyResult.status,
+          headers: { 'Cache-Control': 'no-store' }
+        }
+      )
+    }
+
+    const validation = validateFeedbackPayload(bodyResult.value)
 
     if (!validation.ok) {
       return NextResponse.json(

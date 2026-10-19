@@ -9,6 +9,7 @@ import {
 import { qwenChat } from '@/lib/huggingface'
 import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
 import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
+import { readJsonBodyLimited } from '@/lib/request-body'
 
 const MAX_MESSAGE_LENGTH = MAX_CHAT_MESSAGE_LENGTH
 const MAX_HISTORY = 8
@@ -102,8 +103,18 @@ export async function POST(req: Request) {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
 
-    const body = await req.json().catch(() => null)
-    const validation = validateChatPayload(body)
+    const bodyResult = await readJsonBodyLimited(req, 16 * 1024)
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        { error: bodyResult.error },
+        {
+          status: bodyResult.status,
+          headers: { 'Cache-Control': 'no-store' }
+        }
+      )
+    }
+
+    const validation = validateChatPayload(bodyResult.value)
     if (!validation.ok) {
       return NextResponse.json(
         { error: validation.error },
