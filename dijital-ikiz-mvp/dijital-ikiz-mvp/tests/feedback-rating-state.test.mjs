@@ -20,7 +20,7 @@ test('rating controls are disabled while their message rating is saving', async 
   const source = await readFile(pagePath, 'utf8')
 
   assert.match(source, /const \[savingFeedback, setSavingFeedback\] = useState<Record<string, boolean>>\(\{\}\)/)
-  assert.match(source, /disabled=\{Boolean\(savingFeedback\[message\.id\]\)\}/)
+  assert.match(source, /disabled=\{Boolean\(savingFeedback\[message\.id!?\]\)\}/)
   assert.match(source, /aria-pressed=\{feedback\[message\.id!\] === rating\}/)
   assert.match(source, /finally\s*\{[\s\S]*?feedbackInFlight\.current\.delete\(messageId\)[\s\S]*?delete next\[messageId\]/)
 })
