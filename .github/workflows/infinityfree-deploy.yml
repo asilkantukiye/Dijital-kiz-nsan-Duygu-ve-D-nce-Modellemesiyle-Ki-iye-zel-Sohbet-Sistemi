@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Upload static landing page to InfinityFree
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
