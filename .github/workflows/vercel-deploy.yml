@@ -127,8 +127,8 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          deployment_url="$(npx --yes vercel@latest deploy --prod --yes --scope "help-70c6" --token "$VERCEL_TOKEN")"
-          deployment_url="${deployment_url%/}"
+          deployment_output="$(npx --yes vercel@latest deploy --prod --yes --scope "help-70c6" --token "$VERCEL_TOKEN")"
+          deployment_url="$(printf '%s\n' "$deployment_output" | node tests/helpers/extract-vercel-deployment-url.mjs)"
 
           if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app$ ]]; then
             echo "::error::Vercel CLI did not return an expected deployment URL."
