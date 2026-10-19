@@ -43,7 +43,10 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Oturum bulunamadı.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
     }
 
     const { data: message, error: messageError } = await supabase
@@ -57,7 +60,10 @@ export async function POST(req: Request) {
     if (messageError) throw messageError
 
     if (!message) {
-      return NextResponse.json({ error: 'Mesaj bulunamadı.' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Mesaj bulunamadı.' },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+      )
     }
 
     if (message.variant !== requestedVariant) {
