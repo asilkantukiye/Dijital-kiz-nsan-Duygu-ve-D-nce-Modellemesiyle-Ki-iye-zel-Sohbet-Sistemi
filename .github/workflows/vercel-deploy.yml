@@ -23,33 +23,31 @@ jobs:
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
         run: |
-          if [[ -n "$VERCEL_TOKEN" && -n "$VERCEL_ORG_ID" ]]; then
+          if [[ -n "$VERCEL_TOKEN" ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "Required GitHub Actions secrets were detected. The deploy job will attempt production deployment."
+              echo "The VERCEL_TOKEN secret is present. Deployment will use the configured team scope help-70c6."
               echo ""
               echo "This preflight does not prove the deployment succeeded; check the deploy job result and production deployment after the run."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "Vercel deployment secrets are available."
+            echo "Vercel token secret is available."
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
             {
               echo "## Vercel deployment not run"
               echo ""
-              echo "The deploy job was skipped because one or both required repository secrets are missing:"
+              echo "The deploy job was skipped because the required repository secret is missing:"
               echo ""
               echo "- VERCEL_TOKEN"
-              echo "- VERCEL_ORG_ID"
               echo ""
-              echo "Add the values in **GitHub repository Settings → Secrets and variables → Actions**. Never put the token in source code, workflow logs, issues, or chat."
+              echo "Add it in **GitHub repository Settings → Secrets and variables → Actions**. The team scope is configured as help-70c6; no separate organization ID secret is needed. Never put the token in source code, workflow logs, issues, or chat."
               echo ""
-              echo "After saving the secrets, open **Actions → Vercel Deploy → Run workflow**. A green preflight with a skipped deploy job does not mean production was updated."
+              echo "After saving the secret, open **Actions → Vercel Deploy → Run workflow**. A green preflight with a skipped deploy job does not mean production was updated."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::VERCEL_TOKEN ve/veya VERCEL_ORG_ID GitHub Secrets içinde yok. Deployment atlanacak."
+            echo "::warning::VERCEL_TOKEN GitHub Actions secret is missing. Deployment will be skipped."
           fi
 
   deploy:
@@ -72,7 +70,7 @@ jobs:
           cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
 
       - name: Link existing Vercel project
-        run: npx --yes vercel@latest link --yes --project dijital-ikiz-insan --scope "${{ secrets.VERCEL_ORG_ID }}" --token "${{ secrets.VERCEL_TOKEN }}"
+        run: npx --yes vercel@latest link --yes --project dijital-ikiz-insan --scope "help-70c6" --token "${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy to Vercel production
         run: npx --yes vercel@latest deploy --prod --yes --scope "${{ secrets.VERCEL_ORG_ID }}" --token "${{ secrets.VERCEL_TOKEN }}"
