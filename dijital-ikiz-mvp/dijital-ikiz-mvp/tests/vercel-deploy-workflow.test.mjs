@@ -39,7 +39,7 @@ test('deployment URL parser handles CLI status messages and multiple URLs', () =
     'Inspect: https://vercel.com/team/project/abc123',
     'Production deployment: https://deploy-abc123-help-70c6.vercel.app',
     'Alias: https://dijital-ikiz-insan.vercel.app'
-  ].join('\\n')
+  ].join(String.fromCharCode(10))
 
   assert.equal(
     extractVercelDeploymentUrl(output),
@@ -49,7 +49,7 @@ test('deployment URL parser handles CLI status messages and multiple URLs', () =
 
 test('deployment URL parser handles ANSI formatting and rejects external hosts', () => {
   assert.equal(
-    extractVercelDeploymentUrl('\\u001b[32mhttps://deploy-abc123.vercel.app\\u001b[0m'),
+    extractVercelDeploymentUrl(String.fromCharCode(27) + '[32mhttps://deploy-abc123.vercel.app' + String.fromCharCode(27) + '[0m'),
     'https://deploy-abc123.vercel.app'
   )
 
