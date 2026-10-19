@@ -28,4 +28,4 @@ Otomatik yükleme için GitHub repository'sinde **Settings → Secrets and varia
 
 Workflow, parola ve kullanıcı bilgilerini kaynak koda yazmadan GitHub Secrets üzerinden kullanır ve artık şifrelenmiş explicit FTPS bağlantısını (**port 21**) ister; sertifika kontrolü açık tutulur. Sunucu adını InfinityFree panelinden doğrula. TLS sertifikası seçilen hostname ile eşleşmiyorsa sertifika kontrolünü kapatmak yerine doğru FTP hostname'ini kullan.
 
-Secrets eksikse upload işi atlanır. Secret'lar kaydedildikten sonra **Actions → Deploy InfinityFree landing page → Run workflow** üzerinden çalıştırılabilir.
+Secrets eksikse preflight açık hata verir ve workflow başarısız görünür; bu durumda hiçbir upload yapılmamıştır. Secret'lar kaydedildikten sonra **Actions → Deploy InfinityFree landing page → Run workflow** üzerinden yeniden çalıştırılabilir.

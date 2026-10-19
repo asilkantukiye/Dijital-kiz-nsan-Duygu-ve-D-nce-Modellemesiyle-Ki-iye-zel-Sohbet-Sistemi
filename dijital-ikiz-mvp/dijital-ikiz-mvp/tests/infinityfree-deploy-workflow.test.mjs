@@ -40,6 +40,7 @@ test('skipped InfinityFree upload is explained without shell interpolation', asy
   assert.match(workflow, /INFINITYFREE_FTP_USERNAME/)
   assert.match(workflow, /INFINITYFREE_FTP_PASSWORD/)
   assert.match(workflow, /A green preflight with a skipped upload job does not mean the landing page was updated/)
+  assert.match(workflow, /InfinityFree upload requires[^\n]*\n\s*exit 1/)
 })
 
 test('InfinityFree setup guide documents FTPS and the static landing-page scope', async () => {
