@@ -30,6 +30,41 @@ def load_split_helpers():
     return namespace
 
 
+def load_provenance_helper():
+    notebook = load_notebook()
+    source = "".join(notebook["cells"][6]["source"])
+    tree = ast.parse(source)
+    wanted_vars = {"PROVENANCE_FIELDS", "UNVERIFIED_MARKERS", "INVALID_VALUES"}
+    assignments = []
+    found_vars = set()
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        names = {
+            target.id for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        relevant = names & wanted_vars
+        if relevant:
+            assignments.append(node)
+            found_vars.update(relevant)
+
+    function = next(
+        (
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "validate_provenance_rows"
+        ),
+        None,
+    )
+    if found_vars != wanted_vars or function is None:
+        raise AssertionError("Kaggle notebook provenance helper/constants not found.")
+
+    namespace = {}
+    module = ast.Module(body=[*assignments, function], type_ignores=[])
+    exec(compile(module, str(NOTEBOOK_PATH), "exec"), namespace)
+    return namespace["validate_provenance_rows"]
+
+
 class KaggleNotebookGuardrailTests(unittest.TestCase):
     def test_same_text_with_unicode_case_and_whitespace_differences_is_normalized(self):
         helpers = load_split_helpers()
@@ -73,6 +108,26 @@ class KaggleNotebookGuardrailTests(unittest.TestCase):
         self.assertIn("license_or_consent", validation_source)
         self.assertNotIn(".dropna(", validation_source)
         self.assertIn("frame.copy()", validation_source)
+
+    def test_provenance_helper_rejects_placeholders_and_accepts_explicit_values(self):
+        validate = load_provenance_helper()
+        validate([{
+            "source": "Example dataset, version 2",
+            "license_or_consent": "CC BY 4.0; consent confirmed in study protocol",
+        }])
+
+        bad_rows = [
+            {"source": "unknown", "license_or_consent": "CC BY 4.0"},
+            {"source": "Dataset v1", "license_or_consent": "TBD"},
+            {"source": "unverified source", "license_or_consent": "consent approved"},
+            {"source": "Bilinmiyor", "license_or_consent": "consent approved"},
+            {"source": "Dataset v1", "license_or_consent": "lisans bilinmiyor"},
+            {"source": "", "license_or_consent": "CC BY 4.0"},
+        ]
+        for row in bad_rows:
+            with self.subTest(row=row):
+                with self.assertRaises(ValueError):
+                    validate([row], source_label="synthetic-test")
 
     def test_notebook_contains_final_cross_split_text_leakage_assertion(self):
         notebook = load_notebook()
