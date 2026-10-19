@@ -60,6 +60,10 @@ export default function Login() {
       } else {
         window.location.href = '/'
       }
+    } catch {
+      setMsg(
+        'Sunucuya ulaşılamadı. İnternet bağlantını ve Supabase hizmetinin durumunu kontrol edip tekrar dene.'
+      )
     } finally {
       setLoading(false)
     }
@@ -104,6 +108,7 @@ export default function Login() {
             type="button"
             className="btn secondary"
             style={{ marginTop: 8 }}
+            disabled={loading}
             onClick={() => {
               setMode(mode === 'login' ? 'signup' : 'login')
               setMsg('')
