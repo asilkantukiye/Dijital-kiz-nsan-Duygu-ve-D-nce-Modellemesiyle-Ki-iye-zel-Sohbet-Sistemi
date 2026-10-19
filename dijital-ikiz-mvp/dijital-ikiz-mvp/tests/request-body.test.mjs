@@ -32,26 +32,20 @@ test('rejects malformed and empty JSON bodies', async () => {
   if (!empty.ok) assert.equal(empty.status, 400)
 })
 
-test('rejects a declared oversized body before reading the stream', async () => {
-  let readAttempted = false
-  const body = new ReadableStream({
-    pull(controller) {
-      readAttempted = true
-      controller.enqueue(new TextEncoder().encode('{"message":"small"}'))
-      controller.close()
+test('rejects a declared oversized body before accessing the body stream', async () => {
+  let bodyAccessed = false
+  const request = {
+    headers: new Headers({ 'content-length': '1000' }),
+    get body() {
+      bodyAccessed = true
+      throw new Error('Body stream should not be accessed for a declared oversized request.')
     }
-  })
-  const request = new Request('https://example.test/api/test', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'content-length': '1000' },
-    body,
-    duplex: 'half'
-  })
+  }
 
   const result = await readJsonBodyLimited(request, 128)
   assert.equal(result.ok, false)
   if (!result.ok) assert.equal(result.status, 413)
-  assert.equal(readAttempted, false)
+  assert.equal(bodyAccessed, false)
 })
 
 test('rejects actual bytes beyond the limit even if content-length is absent', async () => {
