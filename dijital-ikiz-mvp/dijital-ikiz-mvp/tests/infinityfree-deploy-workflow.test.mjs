@@ -32,6 +32,16 @@ test('InfinityFree deployment reads credentials from secrets, not source values'
   assert.match(workflow, /dangerous-clean-slate:\s*false/)
 })
 
+test('skipped InfinityFree upload is explained without shell interpolation', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /## InfinityFree landing page upload not run/)
+  assert.match(workflow, /INFINITYFREE_FTP_SERVER/)
+  assert.match(workflow, /INFINITYFREE_FTP_USERNAME/)
+  assert.match(workflow, /INFINITYFREE_FTP_PASSWORD/)
+  assert.match(workflow, /A green preflight with a skipped upload job does not mean the landing page was updated/)
+})
+
 test('InfinityFree setup guide documents FTPS and the static landing-page scope', async () => {
   const readme = await readFile(readmePath, 'utf8')
 
