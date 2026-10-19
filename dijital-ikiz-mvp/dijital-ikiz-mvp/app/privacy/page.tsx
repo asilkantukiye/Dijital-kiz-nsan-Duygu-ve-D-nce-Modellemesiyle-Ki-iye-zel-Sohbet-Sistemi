@@ -29,7 +29,7 @@ export default function PrivacyPage() {
             Uygulama hesabı, sohbet geçmişi, profil, bellek ve geri bildirim kayıtları Supabase veritabanında tutulur. Kod, kullanıcı kayıtlarını oturum açmış hesabın kimliğiyle sınırlar (Row Level Security). Bu teknik kontrol, canlı hizmetin her an erişilebilir olduğunu veya bütünleşik uçtan uca testlerin tamamlandığını tek başına kanıtlamaz.
           </p>
           <p className="small">
-            Sohbet kayıtları, kullanıcı silme işlemi yapana kadar saklanabilir. Bellek kayıtları 180 günlük etkin olmama süresi ve kullanıcı başına kayıt sınırıyla yönetilir. Bu belleğe özgü süre, sohbet geçmişine otomatik silme süresi olarak uygulanmaz.
+            Sohbet kayıtları, kullanıcı silme işlemi yapana kadar saklanabilir. Bellek kayıtları için 180 günlük etkin olmama hedefi vardır; ancak bu temizlik şu an arka planda zamanlanmış bir iş değildir. Temizlik, aynı hesap yeni bir kişiselleştirilmiş mesaj gönderdiğinde çalışır. Kullanıcı hiç geri dönmezse sırf 180 gün geçti diye bellek kayıtları otomatik silinmez. Bellek sayısı bu işlemler sırasında hesap başına en fazla 50 olacak şekilde sınırlandırılır. Bu belleğe özgü kural, sohbet geçmişine otomatik silme süresi olarak uygulanmaz.
           </p>
 
           <h2>Verilerimi sil</h2>
