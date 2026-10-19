@@ -17,7 +17,7 @@ test('Vercel workflow requires one access token and a configured team scope', as
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
   assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 2)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
-}
+})
 
 test('skipped production deployment is explained without exposing secret values', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
@@ -29,7 +29,7 @@ test('skipped production deployment is explained without exposing secret values'
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /A green preflight with a skipped deploy job does not mean production was updated/)
   assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
-}
+})
 
 test('README documents how to configure the deploy workflow and verify deployment', async () => {
   const readme = await readFile(readmePath, 'utf8')
