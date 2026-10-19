@@ -15,7 +15,7 @@ test('Vercel workflow requires one access token and a configured team scope', as
 
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
-  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 2)
+  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
@@ -31,6 +31,18 @@ test('skipped production deployment is explained without exposing secret values'
   assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
 })
 
+test('production deployment URL is captured and health/readiness is checked afterward', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /id: deployment/)
+  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
+  assert.match(workflow, /vercel@latest curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
+  assert.match(workflow, /health\.ok !== true/)
+  assert.match(workflow, /health\.ready !== true/)
+  assert.match(workflow, /Production health smoke test passed/)
+})
+
 test('README documents how to configure the deploy workflow and verify deployment', async () => {
   const readme = await readFile(readmePath, 'utf8')
 
@@ -40,4 +52,6 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /VERCEL_ORG_ID.*gerekmez/i)
   assert.match(readme, /help-70c6/)
   assert.match(readme, /üretim güncellenmiş değildir/)
+  assert.match(readme, /\/api\/health/)
+  assert.match(readme, /gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz/)
 })
