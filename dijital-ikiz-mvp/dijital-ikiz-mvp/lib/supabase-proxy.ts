@@ -48,18 +48,18 @@ export async function updateSession(request: NextRequest) {
   if (protectedRoute) {
     // getUser() performs a server-side Auth check, so a logged-out/stale
     // session cannot reach protected pages or APIs through the proxy.
-    let user = null
+    let hasAuthenticatedUser = false
     try {
       const {
-        data: { user: authenticatedUser }
+        data: { user }
       } = await supabase.auth.getUser()
-      user = authenticatedUser
+      hasAuthenticatedUser = Boolean(user)
     } catch {
       // A network/auth provider exception must never bypass this guard.
       return unauthenticatedResponse(request, pathname)
     }
 
-    if (!user) {
+    if (!hasAuthenticatedUser) {
       return unauthenticatedResponse(request, pathname)
     }
   }
