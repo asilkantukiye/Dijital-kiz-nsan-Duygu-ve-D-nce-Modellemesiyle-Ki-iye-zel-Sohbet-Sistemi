@@ -4,9 +4,30 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
 
+  const pathname = request.nextUrl.pathname
+  const protectedRoute =
+    pathname === '/' ||
+    pathname.startsWith('/api/chat') ||
+    pathname.startsWith('/api/feedback') ||
+    pathname.startsWith('/api/data')
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+  // Don't let a missing environment variable crash public pages before the
+  // application can render its setup guidance. Protected routes stay closed.
+  if (!supabaseUrl || !supabasePublishableKey) {
+    if (protectedRoute) {
+      return authUnavailableResponse(request, pathname)
+    }
+
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl,
+    supabasePublishableKey,
     {
       cookies: {
         getAll() {
@@ -24,13 +45,6 @@ export async function updateSession(request: NextRequest) {
       }
     }
   )
-
-  const pathname = request.nextUrl.pathname
-  const protectedRoute =
-    pathname === '/' ||
-    pathname.startsWith('/api/chat') ||
-    pathname.startsWith('/api/feedback') ||
-    pathname.startsWith('/api/data')
 
   // Fail closed for protected routes if Supabase Auth cannot be reached, but
   // keep public pages such as /login available during a temporary auth outage.
@@ -68,20 +82,34 @@ export async function updateSession(request: NextRequest) {
   return response
 }
 
+function loginRedirect(request: NextRequest) {
+  const loginUrl = request.nextUrl.clone()
+  loginUrl.pathname = '/login'
+  loginUrl.search = ''
+  const redirect = NextResponse.redirect(loginUrl)
+  redirect.headers.set('Cache-Control', 'private, no-store')
+  return redirect
+}
+
 function unauthenticatedResponse(request: NextRequest, pathname: string) {
-  if (pathname === '/') {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    loginUrl.search = ''
-    const redirect = NextResponse.redirect(loginUrl)
-    redirect.headers.set('Cache-Control', 'private, no-store')
-    return redirect
-  }
+  if (pathname === '/') return loginRedirect(request)
 
   return NextResponse.json(
     { error: 'Oturum bulunamadı.' },
     {
       status: 401,
+      headers: { 'Cache-Control': 'private, no-store' }
+    }
+  )
+}
+
+function authUnavailableResponse(request: NextRequest, pathname: string) {
+  if (pathname === '/') return loginRedirect(request)
+
+  return NextResponse.json(
+    { error: 'Kimlik doğrulama hizmeti yapılandırılmamış.' },
+    {
+      status: 503,
       headers: { 'Cache-Control': 'private, no-store' }
     }
   )
