@@ -222,8 +222,16 @@ export default function Home() {
       ])
       if (data.profile) setProfile(data.profile)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Bir hata oluştu.'
+      const message =
+        error instanceof TypeError
+          ? 'Bağlantı kurulamadı. Mesajını kaybettirmedim; bağlantını kontrol edip tekrar gönderebilirsin.'
+          : error instanceof Error
+            ? error.message
+            : 'Mesaj gönderilemedi. Lütfen tekrar dene.'
       setError(message)
+      // A failed request is not persisted as a successful chat turn. Restore
+      // the draft so the user can retry instead of losing the message silently.
+      setText(userText)
       setMessages((current) => current.filter((item) => item !== optimisticUserMessage))
     } finally {
       setLoading(false)
