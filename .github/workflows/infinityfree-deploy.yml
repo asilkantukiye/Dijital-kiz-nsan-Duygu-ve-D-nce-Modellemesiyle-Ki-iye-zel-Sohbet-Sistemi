@@ -51,7 +51,10 @@ jobs:
           server: ${{ secrets.INFINITYFREE_FTP_SERVER }}
           username: ${{ secrets.INFINITYFREE_FTP_USERNAME }}
           password: ${{ secrets.INFINITYFREE_FTP_PASSWORD }}
-          protocol: ftp
+          # Explicit FTPS encrypts the FTP control and data channel.
+          protocol: ftps
+          port: 21
+          security: strict
           local-dir: infinityfree/
           server-dir: /htdocs/
           dangerous-clean-slate: false
