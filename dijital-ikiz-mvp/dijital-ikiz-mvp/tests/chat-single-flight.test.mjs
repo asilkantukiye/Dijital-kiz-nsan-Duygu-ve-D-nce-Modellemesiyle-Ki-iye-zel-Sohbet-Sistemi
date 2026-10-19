@@ -11,7 +11,7 @@ test('chat send is guarded synchronously against duplicate submit events', async
   const source = await readFile(pagePath, 'utf8')
 
   assert.match(source, /const chatSendInFlight = useRef\(false\)/)
-  assert.match(source, /chatSendInFlight\.current \|\| loading/)
+  assert.match(source, /chatSendInFlight\.current\s*\|\|\s*loading/)
   assert.match(source, /chatSendInFlight\.current = true/)
   assert.match(source, /finally\s*\{[\s\S]*?chatSendInFlight\.current = false[\s\S]*?setLoading\(false\)/)
 })
