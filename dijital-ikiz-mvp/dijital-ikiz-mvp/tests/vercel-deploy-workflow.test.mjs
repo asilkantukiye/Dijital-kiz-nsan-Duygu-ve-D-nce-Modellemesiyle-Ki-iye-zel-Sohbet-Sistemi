@@ -31,6 +31,24 @@ test('skipped production deployment is explained without exposing secret values'
   assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
 })
 
+test('production deploy is gated on the full validation job', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /validate:\s*\n\s+needs: preflight/)
+  assert.match(workflow, /if: \$\{\{ needs\.preflight\.outputs\.ready == 'true' \}\}/)
+  assert.match(workflow, /needs: \[preflight, validate\]/)
+  assert.match(workflow, /needs\.validate\.result == 'success'/)
+  for (const command of [
+    'python -m compileall -q ml',
+    'python -m unittest discover -s ml/tests -p "test_*.py"',
+    'npm run test:unit',
+    'npm run typecheck',
+    'npm run build'
+  ]) {
+    assert.ok(workflow.includes(command), `deployment validation missing: ${command}`)
+  }
+})
+
 test('production deployment URL is captured and health/readiness is checked afterward', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
