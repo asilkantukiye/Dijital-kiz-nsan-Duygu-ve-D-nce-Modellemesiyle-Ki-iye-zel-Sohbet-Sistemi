@@ -92,7 +92,7 @@ jobs:
             echo "## Production deployment created"
             echo ""
             echo "- Deployment URL: $deployment_url"
-            echo "- Next step: verify `/api/health` and required configuration."
+            echo "- Next step: verify /api/health and required configuration."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify production health and chat configuration
@@ -138,6 +138,6 @@ jobs:
             echo ""
             echo "## Production health smoke test passed"
             echo ""
-            echo "- `/api/health` returned valid JSON."
+            echo "- Endpoint /api/health returned valid JSON."
             echo "- The app confirmed liveness and minimum chat-provider configuration."
           } >> "$GITHUB_STEP_SUMMARY"
