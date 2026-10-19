@@ -427,7 +427,7 @@ export default function Home() {
                           key={rating}
                           type="button"
                           className={`feedback-btn ${feedback[message.id!] === rating ? 'selected' : ''}`}
-                          disabled={Boolean(savingFeedback[message.id])}
+                          disabled={Boolean(savingFeedback[message.id!])}
                           onClick={() => rateMessage(message.id, rating, message.variant ?? 'personalized')}
                           aria-label={`Puan ${rating}`}
                           aria-pressed={feedback[message.id!] === rating}
