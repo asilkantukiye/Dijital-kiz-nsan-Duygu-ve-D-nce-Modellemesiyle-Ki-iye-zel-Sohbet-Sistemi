@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
 type Message = {
@@ -68,6 +68,8 @@ export default function Home() {
   const [loadingSession, setLoadingSession] = useState(true)
   const [loadingData, setLoadingData] = useState(false)
   const [feedback, setFeedback] = useState<Record<string, number>>({})
+  const [savingFeedback, setSavingFeedback] = useState<Record<string, boolean>>({})
+  const feedbackInFlight = useRef<Set<string>>(new Set())
   const [variant, setVariant] = useState<'personalized' | 'baseline'>('personalized')
 
   useEffect(() => {
@@ -238,6 +240,11 @@ export default function Home() {
       return
     }
 
+    // Lock synchronously as well as in React state: two clicks before the next
+    // render must not issue competing upserts for the same assistant message.
+    if (feedbackInFlight.current.has(messageId)) return
+    feedbackInFlight.current.add(messageId)
+    setSavingFeedback((current) => ({ ...current, [messageId]: true }))
     setError('')
 
     try {
@@ -263,6 +270,13 @@ export default function Home() {
       setError(
         'Bağlantı kesildi. Yanıt puanının kaydedilip kaydedilmediği doğrulanamadı; lütfen yeniden kontrol edin.'
       )
+    } finally {
+      feedbackInFlight.current.delete(messageId)
+      setSavingFeedback((current) => {
+        const next = { ...current }
+        delete next[messageId]
+        return next
+      })
     }
   }
 
@@ -413,8 +427,10 @@ export default function Home() {
                           key={rating}
                           type="button"
                           className={`feedback-btn ${feedback[message.id!] === rating ? 'selected' : ''}`}
+                          disabled={Boolean(savingFeedback[message.id!])}
                           onClick={() => rateMessage(message.id, rating, message.variant ?? 'personalized')}
                           aria-label={`Puan ${rating}`}
+                          aria-pressed={feedback[message.id!] === rating}
                         >
                           {rating}
                         </button>
