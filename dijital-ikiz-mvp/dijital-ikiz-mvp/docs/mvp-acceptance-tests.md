@@ -57,8 +57,11 @@ Bu liste yazılımın çalıştığını göstermek için kullanılabilir.
 
 ## Dağıtım
 
-- [ ] `/api/health` 200 döndürmelidir.
+- [ ] `/api/health` 200 döndürmelidir; bu yalnızca servisin yanıt verdiğini gösterir.
+- [ ] `/api/health` yanıtındaki `ready`, yalnızca Supabase URL + publishable key ve HF token yapılandırmalarının üçü de varsa `true` olmalıdır.
+- [ ] `/api/health` yanıtında anahtar/token değerleri bulunmamalıdır.
 - [ ] Vercel üzerinde build başarıyla tamamlanmalıdır.
+- [ ] Vercel dağıtımının `READY` olması tek başına Supabase sohbet akışının uçtan uca çalıştığını kanıtlamaz; gerçek oturumla ayrıca denenmelidir.
 - [ ] Supabase URL ve publishable key doğru ayarlanmalıdır.
 - [ ] Hugging Face Inference Providers tokenı doğru ayarlanmalıdır.
 
