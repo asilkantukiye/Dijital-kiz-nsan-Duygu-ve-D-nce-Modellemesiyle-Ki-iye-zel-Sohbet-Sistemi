@@ -122,12 +122,11 @@ HF_MODEL
 
 ### GitHub Actions üzerinden dağıtım
 
-`.github/workflows/vercel-deploy.yml`, GitHub Actions üzerinden manuel/otomatik üretim dağıtımı içindir. Bu workflow'un dağıtımı gerçekten başlatması için GitHub repository ayarlarında **Settings → Secrets and variables → Actions** altında şu iki secret tanımlı olmalıdır:
+`.github/workflows/vercel-deploy.yml`, GitHub Actions üzerinden manuel/otomatik üretim dağıtımı içindir. Bu workflow için yalnızca şu secret gereklidir:
 
 - `VERCEL_TOKEN`: Vercel hesabında oluşturulan erişim token'ı.
-- `VERCEL_ORG_ID`: Vercel projesinin bulunduğu takımın Vercel Team ID'si.
 
-Token'ı kaynak koda, issue'lara, loglara veya sohbet mesajlarına yazma. Workflow eksik secret'ları tespit ederse dağıtımı atlar ve GitHub Actions özeti içinde nedenini gösterir. Bu durumda workflow'un genel sonucu yeşil görünebilse bile üretim güncellenmiş değildir. Secret'lar kaydedildikten sonra **Actions → Vercel Deploy → Run workflow** ile manuel çalıştırma yapılabilir.
+Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ayrıca `VERCEL_ORG_ID` secret'ı oluşturman gerekmez. Token'ı kaynak koda, issue'lara, loglara veya sohbet mesajlarına yazma. GitHub repository ayarlarında **Settings → Secrets and variables → Actions → New repository secret** yoluyla `VERCEL_TOKEN` ekle. Workflow token eksikse dağıtımı atlar ve GitHub Actions özeti içinde nedenini gösterir. Bu durumda workflow'un genel sonucu yeşil görünebilse bile üretim güncellenmiş değildir. Secret kaydedildikten sonra **Actions → Vercel Deploy → Run workflow** ile manuel çalıştırma yapılabilir.
 
 Bu GitHub Actions yolu ile Vercel Dashboard'daki Git bağlantısı birbirinden ayrı dağıtım yöntemleridir. Vercel projesi ve repo bağlantısının gerçekten doğru olduğundan emin olun; bir build'in başarılı olması tek başına uygulamanın üretime yayımlandığını kanıtlamaz.
 
