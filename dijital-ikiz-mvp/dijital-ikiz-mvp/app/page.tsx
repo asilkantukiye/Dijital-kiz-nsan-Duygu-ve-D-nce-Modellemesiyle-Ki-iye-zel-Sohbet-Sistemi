@@ -70,6 +70,7 @@ export default function Home() {
   const [feedback, setFeedback] = useState<Record<string, number>>({})
   const [savingFeedback, setSavingFeedback] = useState<Record<string, boolean>>({})
   const feedbackInFlight = useRef<Set<string>>(new Set())
+  const chatSendInFlight = useRef(false)
   const [variant, setVariant] = useState<'personalized' | 'baseline'>('personalized')
 
   useEffect(() => {
@@ -189,8 +190,17 @@ export default function Home() {
   }, [session?.user?.id, variant])
 
   async function send() {
-    if (!text.trim() || loading || loadingData || !session?.user?.id) return
+    if (
+      !text.trim() ||
+      chatSendInFlight.current ||
+      loading ||
+      loadingData ||
+      !session?.user?.id
+    ) return
 
+    // Lock synchronously before state updates so rapid Enter/double-click
+    // events cannot issue two paid model requests for the same draft.
+    chatSendInFlight.current = true
     const userText = text.trim()
     const requestVariant = variant
     const optimisticUserMessage: Message = {
@@ -234,6 +244,7 @@ export default function Home() {
       setText(userText)
       setMessages((current) => current.filter((item) => item !== optimisticUserMessage))
     } finally {
+      chatSendInFlight.current = false
       setLoading(false)
     }
   }
