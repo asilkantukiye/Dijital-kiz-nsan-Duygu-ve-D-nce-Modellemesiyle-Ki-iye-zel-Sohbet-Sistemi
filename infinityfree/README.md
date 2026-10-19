@@ -11,8 +11,8 @@ Ana Dijital İkiz uygulaması Next.js + server-side API + Supabase + Hugging Fac
 1. InfinityFree hosting hesabında domain/subdomain oluştur.
 2. File Manager'ı aç.
 3. Alan adının htdocs klasörüne index.html dosyasını yükle.
-4. Vercel uygulaması canlı olduktan sonra index.html içindeki YOUR-VERCEL-DOMAIN bölümünü gerçek Vercel alan adıyla değiştir.
-5. HTTPS üzerinden sayfayı test et.
+4. Canlı Vercel dağıtımı ve Supabase bağlantısı doğrulanana kadar tanıtım sayfası yalnızca GitHub kaynak koduna yönlendirir; sahte veya yer tutucu bir uygulama adresi yayınlanmaz.
+5. Dağıtım doğrulandıktan sonra gerçek üretim alan adını ekleyip HTTPS üzerinden bağlantıyı test et.
 
 InfinityFree resmi sitesine göre dosyalar FTP veya online File Manager ile yüklenebilir. Güncel topluluk dokümantasyonunda site dosyalarının htdocs içine konması gerektiği ve HTML/PHP/JS dosyaları için 1 MB dosya limiti bulunduğu belirtiliyor; bu landing page bu sınırın altında tutulmuştur.
 
