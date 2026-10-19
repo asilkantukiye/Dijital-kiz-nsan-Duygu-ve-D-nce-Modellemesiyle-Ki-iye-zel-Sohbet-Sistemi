@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import { extractVercelDeploymentUrl } from './helpers/extract-vercel-deployment-url.mjs'
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
@@ -31,11 +32,43 @@ test('skipped production deployment is explained without exposing secret values'
   assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
 })
 
+
+test('deployment URL parser handles CLI status messages and multiple URLs', () => {
+  const output = [
+    'Deploying production build...',
+    'Inspect: https://vercel.com/team/project/abc123',
+    'Production deployment: https://deploy-abc123-help-70c6.vercel.app',
+    'Alias: https://dijital-ikiz-insan.vercel.app'
+  ].join('\\n')
+
+  assert.equal(
+    extractVercelDeploymentUrl(output),
+    'https://deploy-abc123-help-70c6.vercel.app'
+  )
+})
+
+test('deployment URL parser handles ANSI formatting and rejects external hosts', () => {
+  assert.equal(
+    extractVercelDeploymentUrl('\\u001b[32mhttps://deploy-abc123.vercel.app\\u001b[0m'),
+    'https://deploy-abc123.vercel.app'
+  )
+
+  assert.throws(
+    () => extractVercelDeploymentUrl('https://deploy-abc123.vercel.app.attacker.example'),
+    /valid HTTPS deployment URL/
+  )
+  assert.throws(
+    () => extractVercelDeploymentUrl('https://deploy-abc123.vercel.app/unexpected-path'),
+    /valid HTTPS deployment URL/
+  )
+})
+
 test('production deployment URL is captured and health/readiness is checked afterward', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /id: deployment/)
   assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
   assert.match(workflow, /vercel@latest curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
   assert.match(workflow, /health\.ok !== true/)
