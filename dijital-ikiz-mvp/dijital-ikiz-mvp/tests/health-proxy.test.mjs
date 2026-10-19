@@ -12,7 +12,7 @@ test('/api/health is excluded from the Supabase session proxy matcher', async ()
   const matcher = proxy.match(/matcher:\s*\[([\s\S]*?)\]/)
 
   assert.ok(matcher, 'proxy matcher configuration must exist')
-  assert.match(matcher[1], /api\/health\/?\$\|_next\/static/)
+  assert.match(matcher[1], /api\/health\/\?\$\|_next\/static/)
   assert.match(matcher[1], /\(\?!/)
   assert.doesNotMatch(matcher[1], /api\/health\(\?:\/\|\$\)/)
 })
