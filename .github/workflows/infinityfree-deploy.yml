@@ -31,9 +31,30 @@ jobs:
         run: |
           if [[ -n "$FTP_SERVER" && -n "$FTP_USERNAME" && -n "$FTP_PASSWORD" ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## InfinityFree deployment preflight"
+              echo ""
+              echo "Required GitHub Actions secrets were detected. The encrypted FTPS upload job will attempt deployment."
+              echo ""
+              echo "Check the actual upload job result; this preflight alone does not prove the landing page was updated."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "InfinityFree FTP secrets are available."
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## InfinityFree landing page upload not run"
+              echo ""
+              echo "The upload job was skipped because one or more required repository secrets are missing:"
+              echo ""
+              echo "- INFINITYFREE_FTP_SERVER"
+              echo "- INFINITYFREE_FTP_USERNAME"
+              echo "- INFINITYFREE_FTP_PASSWORD"
+              echo ""
+              echo "Add the values in GitHub repository Settings -> Secrets and variables -> Actions. Never put the FTP password in source code, workflow logs, issues, or chat."
+              echo ""
+              echo "After saving the secrets, open Actions -> Deploy InfinityFree landing page -> Run workflow."
+              echo "A green preflight with a skipped upload job does not mean the landing page was updated."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "::warning::INFINITYFREE_FTP_SERVER, INFINITYFREE_FTP_USERNAME ve/veya INFINITYFREE_FTP_PASSWORD GitHub Secrets içinde eksik. Yükleme atlanacak."
           fi
 
