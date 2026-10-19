@@ -30,7 +30,7 @@ test('skipped production deployment is explained without exposing secret values'
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /A green preflight with a skipped deploy job does not mean production was updated/)
   assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
-  assert.match(workflow, /echo \\\"::error::VERCEL_TOKEN GitHub Actions secret is missing[\\s\\S]*?exit 1/)
+  assert.match(workflow, /VERCEL_TOKEN GitHub Actions secret is missing[^\n]*\n\s*exit 1/)
 })
 
 test('production deploy is gated on the full validation job', async () => {
