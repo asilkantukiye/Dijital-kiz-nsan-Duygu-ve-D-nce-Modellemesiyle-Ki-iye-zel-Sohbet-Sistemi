@@ -247,8 +247,6 @@ export async function POST(req: Request) {
       new Date(userMessageCreatedAt).getTime() + 1
     )
     const assistantMessageCreatedAt = new Date(assistantTimestamp).toISOString()
-    const now = assistantMessageCreatedAt
-
     const profileSnapshot = variant === 'personalized' ? profile : null
 
     // The RPC writes the profile and both messages in one database transaction.
