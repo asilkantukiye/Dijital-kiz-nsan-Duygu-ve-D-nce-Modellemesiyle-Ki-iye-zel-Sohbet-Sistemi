@@ -172,27 +172,23 @@ $$;
 
 RESET ROLE;
 
--- Anonymous callers must not execute the RPC.
-SET ROLE anon;
-SET request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
-
-DO $$
-DECLARE
-  denied boolean := false;
+-- Check the exact function ACL, independently from table-level RLS errors.
+DO $
 BEGIN
-  BEGIN
-    PERFORM * FROM public.persist_chat_turn(
-      'baseline', 'user', 'assistant',
-      '2026-10-20 20:04:00+00', '2026-10-20 20:04:00.001+00', NULL
-    );
-  EXCEPTION WHEN insufficient_privilege THEN
-    denied := true;
-  END;
-
-  IF NOT denied THEN
+  IF has_function_privilege(
+    'anon',
+    'public.persist_chat_turn(text,text,text,timestamptz,timestamptz,jsonb)',
+    'EXECUTE'
+  ) THEN
     RAISE EXCEPTION 'anon unexpectedly has EXECUTE permission on persist_chat_turn';
   END IF;
-END
-$$;
 
-RESET ROLE;
+  IF NOT has_function_privilege(
+    'authenticated',
+    'public.persist_chat_turn(text,text,text,timestamptz,timestamptz,jsonb)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'authenticated is missing EXECUTE permission on persist_chat_turn';
+  END IF;
+END
+$;
