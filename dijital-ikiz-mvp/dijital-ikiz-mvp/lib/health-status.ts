@@ -1,3 +1,5 @@
+import { isValidSupabaseUrl } from './supabase-url.ts'
+
 export type HealthEnvironment = {
   supabaseUrl?: string
   supabasePublishableKey?: string
@@ -24,7 +26,7 @@ export type HealthStatus = {
  */
 export function buildHealthStatus(environment: HealthEnvironment): HealthStatus {
   const supabase = Boolean(
-    environment.supabaseUrl?.trim() &&
+    isValidSupabaseUrl(environment.supabaseUrl) &&
     environment.supabasePublishableKey?.trim()
   )
   const huggingface = Boolean(environment.huggingfaceToken?.trim())
