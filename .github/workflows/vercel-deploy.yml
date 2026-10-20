@@ -23,14 +23,14 @@ jobs:
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED: ${{ vars.SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED }}
+          SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
         run: |
           missing=()
           if [[ -z "$VERCEL_TOKEN" ]]; then
             missing+=("VERCEL_TOKEN (GitHub Actions secret)")
           fi
-          if [[ "$SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED" != "true" ]]; then
-            missing+=("SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED=true (repository variable)")
+          if [[ "$SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true" ]]; then
+            missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
           fi
 
           if (( ${#missing[@]} == 0 )); then
@@ -57,7 +57,7 @@ jobs:
               echo "Add VERCEL_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
               echo "Never put the token in source code, workflow logs, issues, or chat."
               echo ""
-              echo "Set repository variable **SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED** to exactly **true** only after the atomic chat-turn migration has been applied to the intended Supabase project and its function permissions have been verified. See supabase/MIGRATION_RUNBOOK.md."
+              echo "Set repository variable **SUPABASE_PRODUCTION_SCHEMA_VERIFIED** to exactly **true** only after the baseline schema and all required migrations are applied to the intended Supabase project, and RLS policies plus required RPC permissions/functions are verified. Follow supabase/MIGRATION_RUNBOOK.md."
               echo ""
               echo "If Supabase is inactive or the migration cannot be verified, leave the variable unset. CI passing does not prove production database readiness."
               echo ""
