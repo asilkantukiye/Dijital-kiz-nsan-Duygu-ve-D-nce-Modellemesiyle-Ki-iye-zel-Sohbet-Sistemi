@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { chronologicalMessagesFromNewestFirst } from '@/lib/recent-messages'
+import { normalizeProfile } from '@/lib/twin'
 import { createClient } from '@/lib/supabase-browser'
 
 type Message = {
@@ -164,7 +165,7 @@ export default function Home() {
         setMessages(chronologicalMessagesFromNewestFirst(storedMessages) as Message[])
         setProfile(
           variant === 'personalized'
-            ? ((storedProfile?.profile as Profile | null) ?? emptyProfile)
+            ? normalizeProfile(storedProfile?.profile)
             : emptyProfile
         )
         const loadedFeedback: Record<string, number> = {}
