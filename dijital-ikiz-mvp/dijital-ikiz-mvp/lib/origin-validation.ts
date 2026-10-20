@@ -1,20 +1,36 @@
 /**
- * Determine whether a request's Origin is allowed by the current policy.
- * Missing Origin is allowed for non-browser/server-to-server clients; callers
- * must not interpret this function as a complete CSRF defense on its own.
+ * Validate the request origin for cookie-authenticated state-changing APIs.
+ * Browser requests without an Origin header must still provide same-origin
+ * Fetch Metadata or a same-origin Referer. Origin-less requests with no
+ * trustworthy browser context are rejected to avoid weakening CSRF protection.
  */
 export function isAllowedOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin')
-
-  // Non-browser/server-to-server clients may omit Origin.
-  if (!origin) return true
+  let requestOrigin: string
 
   try {
-    const requestOrigin = new URL(request.url).origin
-    const originValue = new URL(origin).origin
-    return originValue === requestOrigin
+    requestOrigin = new URL(request.url).origin
   } catch {
-    // Treat malformed Origin values as untrusted.
+    return false
+  }
+
+  const origin = request.headers.get('origin')
+  if (origin !== null) {
+    return isSameOrigin(origin, requestOrigin)
+  }
+
+  const referer = request.headers.get('referer')
+  if (referer !== null) {
+    return isSameOrigin(referer, requestOrigin)
+  }
+
+  return request.headers.get('sec-fetch-site') === 'same-origin'
+}
+
+function isSameOrigin(value: string, requestOrigin: string): boolean {
+  try {
+    return new URL(value).origin === requestOrigin
+  } catch {
+    // Treat malformed Origin/Referer values as untrusted.
     return false
   }
 }
