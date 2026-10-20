@@ -16,9 +16,10 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
-  assert.match(workflow, /SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED:\s*\$\{\{\s*vars\.SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED\s*\}\}/)
-  assert.match(workflow, /SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED" != "true"/)
-  assert.match(workflow, /only after the atomic chat-turn migration has been applied/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED:\s*\$\{\{\s*vars\.SUPABASE_PRODUCTION_SCHEMA_VERIFIED\s*\}\}/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true"/)
+  assert.match(workflow, /only after the baseline schema and all required migrations are applied/)
+  assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
   assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
@@ -29,7 +30,7 @@ test('missing deployment prerequisites are explained without exposing secret val
 
   assert.match(workflow, /## Vercel deployment not run/)
   assert.match(workflow, /VERCEL_TOKEN/)
-  assert.match(workflow, /SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
   assert.match(workflow, /help-70c6/)
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
@@ -109,7 +110,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
   assert.match(workflow, /vercel@latest deploy --prod/)
-  assert.match(workflow, /SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
 test('README documents how to configure the deploy workflow and verify deployment', async () => {
