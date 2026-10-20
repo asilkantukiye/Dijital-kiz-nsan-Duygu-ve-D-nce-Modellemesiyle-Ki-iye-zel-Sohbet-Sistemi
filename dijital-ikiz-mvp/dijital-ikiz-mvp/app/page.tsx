@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { chronologicalMessagesFromNewestFirst } from '@/lib/recent-messages'
 import { createClient } from '@/lib/supabase-browser'
 
 type Message = {
@@ -139,7 +140,7 @@ export default function Home() {
             .select('id,role,content,variant')
             .eq('user_id', session.user.id)
             .eq('variant', variant)
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: false })
             .limit(100),
           supabase
             .from('twin_profiles')
@@ -160,7 +161,7 @@ export default function Home() {
           return
         }
 
-        setMessages((storedMessages ?? []) as Message[])
+        setMessages(chronologicalMessagesFromNewestFirst(storedMessages) as Message[])
         setProfile(
           variant === 'personalized'
             ? ((storedProfile?.profile as Profile | null) ?? emptyProfile)
