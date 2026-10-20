@@ -100,7 +100,7 @@ export async function POST(req: Request) {
       }
     )
   } catch (error: unknown) {
-    console.error('Feedback API error:', error)
+    console.error('Feedback request failed; diagnostic details omitted.')
     return NextResponse.json(
       { error: 'Geri bildirim kaydedilemedi. Lütfen daha sonra tekrar deneyin.' },
       {
