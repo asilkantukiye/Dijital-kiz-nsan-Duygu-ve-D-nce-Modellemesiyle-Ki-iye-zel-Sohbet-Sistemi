@@ -5,7 +5,7 @@ import { isAllowedOrigin } from '../lib/origin-validation.ts'
 
 const requestUrl = 'https://app.example.test/api/feedback'
 
-test('allows same-origin browser mutations', () => {
+test('allows same-origin browser mutations with an Origin header', () => {
   const result = isAllowedOrigin(new Request(requestUrl, {
     method: 'POST',
     headers: { Origin: 'https://app.example.test' }
@@ -14,8 +14,37 @@ test('allows same-origin browser mutations', () => {
   assert.equal(result, true)
 })
 
-test('allows requests with no Origin header for non-browser clients by policy', () => {
-  assert.equal(isAllowedOrigin(new Request(requestUrl, { method: 'POST' })), true)
+test('rejects requests missing Origin and any same-origin browser context', () => {
+  assert.equal(isAllowedOrigin(new Request(requestUrl, { method: 'POST' })), false)
+})
+
+test('allows missing Origin only with an exact same-origin Referer', () => {
+  assert.equal(isAllowedOrigin(new Request(requestUrl, {
+    method: 'POST',
+    headers: { Referer: 'https://app.example.test/settings' }
+  })), true)
+
+  assert.equal(isAllowedOrigin(new Request(requestUrl, {
+    method: 'POST',
+    headers: { Referer: 'https://attacker.example/form' }
+  })), false)
+
+  assert.equal(isAllowedOrigin(new Request(requestUrl, {
+    method: 'POST',
+    headers: { Referer: 'malformed-url' }
+  })), false)
+})
+
+test('allows missing Origin when Fetch Metadata explicitly reports same-origin', () => {
+  assert.equal(isAllowedOrigin(new Request(requestUrl, {
+    method: 'POST',
+    headers: { 'Sec-Fetch-Site': 'same-origin' }
+  })), true)
+
+  assert.equal(isAllowedOrigin(new Request(requestUrl, {
+    method: 'POST',
+    headers: { 'Sec-Fetch-Site': 'cross-site' }
+  })), false)
 })
 
 test('rejects requests from another origin', () => {
