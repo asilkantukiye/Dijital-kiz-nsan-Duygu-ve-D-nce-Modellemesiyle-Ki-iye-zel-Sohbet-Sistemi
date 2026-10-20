@@ -85,7 +85,9 @@ message_feedback politikası, satırın imzalı kullanıcının kendi satırı o
 ~~~sql
 select p.proname,
        pg_get_function_identity_arguments(p.oid) as arguments,
-       p.prosecdef as security_definer
+       p.prosecdef as security_definer,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute,
+       has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
@@ -93,7 +95,7 @@ where n.nspname = 'public'
 order by p.proname;
 ~~~
 
-Uygulama fonksiyonları da SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false beklenir. Ayrıca sadece authenticated rolünün execute iznine sahip olduğunu doğrula.
+Uygulama fonksiyonları SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false, authenticated_can_execute = true ve anon_can_execute = false beklenir. `anon_can_execute = false` aynı zamanda PUBLIC üzerinden yanlışlıkla verilmiş execute iznini de yakalamaya yardımcı olur.
 
 ### pgvector extension
 
@@ -113,3 +115,4 @@ Repo şeması vektör extension'ını extensions şemasında bekler.
 3. GitHub'daki CI başarısını şema doğrulamasıyla karıştırma: CI SQL sözleşmelerini/testleri kontrol eder, gerçek Supabase projesinde migration uygulandığını kanıtlamaz.
 4. Oturum açma, iki kullanıcı arasında veri izolasyonu, sohbet kaydetme/okuma, geri bildirim yetkilendirmesi ve veri silme işlemini iki ayrı test hesabıyla dene. Bu E2E testleri yalnızca proje etkin ve migration'lar doğrulandıktan sonra yapılabilir.
 5. Test hesabında veri silmenin chat belleğini, profili, mesajları ve bağlı geri bildirimi temizlediğini kontrol et. Bu işlem Supabase Auth hesabını silmez.
+6. Yukarıdaki doğrulamaların tümü doğru projede tamamlandıktan sonra GitHub repository **Settings → Secrets and variables → Actions → Variables** bölümünde `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` değişkenini tam olarak `true` yap. Yalnızca son chat-turn migration'ının uygulanması yeterli değildir; temel şema, listedeki bütün gerekli migration'lar, RLS politikaları ve tüm kritik RPC fonksiyonları/izinleri doğrulanmış olmalıdır. Proje INACTIVE ise veya bu kontrollerden biri belirsizse değişkeni oluşturma ya da `true` yapma.
