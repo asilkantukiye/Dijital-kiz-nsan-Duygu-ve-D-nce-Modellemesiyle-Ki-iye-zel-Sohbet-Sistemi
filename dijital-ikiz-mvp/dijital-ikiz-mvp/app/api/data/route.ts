@@ -27,7 +27,7 @@ export async function DELETE(req: Request) {
       { headers: { 'Cache-Control': 'no-store' } }
     )
   } catch (error: unknown) {
-    console.error('Data deletion API error:', error)
+    console.error('Data deletion request failed; diagnostic details omitted.')
     return NextResponse.json(
       { error: 'Veriler silinemedi. Lütfen daha sonra tekrar deneyin.' },
       {
