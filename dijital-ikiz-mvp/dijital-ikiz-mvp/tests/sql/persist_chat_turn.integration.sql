@@ -173,7 +173,7 @@ $$;
 RESET ROLE;
 
 -- Check the exact function ACL, independently from table-level RLS errors.
-DO $
+DO $acl$
 BEGIN
   IF has_function_privilege(
     'anon',
@@ -191,4 +191,4 @@ BEGIN
     RAISE EXCEPTION 'authenticated is missing EXECUTE permission on persist_chat_turn';
   END IF;
 END
-$;
+$acl$;
