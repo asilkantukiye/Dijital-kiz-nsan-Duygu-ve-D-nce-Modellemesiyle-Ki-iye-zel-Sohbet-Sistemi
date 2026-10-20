@@ -24,6 +24,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 3. 20261008202255_stage5_memory_fk_index.sql
 4. 20261018190000_atomic_user_data_deletion.sql
 5. 20261019175000_feedback_message_ownership_rls.sql
+6. 20261020200000_atomic_chat_turn_persistence.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -88,11 +89,11 @@ select p.proname,
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn')
 order by p.proname;
 ~~~
 
-Her iki uygulama fonksiyonu da SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false beklenir. Ayrıca sadece authenticated rolünün execute iznine sahip olduğunu doğrula.
+Uygulama fonksiyonları da SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false beklenir. Ayrıca sadece authenticated rolünün execute iznine sahip olduğunu doğrula.
 
 ### pgvector extension
 
@@ -108,7 +109,7 @@ Repo şeması vektör extension'ını extensions şemasında bekler.
 ## Migration sonrası doğrulama
 
 1. CLI migration listesinde beklenen migration'ların applied olduğunu doğrula.
-2. Salt-okunur tablolarda RLS, politikalar, match_memory_items ve delete_my_chat_data fonksiyonlarını tekrar kontrol et.
+2. Salt-okunur tablolarda RLS, politikalar, match_memory_items, delete_my_chat_data ve persist_chat_turn fonksiyonlarını tekrar kontrol et.
 3. GitHub'daki CI başarısını şema doğrulamasıyla karıştırma: CI SQL sözleşmelerini/testleri kontrol eder, gerçek Supabase projesinde migration uygulandığını kanıtlamaz.
 4. Oturum açma, iki kullanıcı arasında veri izolasyonu, sohbet kaydetme/okuma, geri bildirim yetkilendirmesi ve veri silme işlemini iki ayrı test hesabıyla dene. Bu E2E testleri yalnızca proje etkin ve migration'lar doğrulandıktan sonra yapılabilir.
 5. Test hesabında veri silmenin chat belleğini, profili, mesajları ve bağlı geri bildirimi temizlediğini kontrol et. Bu işlem Supabase Auth hesabını silmez.
