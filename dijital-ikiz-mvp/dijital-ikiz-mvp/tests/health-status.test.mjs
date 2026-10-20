@@ -14,7 +14,7 @@ test('health is live but not ready when backend configuration is missing', () =>
   })
 })
 
-test('health is ready only when Supabase and Hugging Face configuration are present', () => {
+test('health is ready only when valid Supabase and Hugging Face configuration is present', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-placeholder',
@@ -27,6 +27,39 @@ test('health is ready only when Supabase and Hugging Face configuration are pres
     supabase: true,
     huggingface: true
   })
+})
+
+test('malformed or unsafe Supabase URLs never report readiness', () => {
+  const invalidUrls = [
+    'not-a-url',
+    'ftp://project.example.supabase.co',
+    'http://project.example.supabase.co',
+    'https://user:password@project.example.supabase.co',
+    'https://project.example.supabase.co?redirect=elsewhere',
+    'https://project.example.supabase.co#fragment'
+  ]
+
+  for (const supabaseUrl of invalidUrls) {
+    const status = buildHealthStatus({
+      supabaseUrl,
+      supabasePublishableKey: 'publishable-placeholder',
+      huggingfaceToken: 'secret-placeholder'
+    })
+
+    assert.equal(status.ready, false, `Expected not ready for URL: ${supabaseUrl}`)
+    assert.equal(status.configured.supabase, false)
+  }
+})
+
+test('local loopback HTTP is accepted for development readiness', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'http://localhost:54321',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder'
+  })
+
+  assert.equal(status.ready, true)
+  assert.equal(status.configured.supabase, true)
 })
 
 test('health is not ready if any required provider configuration is absent', () => {
