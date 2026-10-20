@@ -16,6 +16,20 @@ on:
 jobs:
   web:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: digital_twin_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d digital_twin_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
@@ -47,6 +61,20 @@ jobs:
 
       - name: Validate ML dataset, splits, and leakage guardrails
         run: python -m unittest discover -s ml/tests -p "test_*.py"
+
+      - name: Test atomic chat-turn migration against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: |
+          psql --version
+          psql --set ON_ERROR_STOP=1 \
+            --file tests/sql/persist_chat_turn.setup.sql \
+            --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
+            --file tests/sql/persist_chat_turn.integration.sql
 
       - name: Install
         run: npm install
