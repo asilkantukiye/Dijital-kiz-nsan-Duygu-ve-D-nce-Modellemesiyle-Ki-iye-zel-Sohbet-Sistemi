@@ -249,49 +249,32 @@ export async function POST(req: Request) {
     const assistantMessageCreatedAt = new Date(assistantTimestamp).toISOString()
     const now = assistantMessageCreatedAt
 
-    if (variant === 'personalized') {
-      const { error: upsertError } = await supabase
-        .from('twin_profiles')
-        .upsert(
-          { user_id: user.id, profile, updated_at: now },
-          { onConflict: 'user_id' }
-        )
-
-      if (upsertError) throw upsertError
-    }
-
     const profileSnapshot = variant === 'personalized' ? profile : null
 
-    const { data: insertedMessages, error: insertError } = await supabase
-      .from('messages')
-      .insert([
-        {
-          user_id: user.id,
-          role: 'user',
-          variant,
-          content: message,
-          profile_snapshot: profileSnapshot,
-          created_at: userMessageCreatedAt
-        },
-        {
-          user_id: user.id,
-          role: 'assistant',
-          variant,
-          content: reply,
-          profile_snapshot: profileSnapshot,
-          created_at: assistantMessageCreatedAt
-        }
-      ])
-      .select('id,role')
+    // The RPC writes the profile and both messages in one database transaction.
+    // If any write fails, PostgreSQL rolls back the complete chat turn.
+    const { data: savedTurns, error: persistError } = await supabase.rpc('persist_chat_turn', {
+      p_variant: variant,
+      p_user_content: message,
+      p_assistant_content: reply,
+      p_user_created_at: userMessageCreatedAt,
+      p_assistant_created_at: assistantMessageCreatedAt,
+      p_profile_snapshot: profileSnapshot
+    })
 
-    if (insertError) throw insertError
+    if (persistError) throw persistError
 
-    const userMessage = insertedMessages?.find((item) => item.role === 'user')
-    const assistantMessage = insertedMessages?.find((item) => item.role === 'assistant')
+    const savedTurn = Array.isArray(savedTurns) ? savedTurns[0] : null
+    const userMessageId = savedTurn?.user_message_id
+    const assistantMessageId = savedTurn?.assistant_message_id
 
-    if (variant === 'personalized' && userMessage?.id) {
+    if (typeof userMessageId !== 'string' || typeof assistantMessageId !== 'string') {
+      throw new Error('Sohbet turu kaydedilemedi.')
+    }
+
+    if (variant === 'personalized' && userMessageId) {
       try {
-        await persistMemories(user.id, userMessage.id, message)
+        await persistMemories(user.id, userMessageId, message)
       } catch {
         // Do not log user-derived memory content or third-party error payloads.
         console.error('Memory persistence failed; chat response was already saved.')
@@ -303,7 +286,7 @@ export async function POST(req: Request) {
         reply,
         profile: variant === 'personalized' ? profile : null,
         variant,
-        messageId: assistantMessage?.id ?? null
+        messageId: assistantMessageId
       },
       {
         headers: {
