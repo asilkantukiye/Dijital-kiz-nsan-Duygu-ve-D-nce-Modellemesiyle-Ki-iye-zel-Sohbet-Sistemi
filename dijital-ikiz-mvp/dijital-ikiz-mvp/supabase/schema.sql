@@ -61,7 +61,7 @@ returns table (
 language plpgsql
 security invoker
 set search_path = pg_catalog, public, extensions
-as $
+as $$
 declare
   v_user_id uuid := auth.uid();
   v_user_message_id uuid;
@@ -122,7 +122,7 @@ begin
 
   return query select v_user_message_id, v_assistant_message_id;
 end;
-$;
+$$;
 
 revoke all on function public.persist_chat_turn(text, text, text, timestamptz, timestamptz, jsonb) from public;
 revoke all on function public.persist_chat_turn(text, text, text, timestamptz, timestamptz, jsonb) from anon;
