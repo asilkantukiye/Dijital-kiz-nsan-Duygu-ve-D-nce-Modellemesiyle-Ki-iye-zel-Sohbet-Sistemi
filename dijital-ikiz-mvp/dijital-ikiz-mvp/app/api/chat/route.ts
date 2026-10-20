@@ -312,7 +312,7 @@ export async function POST(req: Request) {
       }
     )
   } catch (error: unknown) {
-    console.error('Chat API error:', error)
+    console.error('Chat API request failed; diagnostic details omitted.')
     return NextResponse.json(
       { error: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' },
       {
