@@ -18,36 +18,52 @@ jobs:
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
-      - name: Check Vercel secrets
+      - name: Check deployment prerequisites
         id: check
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED: ${{ vars.SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED }}
         run: |
-          if [[ -n "$VERCEL_TOKEN" ]]; then
+          missing=()
+          if [[ -z "$VERCEL_TOKEN" ]]; then
+            missing+=("VERCEL_TOKEN (GitHub Actions secret)")
+          fi
+          if [[ "$SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED" != "true" ]]; then
+            missing+=("SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED=true (repository variable)")
+          fi
+
+          if (( ${#missing[@]} == 0 )); then
             echo "ready=true" >> "$GITHUB_OUTPUT"
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "The VERCEL_TOKEN secret is present. Deployment will use the configured team scope help-70c6."
+              echo "Vercel access and the database migration confirmation are present."
               echo ""
-              echo "This preflight does not prove the deployment succeeded; check the deploy job result and production deployment after the run."
+              echo "The migration confirmation is manual. CI cannot prove the live Supabase project was migrated; confirm the migration and function permissions in the intended project first."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "Vercel token secret is available."
+            echo "Required deployment prerequisites are configured."
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
             {
               echo "## Vercel deployment not run"
               echo ""
-              echo "The deploy job was skipped because the required repository secret is missing:"
+              echo "The deploy job was blocked because these deployment prerequisites are missing:"
               echo ""
-              echo "- VERCEL_TOKEN"
+              for prerequisite in "${missing[@]}"; do
+                echo "- $prerequisite"
+              done
               echo ""
-              echo "Add it in **GitHub repository Settings → Secrets and variables → Actions**. The team scope is configured as help-70c6; no separate organization ID secret is needed. Never put the token in source code, workflow logs, issues, or chat."
+              echo "Add VERCEL_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
+              echo "Never put the token in source code, workflow logs, issues, or chat."
               echo ""
-              echo "After saving the secret, open **Actions → Vercel Deploy → Run workflow**. A green preflight with a skipped deploy job does not mean production was updated."
+              echo "Set repository variable **SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED** to exactly **true** only after the atomic chat-turn migration has been applied to the intended Supabase project and its function permissions have been verified. See supabase/MIGRATION_RUNBOOK.md."
+              echo ""
+              echo "If Supabase is inactive or the migration cannot be verified, leave the variable unset. CI passing does not prove production database readiness."
+              echo ""
+              echo "After both prerequisites are verified, open **Actions → Vercel Deploy → Run workflow**. Missing prerequisites mean no production deployment was attempted."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::VERCEL_TOKEN GitHub Actions secret is missing. No production deployment was attempted."
+            echo "::error::Deployment prerequisites are missing. See the workflow summary; no production deployment was attempted."
             exit 1
           fi
 
