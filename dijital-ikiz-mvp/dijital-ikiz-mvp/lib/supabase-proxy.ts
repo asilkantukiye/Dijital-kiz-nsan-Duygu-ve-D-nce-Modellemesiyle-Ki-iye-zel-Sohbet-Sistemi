@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isValidSupabaseUrl } from '@/lib/supabase-url'
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -17,6 +18,17 @@ export async function updateSession(request: NextRequest) {
   // Don't let a missing environment variable crash public pages before the
   // application can render its setup guidance. Protected routes stay closed.
   if (!supabaseUrl || !supabasePublishableKey) {
+    if (protectedRoute) {
+      return authUnavailableResponse(request, pathname)
+    }
+
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  }
+
+  // A non-empty but malformed URL can still make the Supabase SDK throw.
+  // Keep public pages available and continue to deny protected routes.
+  if (!isValidSupabaseUrl(supabaseUrl)) {
     if (protectedRoute) {
       return authUnavailableResponse(request, pathname)
     }
