@@ -10,6 +10,7 @@ const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 const workflowPath = path.join(repositoryDirectory, '.github', 'workflows', 'vercel-deploy.yml')
 const readmePath = path.join(projectDirectory, 'README.md')
+const vercelConfigPath = path.join(projectDirectory, 'vercel.json')
 
 test('Vercel workflow requires a token and explicit Supabase migration confirmation', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
@@ -97,6 +98,18 @@ test('production deployment URL is captured and health/readiness is checked afte
   assert.match(workflow, /health\.ok !== true/)
   assert.match(workflow, /health\.ready !== true/)
   assert.match(workflow, /Production health smoke test passed/)
+})
+
+test('Vercel Git integration cannot bypass gated production deployments on main', async () => {
+  const [configText, workflow] = await Promise.all([
+    readFile(vercelConfigPath, 'utf8'),
+    readFile(workflowPath, 'utf8')
+  ])
+  const config = JSON.parse(configText)
+
+  assert.equal(config.git?.deploymentEnabled?.main, false)
+  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /SUPABASE_ATOMIC_CHAT_TURN_MIGRATION_APPLIED/)
 })
 
 test('README documents how to configure the deploy workflow and verify deployment', async () => {
