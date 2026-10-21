@@ -16,7 +16,7 @@ function normalizeEnvList(value) {
 
 function appliesToProduction(item) {
   const target = item?.target ?? item?.targets
-  if (target === undefined || target === null) return true
+  if (target === undefined || target === null) return false
   const values = Array.isArray(target) ? target : [target]
   return values.some((value) => String(value).toLowerCase() === 'production')
 }
