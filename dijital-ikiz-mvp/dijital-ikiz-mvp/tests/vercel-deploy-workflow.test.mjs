@@ -188,3 +188,21 @@ test('environment setup docs forbid production deploy before live Supabase verif
   assert.doesNotMatch(guide, /Değişken eklenince Production deployment'ı yeniden çalıştır/)
 })
 
+
+test('Vercel token is supplied through the environment, not CLI arguments', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
+  assert.equal((workflow.match(/VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/g) ?? []).length, 4)
+  for (const command of [
+    'vercel@63.1.2 link',
+    'vercel@63.1.2 env ls production --format json',
+    'vercel@63.1.2 deploy --prod',
+    'vercel@63.1.2 curl /api/health'
+  ]) {
+    assert.ok(workflow.includes(command), `missing Vercel CLI command: ${command}`)
+  }
+})
+
