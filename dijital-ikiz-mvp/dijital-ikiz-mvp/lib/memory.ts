@@ -151,34 +151,18 @@ export async function persistMemories(
       )
 
       if (replacementPlan) {
-        // Updating the selected row, then deleting only the other same-topic
-        // rows, keeps the latest preference authoritative without replacing
-        // unrelated preference topics.
-        const { error: updateError } = await supabase
-          .from('memory_items')
-          .update({
-            content: item.memory.content,
-            importance: item.memory.importance,
-            embedding: item.embedding,
-            source_message_id: sourceMessageId,
-            updated_at: now
-          })
-          .eq('user_id', userId)
-          .eq('id', replacementPlan.keep.id)
+        // One SECURITY INVOKER RPC updates the chosen row and removes stale
+        // same-topic rows in a single PostgreSQL transaction.
+        const { error: replacementError } = await supabase.rpc('replace_my_memory_preference', {
+          p_keep_id: replacementPlan.keep.id,
+          p_duplicate_ids: replacementPlan.remove.map((row) => row.id),
+          p_content: item.memory.content,
+          p_importance: item.memory.importance,
+          p_embedding: item.embedding,
+          p_source_message_id: sourceMessageId
+        })
 
-        if (updateError) throw updateError
-
-        const duplicateIds = replacementPlan.remove.map((row) => row.id)
-        if (duplicateIds.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('memory_items')
-            .delete()
-            .eq('user_id', userId)
-            .eq('memory_type', 'preference')
-            .in('id', duplicateIds)
-
-          if (deleteError) throw deleteError
-        }
+        if (replacementError) throw replacementError
 
         persisted += 1
         continue
