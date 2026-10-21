@@ -59,12 +59,57 @@ const instructionLikePatterns: RegExp[] = [
   /\b(?:api|gizli|secret|access)\s+(?:anahtarı|key|token)\b.{0,50}\b(?:göster|ifşa|açığa çıkar|reveal|print|show)\b/iu
 ]
 
+// Explicit "artık ..." phrasing marks the preference as a replacement, not a new fact.
+const explicitPreferenceChangeRule =
+  /^artık\s+(.{1,100}?)\s+(?:içiyorum|içerim|yiyorum|yerim|seviyorum|sevmiyorum|tercih\s+ediyorum|tercih\s+ederim|kullanıyorum|kullanırım|izliyorum|dinliyorum|istemiyorum|istiyorum)[.!?]?$/iu
+
 const preferenceRules: RegExp[] = [
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:çok\s+)?seviyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+sevmiyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+tercih\s+ederim[.!?]?$/iu,
-  /^(?:ben(?:im)?\s+)?(.{1,100})\s+istemiyorum[.!?]?$/iu
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+istemiyorum[.!?]?$/iu,
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:içiyorum|içerim|yiyorum|yerim|kullanıyorum|kullanırım|izliyorum|dinliyorum)[.!?]?$/iu
 ]
+
+const preferenceTopicIgnored = new Set([
+  'kullanici', 'tercihi', 'olumsuz', 'artik',
+  'sekersiz', 'sekerli', 'sutlu', 'sutsuz',
+  'sicak', 'soguk', 'az', 'cok', 'fazla',
+  'seviyorum', 'sevmiyorum', 'istiyorum', 'istemiyorum',
+  'tercih', 'ederim', 'ediyorum', 'iciyorum', 'icerim',
+  'yiyorum', 'yerim', 'kullaniyorum', 'kullanirim',
+  'izliyorum', 'dinliyorum', 'ben', 'benim'
+])
+
+// The final meaningful noun is a lightweight topic key, not a scientific classifier.
+// It is used only when the user explicitly marks a preference as changed.
+export function preferenceConflictKey(content: string): string | null {
+  const normalized = content
+    .replace(/^kullanıcı\s+tercihi:\s*/iu, '')
+    .replace(/\s*\(olumsuz tercih\)\s*/iu, '')
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+
+  const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? []
+  const meaningful = tokens
+    .map((token) => {
+      for (const suffix of [
+        'larından', 'lerinden', 'ları', 'leri', 'lar', 'ler',
+        'sı', 'si', 'su', 'sü', 'yı', 'yi', 'yu', 'yü',
+        'dan', 'den', 'tan', 'ten', 'da', 'de', 'ta', 'te',
+        'na', 'ne', 'ya', 'ye', 'ı', 'i', 'u', 'ü'
+      ]) {
+        if (token.length > suffix.length + 3 && token.endsWith(suffix)) {
+          return token.slice(0, -suffix.length)
+        }
+      }
+      return token
+    })
+    .filter((token) => token.length > 1 && !preferenceTopicIgnored.has(token))
+
+  return meaningful.at(-1) ?? null
+}
 
 function cleanCandidate(value: string) {
   return value
@@ -110,10 +155,26 @@ export function extractMemories(text: string) {
       continue
     }
 
-    const shortAnswers = cleaned.match(/\b(kısa|uzun|detaylı)\s+(?:cevap|yanıt)(?:ları)?\s+tercih\s+ederim\b/iu)
+    const shortAnswers = cleaned.match(/\b(kısa|uzun|detaylı)\s+(?:cevap|yanıt)(?:ları)?\s+tercih\s+(?:ederim|ediyorum)\b/iu)
     if (shortAnswers) {
       const content = toMemoryContent('communication', shortAnswers[0])
       if (content) memories.push({ memory_type: 'communication', content, importance: 0.75 })
+      continue
+    }
+
+    const explicitChange = cleaned.match(explicitPreferenceChangeRule)
+    if (explicitChange) {
+      const candidate = cleanCandidate(explicitChange[1])
+      const content = toMemoryContent('preference', candidate)
+      if (content) {
+        const negative = /sevmiyorum|istemiyorum/iu.test(cleaned)
+        memories.push({
+          memory_type: 'preference',
+          content: negative ? `${content} (olumsuz tercih)` : content,
+          importance: negative ? 0.7 : 0.75,
+          replaceExisting: true
+        })
+      }
       continue
     }
 
