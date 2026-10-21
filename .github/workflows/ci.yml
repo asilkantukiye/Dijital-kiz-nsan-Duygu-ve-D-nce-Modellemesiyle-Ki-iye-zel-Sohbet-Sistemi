@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_DB: digital_twin_test
           POSTGRES_USER: postgres
@@ -73,6 +73,7 @@ jobs:
           psql --version
           psql --set ON_ERROR_STOP=1 \
             --file tests/sql/persist_chat_turn.setup.sql \
+            --file supabase/migrations/20261008202104_stage5_memory_engine.sql \
             --file supabase/migrations/20261018190000_atomic_user_data_deletion.sql \
             --file supabase/migrations/20261019175000_feedback_message_ownership_rls.sql \
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
