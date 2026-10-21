@@ -74,6 +74,7 @@ jobs:
           psql --set ON_ERROR_STOP=1 \
             --file tests/sql/persist_chat_turn.setup.sql \
             --file supabase/migrations/20261008202104_stage5_memory_engine.sql \
+            --file supabase/migrations/20261021210000_stage5_memory_extensions_usage.sql \
             --file supabase/migrations/20261018190000_atomic_user_data_deletion.sql \
             --file supabase/migrations/20261019175000_feedback_message_ownership_rls.sql \
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
