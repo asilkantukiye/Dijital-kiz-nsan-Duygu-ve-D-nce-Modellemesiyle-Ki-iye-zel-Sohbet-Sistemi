@@ -12,6 +12,13 @@ const workflowPath = path.join(repositoryDirectory, '.github', 'workflows', 'ver
 const readmePath = path.join(projectDirectory, 'README.md')
 const vercelConfigPath = path.join(projectDirectory, 'vercel.json')
 
+test('Vercel deployment pins the CLI version instead of resolving latest at runtime', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 3)
+  assert.doesNotMatch(workflow, /vercel@latest/)
+})
+
 test('Vercel workflow requires a token and explicit Supabase migration confirmation', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
@@ -92,10 +99,10 @@ test('production deployment URL is captured and health/readiness is checked afte
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /id: deployment/)
-  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
   assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
-  assert.match(workflow, /vercel@latest curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
+  assert.match(workflow, /vercel@63.1.2 curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
   assert.match(workflow, /health\.ok !== true/)
   assert.match(workflow, /health\.ready !== true/)
   assert.match(workflow, /Production health smoke test passed/)
@@ -109,7 +116,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   const config = JSON.parse(configText)
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
-  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
