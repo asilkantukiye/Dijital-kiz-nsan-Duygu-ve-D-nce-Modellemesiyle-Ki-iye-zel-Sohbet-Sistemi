@@ -154,9 +154,26 @@ function containsInstructionLikeText(text: string) {
   return instructionLikePatterns.some((pattern) => pattern.test(text))
 }
 
+function foldSecurityText(value: string, locale: 'tr-TR' | 'en-US') {
+  return value
+    .toLocaleLowerCase(locale)
+    .normalize('NFKD')
+    .replace(/\\p{M}/gu, '')
+}
+
 function isBlocked(text: string) {
-  const lower = text.toLocaleLowerCase('tr-TR')
-  return blockedTerms.some((term) => lower.includes(term)) || containsInstructionLikeText(text)
+  // Check both Turkish-localized and locale-neutral case folding. In Turkish,
+  // uppercase ASCII "I" becomes dotless "ı", which otherwise misses English
+  // secret markers such as "API key".
+  const lowerTurkish = foldSecurityText(text, 'tr-TR')
+  const lowerInvariant = foldSecurityText(text, 'en-US')
+
+  return blockedTerms.some((term) => {
+    const normalizedTurkishTerm = foldSecurityText(term, 'tr-TR')
+    const normalizedInvariantTerm = foldSecurityText(term, 'en-US')
+    return lowerTurkish.includes(normalizedTurkishTerm) ||
+      lowerInvariant.includes(normalizedInvariantTerm)
+  }) || containsInstructionLikeText(text)
 }
 
 function toMemoryContent(type: MemoryType, candidate: string) {
