@@ -158,7 +158,7 @@ function foldSecurityText(value: string, locale: 'tr-TR' | 'en-US') {
   return value
     .toLocaleLowerCase(locale)
     .normalize('NFKD')
-    .replace(/\\p{M}/gu, '')
+    .replace(/\p{M}/gu, '')
 }
 
 function isBlocked(text: string) {
