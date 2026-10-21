@@ -73,3 +73,20 @@ test('Kaggle training pins a current CLI release used by the workflow', async ()
   assert.match(workflow, /python -m pip install "kaggle==2\.2\.4"/)
   assert.doesNotMatch(workflow, /python -m pip install "kaggle>=/)
 })
+
+test('CI smoke-tests the pinned Kaggle CLI flags without launching a training run', async () => {
+  const [ci, kaggleWorkflow] = await Promise.all([
+    readWorkflow('ci.yml'),
+    readWorkflow('kaggle-sentiment-pilot.yml')
+  ])
+
+  assert.match(kaggleWorkflow, /python -m pip install "kaggle==2\.2\.4"/)
+  assert.match(ci, /Validate pinned Kaggle CLI flags without starting training/)
+  assert.match(ci, /python -m venv/)
+  assert.match(ci, /kaggle kernels push --help/)
+  assert.match(ci, /kaggle kernels status --help/)
+  assert.match(ci, /kaggle kernels output --help/)
+  assert.match(ci, /grep -q -- "--timeout"/)
+  assert.match(ci, /grep -q -- "--accelerator"/)
+  assert.doesNotMatch(ci, /kaggle kernels push -p "\$KAGGLE_RUN_DIR"/)
+})
