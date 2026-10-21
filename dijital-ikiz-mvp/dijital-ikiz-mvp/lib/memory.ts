@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
 
-import { extractMemories, findConflictingPreferences, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, type MemoryItem } from '@/lib/memory-text'
+import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, planPreferenceReplacement, type MemoryItem } from '@/lib/memory-text'
 
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
@@ -145,20 +145,15 @@ export async function persistMemories(
 
       if (preferenceError) throw preferenceError
 
-      const conflictingRows = findConflictingPreferences(
+      const replacementPlan = planPreferenceReplacement(
         preferenceRows ?? [],
         item.memory.content
       )
 
-      if (conflictingRows.length > 0) {
-        // Prefer the most recently updated row; remove stale same-topic rows
-        // so old contradictory values cannot be retrieved alongside the new one.
-        // Reuse an existing exact-content row when one exists. This avoids
-        // hitting the (user_id, content) unique index before stale topic rows
-        // can be removed.
-        const previous =
-          conflictingRows.find((row) => row.content === item.memory.content) ??
-          conflictingRows[0]
+      if (replacementPlan) {
+        // Updating the selected row, then deleting only the other same-topic
+        // rows, keeps the latest preference authoritative without replacing
+        // unrelated preference topics.
         const { error: updateError } = await supabase
           .from('memory_items')
           .update({
@@ -169,13 +164,11 @@ export async function persistMemories(
             updated_at: now
           })
           .eq('user_id', userId)
-          .eq('id', previous.id)
+          .eq('id', replacementPlan.keep.id)
 
         if (updateError) throw updateError
 
-        const duplicateIds = conflictingRows
-          .filter((row) => row.id !== previous.id)
-          .map((row) => row.id)
+        const duplicateIds = replacementPlan.remove.map((row) => row.id)
         if (duplicateIds.length > 0) {
           const { error: deleteError } = await supabase
             .from('memory_items')
