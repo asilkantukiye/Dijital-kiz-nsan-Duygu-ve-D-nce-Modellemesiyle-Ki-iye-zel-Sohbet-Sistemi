@@ -15,7 +15,7 @@ const vercelConfigPath = path.join(projectDirectory, 'vercel.json')
 test('Vercel deployment pins the CLI version instead of resolving latest at runtime', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
-  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 3)
+  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 4)
   assert.doesNotMatch(workflow, /vercel@latest/)
 })
 
@@ -149,5 +149,26 @@ test('hosting setup instructions match the actual Vercel workflow prerequisites'
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
+})
+
+
+test('production environment names are checked before the production deployment command', async () => {
+  const [workflow, helper] = await Promise.all([
+    readFile(workflowPath, 'utf8'),
+    readFile(path.join(projectDirectory, 'tests', 'helpers', 'verify-vercel-env.mjs'), 'utf8')
+  ])
+
+  const linkIndex = workflow.indexOf('name: Link existing Vercel project')
+  const envCheckIndex = workflow.indexOf('name: Check required Vercel production environment variable names')
+  const deployIndex = workflow.indexOf('name: Deploy to Vercel production')
+
+  assert.ok(linkIndex >= 0 && linkIndex < envCheckIndex)
+  assert.ok(envCheckIndex >= 0 && envCheckIndex < deployIndex)
+  assert.match(workflow, /vercel@63\.1\.2 env ls production --format json/)
+  assert.match(workflow, /node tests\/helpers\/verify-vercel-env\.mjs/)
+  assert.match(helper, /NEXT_PUBLIC_SUPABASE_URL/)
+  assert.match(helper, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/)
+  assert.match(helper, /HF_TOKEN/)
+  assert.doesNotMatch(helper, /console\.(?:log|error)\([^\n]*\.value/)
 })
 
