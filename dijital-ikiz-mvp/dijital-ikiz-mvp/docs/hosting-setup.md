@@ -25,14 +25,19 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 
 Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
 
-## C. GitHub Actions için Vercel Secrets
+## C. GitHub Actions üzerinden güvenli Vercel dağıtımı
 
-GitHub deposunda **Settings → Secrets and variables → Actions → New repository secret** bölümüne şunları ekle:
+GitHub deposunda **Settings → Secrets and variables → Actions** bölümünde iki ayrı ayar gerekir.
 
-- `VERCEL_TOKEN`: Vercel hesabının Settings → Tokens bölümünde oluşturulan token.
-- `VERCEL_ORG_ID`: `Dijitalİkiz` Vercel takımının scope/ID değeri. Gerekirse Vercel CLI'nin proje bağlantısı veya takım ayarlarından doğrula.
+**Repository secret** — **New repository secret**:
+- `VERCEL_TOKEN`: Vercel hesabının Settings → Tokens bölümünde oluşturulan erişim token'ı.
 
-Workflow, bu ikisi olmadan yalnızca ön kontrol yapar ve gerçek deploy'u atlar. Token'ı sohbet mesajlarına veya repodaki dosyalara yazma.
+**Repository variable** — **Variables → New repository variable**:
+- `SUPABASE_PRODUCTION_SCHEMA_VERIFIED`: sadece doğru Supabase projesinde temel şema, tüm gerekli migration'lar, RLS politikaları ve kritik RPC fonksiyon/izinleri doğrulandıktan sonra tam olarak `true` değerini ver.
+
+Workflow `VERCEL_ORG_ID` secret'ı istemez; takım kapsamı `help-70c6` iş akışında yapılandırılmıştır. Token'ı sohbet mesajlarına, kaynak koduna veya loglara yazma.
+
+Eksik ya da doğrulanmamış önkoşullarda **Vercel Deploy** iş akışının ön kontrolü başarısız olur; doğrulama ve dağıtım adımları çalıştırılmaz, iş akışı yeşil başarı olarak gösterilmez. Supabase projesi `INACTIVE` ise veya veritabanı kontrollerine erişilemiyorsa `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` değişkenini `true` yapma. Bütün kontroller tamamlandıktan sonra **Actions → Vercel Deploy → Run workflow** üzerinden dağıtımı başlat ve üretim sağlık kontrolünü incele.
 
 ## D. InfinityFree statik tanıtım sayfası
 
