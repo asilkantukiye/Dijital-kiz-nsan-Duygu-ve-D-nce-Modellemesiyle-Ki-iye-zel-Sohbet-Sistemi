@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
 
-import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, preferenceConflictKey, type MemoryItem } from '@/lib/memory-text'
+import { extractMemories, findConflictingPreferences, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, type MemoryItem } from '@/lib/memory-text'
 
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
@@ -145,10 +145,10 @@ export async function persistMemories(
 
       if (preferenceError) throw preferenceError
 
-      const newTopic = preferenceConflictKey(item.memory.content)
-      const conflictingRows = newTopic
-        ? (preferenceRows ?? []).filter((row) => preferenceConflictKey(row.content) === newTopic)
-        : []
+      const conflictingRows = findConflictingPreferences(
+        preferenceRows ?? [],
+        item.memory.content
+      )
 
       if (conflictingRows.length > 0) {
         // Prefer the most recently updated row; remove stale same-topic rows
