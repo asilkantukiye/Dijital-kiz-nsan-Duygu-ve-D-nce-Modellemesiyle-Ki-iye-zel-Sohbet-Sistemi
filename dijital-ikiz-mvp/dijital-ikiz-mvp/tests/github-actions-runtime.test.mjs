@@ -67,9 +67,9 @@ test('CI and deployment validation use the committed npm lockfile reproducibly',
   assert.deepEqual(lock.packages[''].devDependencies, packageJson.devDependencies)
 })
 
-test('Kaggle training pins the CLI version used by the workflow', async () => {
+test('Kaggle training pins a current CLI release used by the workflow', async () => {
   const workflow = await readWorkflow('kaggle-sentiment-pilot.yml')
 
-  assert.match(workflow, /python -m pip install "kaggle==1\.8\.4"/)
+  assert.match(workflow, /python -m pip install "kaggle==2\.2\.4"/)
   assert.doesNotMatch(workflow, /python -m pip install "kaggle>=/)
 })
