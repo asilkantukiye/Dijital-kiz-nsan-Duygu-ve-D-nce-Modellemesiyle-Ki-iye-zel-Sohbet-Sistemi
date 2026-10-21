@@ -10,13 +10,13 @@ INSERT INTO public.memory_items (user_id, memory_type, content, embedding) VALUE
     '11111111-1111-4111-8111-111111111111',
     'preference',
     'rls-fixture-memory-user-a',
-    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+    ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384)
   ),
   (
     '22222222-2222-4222-8222-222222222222',
     'preference',
     'rls-fixture-memory-user-b',
-    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+    ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384)
   );
 
 -- Authenticated context A: can read and use A's rows, cannot see or mutate B's.
@@ -45,6 +45,19 @@ BEGIN
     SELECT 1 FROM public.memory_items WHERE content = 'rls-fixture-memory-user-b'
   ) THEN
     RAISE EXCEPTION 'User A can read User B memory';
+  END IF;
+
+  SELECT count(*) INTO visible_count
+  FROM public.match_memory_items(
+    ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384),
+    0.5,
+    10
+  );
+  IF visible_count <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.match_memory_items(('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384), 0.5, 10)
+    WHERE content = 'rls-fixture-memory-user-a'
+  ) THEN
+    RAISE EXCEPTION 'memory matching RPC leaked or hid rows for User A';
   END IF;
 
   SELECT count(*) INTO visible_count FROM public.messages;
@@ -117,6 +130,19 @@ BEGIN
     SELECT 1 FROM public.memory_items WHERE content = 'rls-fixture-memory-user-a'
   ) THEN
     RAISE EXCEPTION 'User B can read User A memory';
+  END IF;
+
+  SELECT count(*) INTO visible_count
+  FROM public.match_memory_items(
+    ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384),
+    0.5,
+    10
+  );
+  IF visible_count <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.match_memory_items(('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384), 0.5, 10)
+    WHERE content = 'rls-fixture-memory-user-b'
+  ) THEN
+    RAISE EXCEPTION 'memory matching RPC leaked or hid rows for User B';
   END IF;
 
   SELECT count(*) INTO visible_count FROM public.messages;
