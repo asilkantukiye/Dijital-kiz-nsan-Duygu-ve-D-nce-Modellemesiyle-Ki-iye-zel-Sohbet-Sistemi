@@ -113,6 +113,25 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
+
+test('hosting setup instructions match the actual Vercel workflow prerequisites', async () => {
+  const hostingGuide = await readFile(
+    path.join(projectDirectory, 'docs', 'hosting-setup.md'),
+    'utf8'
+  )
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(hostingGuide, /VERCEL_TOKEN/)
+  assert.match(hostingGuide, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
+  assert.match(hostingGuide, /VERCEL_ORG_ID.*istem[e]?z/i)
+  assert.doesNotMatch(hostingGuide, /- `VERCEL_ORG_ID`:/)
+  assert.match(hostingGuide, /INACTIVE/)
+  assert.match(hostingGuide, /doğrulama ve dağıtım adımları çalıştırılmaz/)
+  assert.match(workflow, /VERCEL_TOKEN:\\s*\\$\\{\\{\\s*secrets\\.VERCEL_TOKEN\\s*\\}\\}/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
+  assert.doesNotMatch(workflow, /secrets\\.VERCEL_ORG_ID/)
+})
+
 test('README documents how to configure the deploy workflow and verify deployment', async () => {
   const readme = await readFile(readmePath, 'utf8')
 
