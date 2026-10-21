@@ -23,7 +23,7 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `HF_MODEL` — `Qwen/Qwen3-4B-Instruct-2507`
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
-Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
+Supabase URL ve publishable key'i doğru Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Bu değişkenleri eklemek tek başına üretim dağıtımına izin vermez: Supabase projesinin etkin olduğunu, temel şema ve altı gerekli migration'ın uygulandığını, RLS politikaları ile kritik RPC izinlerinin doğru olduğunu önce [migration runbook](../supabase/MIGRATION_RUNBOOK.md) üzerinden doğrula. Kontrollerin tamamı doğrulanana kadar `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` değişkenini `true` yapma ve Production dağıtımını başlatma.
 
 ## C. GitHub Actions üzerinden güvenli Vercel dağıtımı
 
