@@ -124,6 +124,22 @@ export function findConflictingPreferences<T extends { content: string }>(
   return rows.filter((row) => preferenceConflictKey(row.content) === changedTopic)
 }
 
+export function planPreferenceReplacement<T extends { id: string; content: string }>(
+  rows: T[],
+  changedContent: string
+): { keep: T; remove: T[] } | null {
+  const conflicts = findConflictingPreferences(rows, changedContent)
+  if (conflicts.length === 0) return null
+
+  // Reuse an existing exact-content row when present to avoid a unique-index
+  // conflict; otherwise update the most recently updated candidate supplied first.
+  const keep = conflicts.find((row) => row.content === changedContent) ?? conflicts[0]
+  return {
+    keep,
+    remove: conflicts.filter((row) => row.id !== keep.id)
+  }
+}
+
 function cleanCandidate(value: string) {
   return value
     .replace(/^[,:;\-\s]+|[,:;\-\s]+$/g, '')
