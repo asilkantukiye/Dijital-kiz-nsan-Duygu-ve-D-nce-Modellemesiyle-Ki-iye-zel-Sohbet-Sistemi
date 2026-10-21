@@ -83,8 +83,14 @@ BEGIN
 
   rejected := false;
   BEGIN
-    INSERT INTO public.memory_items (user_id, content)
-    VALUES (other_user, 'rls-foreign-memory-insert-by-a');
+    INSERT INTO public.memory_items (user_id, memory_type, content, importance, embedding)
+    VALUES (
+      other_user,
+      'preference',
+      'rls-foreign-memory-insert-by-a',
+      0.5,
+      ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384)
+    );
   EXCEPTION WHEN insufficient_privilege THEN
     rejected := true;
   END;
@@ -168,8 +174,14 @@ BEGIN
 
   rejected := false;
   BEGIN
-    INSERT INTO public.memory_items (user_id, content)
-    VALUES (other_user, 'rls-foreign-memory-insert-by-b');
+    INSERT INTO public.memory_items (user_id, memory_type, content, importance, embedding)
+    VALUES (
+      other_user,
+      'preference',
+      'rls-foreign-memory-insert-by-b',
+      0.5,
+      ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384)
+    );
   EXCEPTION WHEN insufficient_privilege THEN
     rejected := true;
   END;
