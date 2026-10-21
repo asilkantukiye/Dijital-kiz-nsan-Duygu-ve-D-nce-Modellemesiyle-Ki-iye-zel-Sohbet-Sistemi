@@ -28,7 +28,7 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   assert.match(workflow, /only after the baseline schema and all required migrations are applied/)
   assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
-  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
+  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 4)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
