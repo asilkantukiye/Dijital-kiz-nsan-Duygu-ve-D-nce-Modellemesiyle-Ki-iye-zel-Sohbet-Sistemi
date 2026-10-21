@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import {
@@ -68,7 +69,7 @@ test('unknown environment targets do not count as production configuration', () 
 })
 
 test('CLI prints no environment values even when JSON includes a secret value', () => {
-  const helperPath = new URL('./helpers/verify-vercel-env.mjs', import.meta.url)
+  const helperPath = fileURLToPath(new URL('./helpers/verify-vercel-env.mjs', import.meta.url))
   const secretSentinel = 'FAKE_SECRET_SENTINEL_NOT_A_REAL_TOKEN'
   const input = JSON.stringify({
     envs: REQUIRED_PRODUCTION_ENVIRONMENT_VARIABLES.map((key) => ({
@@ -78,7 +79,7 @@ test('CLI prints no environment values even when JSON includes a secret value', 
     }))
   })
 
-  const result = spawnSync(process.execPath, [helperPath.pathname], {
+  const result = spawnSync(process.execPath, [helperPath], {
     encoding: 'utf8',
     input
   })
@@ -90,7 +91,7 @@ test('CLI prints no environment values even when JSON includes a secret value', 
 })
 
 test('CLI blocks a missing production HF token and never prints environment values', () => {
-  const helperPath = new URL('./helpers/verify-vercel-env.mjs', import.meta.url)
+  const helperPath = fileURLToPath(new URL('./helpers/verify-vercel-env.mjs', import.meta.url))
   const secretSentinel = 'FAKE_SECRET_SENTINEL_NOT_A_REAL_TOKEN'
   const input = JSON.stringify({
     envs: [
@@ -99,7 +100,7 @@ test('CLI blocks a missing production HF token and never prints environment valu
     ]
   })
 
-  const result = spawnSync(process.execPath, [helperPath.pathname], {
+  const result = spawnSync(process.execPath, [helperPath], {
     encoding: 'utf8',
     input
   })
