@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
 
-import { extractMemories, type MemoryItem } from '@/lib/memory-text'
+import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, type MemoryItem } from '@/lib/memory-text'
 
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
 
 const MIN_SIMILARITY = 0.72
+// Engineering parameter, not a scientifically validated semantic boundary.
 const MAX_MEMORY_RESULTS = 5
 const MAX_MEMORY_ITEMS_PER_USER = 50
 const MEMORY_RETENTION_DAYS = 180
@@ -128,6 +129,45 @@ export async function persistMemories(
   let persisted = 0
 
   for (const item of embedded) {
+    // The RPC applies auth.uid() scoping; the explicit user filter on writes is
+    // defense in depth. Similarity is checked before inserting to avoid semantic duplicates.
+    const { data: similarRows, error: similarityError } = await supabase.rpc('match_memory_items', {
+      query_embedding: item.embedding,
+      match_threshold: MEMORY_DUPLICATE_SIMILARITY_THRESHOLD,
+      match_count: 10
+    })
+
+    if (similarityError) throw similarityError
+
+    const similar = ((similarRows ?? []) as MemoryItem[]).filter(
+      (row) => row.memory_type === item.memory.memory_type &&
+        typeof row.similarity === 'number' &&
+        row.similarity >= MEMORY_DUPLICATE_SIMILARITY_THRESHOLD
+    )
+
+    const now = new Date().toISOString()
+    if (similar.length > 0) {
+      if (item.memory.replaceExisting && item.memory.memory_type === 'preference') {
+        const previous = similar[0]
+        const { error: updateError } = await supabase
+          .from('memory_items')
+          .update({
+            content: item.memory.content,
+            importance: item.memory.importance,
+            embedding: item.embedding,
+            source_message_id: sourceMessageId,
+            updated_at: now
+          })
+          .eq('user_id', userId)
+          .eq('id', previous.id)
+
+        if (updateError) throw updateError
+        persisted += 1
+      }
+      // A near-duplicate without an explicit change marker is intentionally skipped.
+      continue
+    }
+
     const { error } = await supabase
       .from('memory_items')
       .upsert(
@@ -138,7 +178,7 @@ export async function persistMemories(
           importance: item.memory.importance,
           embedding: item.embedding,
           source_message_id: sourceMessageId,
-          updated_at: new Date().toISOString()
+          updated_at: now
         },
         { onConflict: 'user_id,content' }
       )
