@@ -61,7 +61,7 @@ const instructionLikePatterns: RegExp[] = [
 
 // Explicit "artık ..." phrasing marks the preference as a replacement, not a new fact.
 const explicitPreferenceChangeRule =
-  /^artık\s+(.{1,100}?)\s+(?:içiyorum|içerim|yiyorum|yerim|seviyorum|sevmiyorum|tercih\s+ediyorum|tercih\s+ederim|kullanıyorum|kullanırım|izliyorum|dinliyorum|istemiyorum|istiyorum)[.!?]?$/iu
+  /^artık\s+(.{1,100}?)\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|seviyorum|sevmiyorum|tercih\s+ediyorum|tercih\s+ederim|kullanıyorum|kullanırım|izliyorum|dinliyorum|istemiyorum|istiyorum)[.!?]?$/iu
 
 const preferenceRules: RegExp[] = [
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:çok\s+)?seviyorum[.!?]?$/iu,
@@ -167,7 +167,7 @@ export function extractMemories(text: string) {
       const candidate = cleanCandidate(explicitChange[1])
       const content = toMemoryContent('preference', candidate)
       if (content) {
-        const negative = /sevmiyorum|istemiyorum/iu.test(cleaned)
+        const negative = /sevmiyorum|istemiyorum|içmiyorum|yemiyorum/iu.test(cleaned)
         memories.push({
           memory_type: 'preference',
           content: negative ? `${content} (olumsuz tercih)` : content,
