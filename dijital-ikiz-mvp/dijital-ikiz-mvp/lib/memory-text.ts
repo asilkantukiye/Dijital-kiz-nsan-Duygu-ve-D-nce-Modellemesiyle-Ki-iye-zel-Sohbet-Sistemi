@@ -92,21 +92,24 @@ export function preferenceConflictKey(content: string): string | null {
     .replace(/\p{M}/gu, '')
 
   const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? []
-  const meaningful = tokens
-    .map((token) => {
-      for (const suffix of [
-        'larından', 'lerinden', 'ları', 'leri', 'lar', 'ler',
-        'sı', 'si', 'su', 'sü', 'yı', 'yi', 'yu', 'yü',
-        'dan', 'den', 'tan', 'ten', 'da', 'de', 'ta', 'te',
-        'na', 'ne', 'ya', 'ye', 'ı', 'i', 'u', 'ü'
-      ]) {
-        if (token.length > suffix.length + 3 && token.endsWith(suffix)) {
-          return token.slice(0, -suffix.length)
-        }
+  // Remove value modifiers before stemming. Otherwise "şekerli" becomes
+  // "sekerl" and no longer matches the ignored modifier set.
+  const topicTokens = tokens.filter(
+    (token) => token.length > 1 && !preferenceTopicIgnored.has(token)
+  )
+  const meaningful = topicTokens.map((token) => {
+    for (const suffix of [
+      'larından', 'lerinden', 'ları', 'leri', 'lar', 'ler',
+      'sı', 'si', 'su', 'sü', 'yı', 'yi', 'yu', 'yü',
+      'dan', 'den', 'tan', 'ten', 'da', 'de', 'ta', 'te',
+      'na', 'ne', 'ya', 'ye', 'ı', 'i', 'u', 'ü'
+    ]) {
+      if (token.length > suffix.length + 3 && token.endsWith(suffix)) {
+        return token.slice(0, -suffix.length)
       }
-      return token
-    })
-    .filter((token) => token.length > 1 && !preferenceTopicIgnored.has(token))
+    }
+    return token
+  }).filter((token) => token.length > 1)
 
   return meaningful.join(' ') || null
 }
