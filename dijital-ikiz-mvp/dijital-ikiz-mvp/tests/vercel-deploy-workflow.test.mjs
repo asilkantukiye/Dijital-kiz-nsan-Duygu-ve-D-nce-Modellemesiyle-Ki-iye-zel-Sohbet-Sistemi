@@ -127,9 +127,9 @@ test('hosting setup instructions match the actual Vercel workflow prerequisites'
   assert.doesNotMatch(hostingGuide, /- `VERCEL_ORG_ID`:/)
   assert.match(hostingGuide, /INACTIVE/)
   assert.match(hostingGuide, /doğrulama ve dağıtım adımları çalıştırılmaz/)
-  assert.match(workflow, /VERCEL_TOKEN:\\s*\\$\\{\\{\\s*secrets\\.VERCEL_TOKEN\\s*\\}\\}/)
+  assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
-  assert.doesNotMatch(workflow, /secrets\\.VERCEL_ORG_ID/)
+  assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
 })
 
 test('README documents how to configure the deploy workflow and verify deployment', async () => {
