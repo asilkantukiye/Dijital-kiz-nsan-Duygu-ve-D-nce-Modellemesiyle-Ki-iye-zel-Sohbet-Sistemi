@@ -195,7 +195,7 @@ test('Vercel token is supplied through the environment, not CLI arguments', asyn
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
-  assert.equal((workflow.match(/VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/g) ?? []).length, 4)
+  assert.equal((workflow.match(/VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/g) ?? []).length, 5)
   for (const command of [
     'vercel@63.1.2 link',
     'vercel@63.1.2 env ls production --format json',
