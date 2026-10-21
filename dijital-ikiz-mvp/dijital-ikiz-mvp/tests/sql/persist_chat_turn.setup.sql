@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 
--- Isolated PostgreSQL fixture for executing the migration without touching Supabase.
+-- Minimal historical Supabase base schema. The migration chain under test must
+-- add memory_items, pgvector, its RLS policy, and all three RPCs itself.
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE SCHEMA auth;
@@ -18,9 +19,8 @@ AS $$
   SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 
-GRANT USAGE ON SCHEMA auth TO anon, authenticated;
+GRANT USAGE ON SCHEMA auth, public, extensions TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated;
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
 CREATE TABLE public.twin_profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -32,16 +32,10 @@ CREATE TABLE public.messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   role text NOT NULL CHECK (role IN ('user', 'assistant')),
-  variant text NOT NULL CHECK (variant IN ('personalized', 'baseline')),
+  variant text NOT NULL DEFAULT 'personalized' CHECK (variant IN ('personalized', 'baseline')),
   content text NOT NULL CHECK (char_length(content) BETWEEN 1 AND 4000),
   profile_snapshot jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE public.memory_items (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  content text NOT NULL
 );
 
 CREATE TABLE public.message_feedback (
@@ -49,37 +43,32 @@ CREATE TABLE public.message_feedback (
   message_id uuid NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  variant text NOT NULL CHECK (variant IN ('personalized', 'baseline')),
+  variant text NOT NULL DEFAULT 'personalized' CHECK (variant IN ('personalized', 'baseline')),
+  comment text CHECK (comment IS NULL OR char_length(comment) <= 1000),
+  created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (message_id, user_id)
 );
 
 ALTER TABLE public.twin_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.memory_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_feedback ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "test users own twin profiles"
+-- Legacy policy names are intentional: migration 20261008191854 must replace
+-- them and migration 20261019175000 must harden feedback ownership/variant.
+CREATE POLICY "users own twin profile"
   ON public.twin_profiles
   FOR ALL
   TO authenticated
   USING ((SELECT auth.uid()) = user_id)
   WITH CHECK ((SELECT auth.uid()) = user_id);
 
-CREATE POLICY "test users own messages"
+CREATE POLICY "users own messages"
   ON public.messages
   FOR ALL
   TO authenticated
   USING ((SELECT auth.uid()) = user_id)
   WITH CHECK ((SELECT auth.uid()) = user_id);
 
-CREATE POLICY "test users own memory items"
-  ON public.memory_items
-  FOR ALL
-  TO authenticated
-  USING ((SELECT auth.uid()) = user_id)
-  WITH CHECK ((SELECT auth.uid()) = user_id);
-
--- The production migration replaces this deliberately weaker legacy policy.
 CREATE POLICY "users own feedback"
   ON public.message_feedback
   FOR ALL
@@ -89,7 +78,6 @@ CREATE POLICY "users own feedback"
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.twin_profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.messages TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.memory_items TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.message_feedback TO authenticated;
 
 INSERT INTO auth.users (id) VALUES
