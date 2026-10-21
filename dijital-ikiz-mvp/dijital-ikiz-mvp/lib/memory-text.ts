@@ -108,7 +108,7 @@ export function preferenceConflictKey(content: string): string | null {
     })
     .filter((token) => token.length > 1 && !preferenceTopicIgnored.has(token))
 
-  return meaningful.at(-1) ?? null
+  return meaningful.join(' ') || null
 }
 
 export function findConflictingPreferences<T extends { content: string }>(
