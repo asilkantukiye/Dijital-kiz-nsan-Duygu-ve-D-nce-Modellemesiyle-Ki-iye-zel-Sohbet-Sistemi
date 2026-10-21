@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
 
       - name: Set up Python for notebook validation
         uses: actions/setup-python@v7
