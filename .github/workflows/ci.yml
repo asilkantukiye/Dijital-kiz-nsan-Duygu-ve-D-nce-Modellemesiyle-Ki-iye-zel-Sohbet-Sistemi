@@ -78,6 +78,7 @@ jobs:
             --file supabase/migrations/20261019175000_feedback_message_ownership_rls.sql \
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
             --file supabase/migrations/20261021210000_stage5_memory_extensions_usage.sql \
+            --file supabase/migrations/20261021211000_stage5_atomic_memory_preference_update.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/security_rpc.integration.sql
