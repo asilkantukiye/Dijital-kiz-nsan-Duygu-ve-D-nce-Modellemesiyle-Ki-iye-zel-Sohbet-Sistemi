@@ -53,7 +53,7 @@ jobs:
           echo "Kaggle owner and at least one supported credential source are configured (values are not printed)."
 
       - name: Install Kaggle CLI
-        run: python -m pip install "kaggle>=1.8.2,<2"
+        run: python -m pip install "kaggle==2.2.4"
 
       - name: Prepare private Kaggle notebook
         shell: bash

@@ -17,7 +17,7 @@ test('health is live but not ready when backend configuration is missing', () =>
 test('health is ready only when valid Supabase and Hugging Face configuration is present', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
-    supabasePublishableKey: 'publishable-placeholder',
+    supabasePublishableKey: 'sb_publishable_abcdefghijklmnopqrstuv_abcdefgh',
     huggingfaceToken: 'secret-placeholder'
   })
 
@@ -42,7 +42,7 @@ test('malformed or unsafe Supabase URLs never report readiness', () => {
   for (const supabaseUrl of invalidUrls) {
     const status = buildHealthStatus({
       supabaseUrl,
-      supabasePublishableKey: 'publishable-placeholder',
+      supabasePublishableKey: 'sb_publishable_abcdefghijklmnopqrstuv_abcdefgh',
       huggingfaceToken: 'secret-placeholder'
     })
 
@@ -54,7 +54,7 @@ test('malformed or unsafe Supabase URLs never report readiness', () => {
 test('local loopback HTTP is accepted for development readiness', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'http://localhost:54321',
-    supabasePublishableKey: 'publishable-placeholder',
+    supabasePublishableKey: 'sb_publishable_abcdefghijklmnopqrstuv_abcdefgh',
     huggingfaceToken: 'secret-placeholder'
   })
 
@@ -69,7 +69,7 @@ test('health is not ready if any required provider configuration is absent', () 
   })
   const missingHuggingFace = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
-    supabasePublishableKey: 'publishable-placeholder'
+    supabasePublishableKey: 'sb_publishable_abcdefghijklmnopqrstuv_abcdefgh'
   })
 
   assert.equal(missingSupabaseKey.ready, false)
@@ -93,11 +93,49 @@ test('whitespace-only environment values count as missing', () => {
 test('health response reports configuration presence, never credential values', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
-    supabasePublishableKey: 'publishable-secret-must-not-appear',
+    supabasePublishableKey: 'sb_publishable_abcdefghijklmnopqrstuv_abcdefgh',
     huggingfaceToken: 'hf-secret-must-not-appear'
   })
   const serialized = JSON.stringify(status)
 
-  assert.doesNotMatch(serialized, /publishable-secret-must-not-appear/)
+  assert.doesNotMatch(serialized, /sb_publishable_abcdefghijklmnopqrstuv_abcdefgh/)
   assert.doesNotMatch(serialized, /hf-secret-must-not-appear/)
 })
+
+test('invalid Supabase API key strings never report readiness', () => {
+  const invalidKeys = [
+    'publishable-placeholder',
+    'sb_publishable_short',
+    'sb_secret_abcdefghijklmnopqrstuv_abcdefgh',
+    'eyJnot-a-valid-jwt',
+    '   '
+  ]
+
+  for (const supabasePublishableKey of invalidKeys) {
+    const status = buildHealthStatus({
+      supabaseUrl: 'https://project.example.supabase.co',
+      supabasePublishableKey,
+      huggingfaceToken: 'secret-placeholder'
+    })
+
+    assert.equal(status.ready, false, 'invalid key must not mark service ready')
+    assert.equal(status.configured.supabase, false)
+  }
+})
+
+test('health accepts current Supabase publishable keys and legacy anon JWTs', () => {
+  for (const supabasePublishableKey of [
+    'sb_publishable_abcdefghijklmnopqrstuv_abcdefgh',
+    'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.signature'
+  ]) {
+    const status = buildHealthStatus({
+      supabaseUrl: 'https://project.example.supabase.co',
+      supabasePublishableKey,
+      huggingfaceToken: 'secret-placeholder'
+    })
+
+    assert.equal(status.ready, true)
+    assert.equal(status.configured.supabase, true)
+  }
+})
+

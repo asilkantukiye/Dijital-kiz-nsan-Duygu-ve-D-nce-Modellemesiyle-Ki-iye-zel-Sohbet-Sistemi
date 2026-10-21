@@ -12,6 +12,13 @@ const workflowPath = path.join(repositoryDirectory, '.github', 'workflows', 'ver
 const readmePath = path.join(projectDirectory, 'README.md')
 const vercelConfigPath = path.join(projectDirectory, 'vercel.json')
 
+test('Vercel deployment pins the CLI version instead of resolving latest at runtime', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 4)
+  assert.doesNotMatch(workflow, /vercel@latest/)
+})
+
 test('Vercel workflow requires a token and explicit Supabase migration confirmation', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
@@ -21,7 +28,7 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   assert.match(workflow, /only after the baseline schema and all required migrations are applied/)
   assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
-  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
+  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 4)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
@@ -92,10 +99,10 @@ test('production deployment URL is captured and health/readiness is checked afte
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /id: deployment/)
-  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
   assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
-  assert.match(workflow, /vercel@latest curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
+  assert.match(workflow, /vercel@63.1.2 curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
   assert.match(workflow, /health\.ok !== true/)
   assert.match(workflow, /health\.ready !== true/)
   assert.match(workflow, /Production health smoke test passed/)
@@ -109,7 +116,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   const config = JSON.parse(configText)
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
-  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
@@ -125,3 +132,77 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /\/api\/health/)
   assert.match(readme, /gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz/)
 })
+
+test('hosting setup instructions match the actual Vercel workflow prerequisites', async () => {
+  const hostingGuide = await readFile(
+    path.join(projectDirectory, 'docs', 'hosting-setup.md'),
+    'utf8'
+  )
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(hostingGuide, /VERCEL_TOKEN/)
+  assert.match(hostingGuide, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
+  assert.match(hostingGuide, /VERCEL_ORG_ID.*istem[e]?z/i)
+  assert.doesNotMatch(hostingGuide, /- `VERCEL_ORG_ID`:/)
+  assert.match(hostingGuide, /INACTIVE/)
+  assert.match(hostingGuide, /doğrulama ve dağıtım adımları çalıştırılmaz/)
+  assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
+  assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
+})
+
+
+test('production environment names are checked before the production deployment command', async () => {
+  const [workflow, helper] = await Promise.all([
+    readFile(workflowPath, 'utf8'),
+    readFile(path.join(projectDirectory, 'tests', 'helpers', 'verify-vercel-env.mjs'), 'utf8')
+  ])
+
+  const linkIndex = workflow.indexOf('name: Link existing Vercel project')
+  const envCheckIndex = workflow.indexOf('name: Check required Vercel production environment variable names')
+  const deployIndex = workflow.indexOf('name: Deploy to Vercel production')
+
+  assert.ok(linkIndex >= 0 && linkIndex < envCheckIndex)
+  assert.ok(envCheckIndex >= 0 && envCheckIndex < deployIndex)
+  assert.match(workflow, /vercel@63\.1\.2 env ls production --format json/)
+  assert.match(workflow, /node tests\/helpers\/verify-vercel-env\.mjs/)
+  assert.match(helper, /NEXT_PUBLIC_SUPABASE_URL/)
+  assert.match(helper, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/)
+  assert.match(helper, /HF_TOKEN/)
+  assert.doesNotMatch(helper, /console\.(?:log|error)\([^\n]*\.value/)
+})
+
+
+test('environment setup docs forbid production deploy before live Supabase verification', async () => {
+  const guide = await readFile(
+    path.join(projectDirectory, 'docs', 'hosting-setup.md'),
+    'utf8'
+  )
+
+  assert.match(guide, /HF_TOKEN.*gizli değer/i)
+  assert.match(guide, /Bu değişkenleri eklemek tek başına üretim dağıtımına izin vermez/)
+  assert.match(guide, /Supabase projesinin etkin olduğunu/)
+  assert.match(guide, /altı gerekli migration'ın uygulandığını/)
+  assert.match(guide, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED.*true/)
+  assert.match(guide, /Production dağıtımını başlatma/)
+  assert.doesNotMatch(guide, /Değişken eklenince Production deployment'ı yeniden çalıştır/)
+})
+
+
+test('Vercel token is supplied through the environment, not CLI arguments', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
+  assert.equal((workflow.match(/VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/g) ?? []).length, 5)
+  for (const command of [
+    'vercel@63.1.2 link',
+    'vercel@63.1.2 env ls production --format json',
+    'vercel@63.1.2 deploy --prod',
+    'vercel@63.1.2 curl /api/health'
+  ]) {
+    assert.ok(workflow.includes(command), `missing Vercel CLI command: ${command}`)
+  }
+})
+

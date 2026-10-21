@@ -84,7 +84,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
 
       - name: Set up Python for notebook validation
         uses: actions/setup-python@v7
@@ -104,7 +104,7 @@ jobs:
         run: python -m unittest discover -s ml/tests -p "test_*.py"
 
       - name: Install
-        run: npm install
+        run: npm ci
 
       - name: Unit tests (memory and API validation)
         run: npm run test:unit
@@ -132,10 +132,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
 
       - name: Link existing Vercel project
-        run: npx --yes vercel@latest link --yes --project dijital-ikiz-insan --scope "help-70c6" --token "${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6"
+
+      - name: Check required Vercel production environment variable names
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx --yes vercel@63.1.2 env ls production --format json --scope "help-70c6" |
+            node tests/helpers/verify-vercel-env.mjs
 
       - name: Deploy to Vercel production
         id: deployment
@@ -144,7 +155,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          deployment_output="$(npx --yes vercel@latest deploy --prod --yes --scope "help-70c6" --token "$VERCEL_TOKEN")"
+          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --yes --scope "help-70c6")"
           deployment_url="$(printf '%s\n' "$deployment_output" | node tests/helpers/extract-vercel-deployment-url.mjs)"
 
           if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app$ ]]; then
@@ -167,7 +178,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          health_response="$(npx --yes vercel@latest curl /api/health --deployment "$DEPLOYMENT_URL" --scope "help-70c6" --token "$VERCEL_TOKEN")"
+          health_response="$(npx --yes vercel@63.1.2 curl /api/health --deployment "$DEPLOYMENT_URL" --scope "help-70c6")"
 
           printf '%s' "$health_response" | node -e '
           let input = "";

@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_DB: digital_twin_test
           POSTGRES_USER: postgres
@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
 
       - name: Set up Python for notebook validation
         uses: actions/setup-python@v7
@@ -62,6 +62,29 @@ jobs:
       - name: Validate ML dataset, splits, and leakage guardrails
         run: python -m unittest discover -s ml/tests -p "test_*.py"
 
+      - name: Validate pinned Kaggle CLI flags without starting training
+        shell: bash
+        run: |
+          set -euo pipefail
+          cli_venv="$RUNNER_TEMP/kaggle-cli-smoke"
+          python -m venv "$cli_venv"
+          "$cli_venv/bin/python" -m pip install --disable-pip-version-check "kaggle==2.2.4"
+          "$cli_venv/bin/kaggle" kernels push --help > "$RUNNER_TEMP/kaggle-kernels-push-help.txt"
+          grep -q -- "--timeout" "$RUNNER_TEMP/kaggle-kernels-push-help.txt"
+          grep -q -- "--accelerator" "$RUNNER_TEMP/kaggle-kernels-push-help.txt"
+          "$cli_venv/bin/kaggle" kernels status --help > "$RUNNER_TEMP/kaggle-kernels-status-help.txt"
+          "$cli_venv/bin/kaggle" kernels output --help > "$RUNNER_TEMP/kaggle-kernels-output-help.txt"
+          echo "Kaggle CLI version and non-training command interfaces validated; no credentials or GPU run used."
+
+
+      - name: Validate pinned Vercel CLI environment-list flags without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes vercel@63.1.2 env ls --help > "$RUNNER_TEMP/vercel-env-ls-help.txt"
+          grep -q -- "--format" "$RUNNER_TEMP/vercel-env-ls-help.txt"
+          echo "Vercel CLI supports the pinned JSON environment-list command; no token or values used."
+
       - name: Test atomic chat-turn migration against PostgreSQL
         env:
           PGHOST: 127.0.0.1
@@ -73,14 +96,18 @@ jobs:
           psql --version
           psql --set ON_ERROR_STOP=1 \
             --file tests/sql/persist_chat_turn.setup.sql \
+            --file supabase/migrations/20261008191854_rls_and_ab_performance_hardening.sql \
+            --file supabase/migrations/20261008202104_stage5_memory_engine.sql \
+            --file supabase/migrations/20261008202255_stage5_memory_fk_index.sql \
             --file supabase/migrations/20261018190000_atomic_user_data_deletion.sql \
             --file supabase/migrations/20261019175000_feedback_message_ownership_rls.sql \
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
+            --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/security_rpc.integration.sql
 
       - name: Install
-        run: npm install
+        run: npm ci
 
       - name: Unit tests (memory and API validation)
         run: npm run test:unit

@@ -41,7 +41,7 @@ Windows PowerShell:
 
 ```powershell
 cd dijital-ikiz-mvp\dijital-ikiz-mvp
-npm install
+npm ci
 Copy-Item .env.local.example .env.local
 ```
 
@@ -55,7 +55,7 @@ HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
 HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
 ```
 
-**Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
+**Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir. Bağımlılık sürümlerini tekrarlanabilir biçimde kurmak için `npm ci` kullanılır. `package.json` içindeki bağımlılıkları bilerek değiştirdiğinde `npm install` çalıştırıp oluşan `package-lock.json` değişikliğini de commit et.
 
 ## 3. Supabase kurulumu
 

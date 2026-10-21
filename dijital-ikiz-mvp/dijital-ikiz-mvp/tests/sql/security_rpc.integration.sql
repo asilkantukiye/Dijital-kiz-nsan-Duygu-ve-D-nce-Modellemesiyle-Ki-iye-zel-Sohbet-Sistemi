@@ -21,11 +21,33 @@ BEGIN
 END
 $unauthenticated_delete$;
 
--- Seed one memory row per user and valid feedback for user two as the test
--- harness. User one's memory/profile/messages will be removed by the RPC.
-INSERT INTO public.memory_items (user_id, content) VALUES
-  ('11111111-1111-4111-8111-111111111111', 'private memory for user one'),
-  ('22222222-2222-4222-8222-222222222222', 'private memory for user two');
+-- Seed one real Stage 5 vector memory per user. The fixed-size embedding
+-- matches the production vector(384) schema and lets the RPC test similarity
+-- retrieval while RLS ensures user one cannot retrieve user two's row.
+CREATE TEMP TABLE test_memory_embedding AS
+SELECT (
+  '[' || string_agg(
+    CASE WHEN idx = 1 THEN '1' ELSE '0' END,
+    ',' ORDER BY idx
+  ) || ']'
+)::extensions.vector(384) AS embedding
+FROM generate_series(1, 384) AS seq(idx);
+
+GRANT SELECT ON test_memory_embedding TO authenticated;
+SELECT set_config(
+  'test.query_embedding',
+  (SELECT embedding::text FROM test_memory_embedding),
+  false
+);
+
+INSERT INTO public.memory_items (user_id, memory_type, content, importance, embedding)
+SELECT seed.user_id, 'preference', seed.content, 0.5, fixture.embedding
+FROM (
+  VALUES
+    ('11111111-1111-4111-8111-111111111111'::uuid, 'private memory for user one'),
+    ('22222222-2222-4222-8222-222222222222'::uuid, 'private memory for user two')
+) AS seed(user_id, content)
+CROSS JOIN test_memory_embedding AS fixture;
 
 INSERT INTO public.message_feedback (message_id, user_id, rating, variant)
 SELECT id, user_id, 4, 'baseline'
@@ -50,6 +72,26 @@ SELECT set_config(
 
 SET ROLE authenticated;
 SET request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+
+-- Exercise the real vector RPC as the authenticated caller. Even with an
+-- exact similarity match for both test vectors, RLS must return only this user's
+-- memory row.
+DO $memory_retrieval_rls$
+DECLARE
+  query_embedding extensions.vector(384) :=
+    current_setting('test.query_embedding')::extensions.vector(384);
+  returned_count integer;
+  returned_content text;
+BEGIN
+  SELECT count(*), min(content)
+  INTO returned_count, returned_content
+  FROM public.match_memory_items(query_embedding, 0.72, 5);
+
+  IF returned_count <> 1 OR returned_content <> 'private memory for user one' THEN
+    RAISE EXCEPTION 'memory RPC did not enforce user-scoped retrieval';
+  END IF;
+END
+$memory_retrieval_rls$;
 
 -- Feedback on this user's own assistant reply must succeed.
 INSERT INTO public.message_feedback (message_id, user_id, rating, variant)
