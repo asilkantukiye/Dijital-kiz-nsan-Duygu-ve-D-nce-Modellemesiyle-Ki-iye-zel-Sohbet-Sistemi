@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { extractMemories, formatMemoryContext } from '../lib/memory-text.ts'
+import { extractMemories, formatMemoryContext, preferenceConflictKey } from '../lib/memory-text.ts'
 
 test('extracts a simple stated preference', () => {
   const memories = extractMemories('Pizza seviyorum.')
@@ -83,4 +83,35 @@ test('ignores invalid memory types and limits context size', () => {
   const context = formatMemoryContext(many)
   assert.ok(context)
   assert.equal(JSON.parse(context.split('\n')[2]).length, 5)
+})
+
+
+test('marks an explicit preference change so persistence replaces the same topic', () => {
+  const previous = extractMemories('Şekersiz kahve içerim.')
+  const changed = extractMemories('Artık şekerli kahve içiyorum.')
+
+  assert.equal(previous.length, 1)
+  assert.equal(previous[0].content, 'Kullanıcı tercihi: Şekersiz kahve')
+  assert.equal(changed.length, 1)
+  assert.equal(changed[0].content, 'Kullanıcı tercihi: şekerli kahve')
+  assert.equal(changed[0].replaceExisting, true)
+  assert.equal(
+    preferenceConflictKey(previous[0].content),
+    preferenceConflictKey(changed[0].content)
+  )
+})
+
+test('does not consider a different preference topic a conflict', () => {
+  assert.notEqual(
+    preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),
+    preferenceConflictKey('Kullanıcı tercihi: yeşil çay')
+  )
+})
+
+test('marks an explicitly changed negative preference for replacement', () => {
+  const changed = extractMemories('Artık kahve içmiyorum.')
+
+  assert.equal(changed.length, 1)
+  assert.equal(changed[0].replaceExisting, true)
+  assert.match(changed[0].content, /olumsuz tercih/)
 })
