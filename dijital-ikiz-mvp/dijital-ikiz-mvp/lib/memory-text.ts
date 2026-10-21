@@ -56,7 +56,9 @@ const instructionLikePatterns: RegExp[] = [
   /(?:önceki|tüm|bütün)\s+(?:sistem\s+)?(?:talimatları|kuralları|yönergeleri)\s+(?:yok\s+say|unut|çiğne|geçersiz\s+kıl)/iu,
   /\b(?:ignore|disregard|override|forget)\b.{0,80}\b(?:previous|system|developer|all|instructions?|rules?|prompt)\b/i,
   /\b(?:sistem|system|developer)\s+(?:talimatları?|mesajı|promptu?)\b.{0,80}\b(?:göster|ifşa|açığa çıkar|unut|yok say|reveal|show|ignore)\b/iu,
-  /\b(?:api|gizli|secret|access)\s+(?:anahtarı|key|token)\b.{0,50}\b(?:göster|ifşa|açığa çıkar|reveal|print|show)\b/iu
+  /\b(?:api|gizli|secret|access)\s+(?:anahtarı|key|token)\b.{0,50}\b(?:göster|ifşa|açığa çıkar|reveal|print|show)\b/iu,
+  /\b(?:you are now|act as|become)\b.{0,80}\b(?:system administrator|administrator|admin)\b/i,
+  /\b(?:return|reveal|show|print|provide|give)\b.{0,60}\b(?:all\s+)?(?:secrets?|credentials?|private keys?)\b/i
 ]
 
 // Explicit "artık ..." phrasing marks the preference as a replacement, not a new fact.
