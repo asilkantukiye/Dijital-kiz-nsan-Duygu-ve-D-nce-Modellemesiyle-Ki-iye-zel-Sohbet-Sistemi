@@ -12,6 +12,9 @@ export type MemoryItem = {
 const MAX_MEMORY_TEXT = 240
 const MAX_MEMORY_RESULTS = 5
 
+// Engineering threshold, not a scientifically validated semantic boundary.
+export const MEMORY_DUPLICATE_SIMILARITY_THRESHOLD = 0.86
+
 const blockedTerms = [
   'şifre',
   'parola',
@@ -92,7 +95,7 @@ function toMemoryContent(type: MemoryType, candidate: string) {
 }
 
 export function extractMemories(text: string) {
-  const memories: Array<{ memory_type: MemoryType; content: string; importance: number }> = []
+  const memories: Array<{ memory_type: MemoryType; content: string; importance: number; replaceExisting?: boolean }> = []
   const normalized = text.replace(/[\u0000-\u001F\u007F]/g, ' ').trim()
   const sentences = normalized.split(/(?<=[.!?])\s+/u).slice(0, 6)
 
