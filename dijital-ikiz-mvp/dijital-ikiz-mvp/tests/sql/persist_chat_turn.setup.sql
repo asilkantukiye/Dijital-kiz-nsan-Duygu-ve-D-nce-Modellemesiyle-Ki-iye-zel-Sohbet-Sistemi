@@ -7,6 +7,10 @@ CREATE ROLE authenticated NOLOGIN;
 CREATE SCHEMA auth;
 CREATE SCHEMA extensions;
 
+-- Supabase exposes extensions objects to migration-time name resolution.
+-- Match that behaviour so vector_cosine_ops in the Stage 5 HNSW index resolves.
+SET search_path TO public, extensions;
+
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY
 );
