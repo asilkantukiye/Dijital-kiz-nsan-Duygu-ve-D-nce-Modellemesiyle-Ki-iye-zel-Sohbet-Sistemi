@@ -172,3 +172,19 @@ test('production environment names are checked before the production deployment 
   assert.doesNotMatch(helper, /console\.(?:log|error)\([^\n]*\.value/)
 })
 
+
+test('environment setup docs forbid production deploy before live Supabase verification', async () => {
+  const guide = await readFile(
+    path.join(projectDirectory, 'docs', 'hosting-setup.md'),
+    'utf8'
+  )
+
+  assert.match(guide, /HF_TOKEN.*gizli değer/i)
+  assert.match(guide, /Bu değişkenleri eklemek tek başına üretim dağıtımına izin vermez/)
+  assert.match(guide, /Supabase projesinin etkin olduğunu/)
+  assert.match(guide, /altı gerekli migration'ın uygulandığını/)
+  assert.match(guide, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED.*true/)
+  assert.match(guide, /Production dağıtımını başlatma/)
+  assert.doesNotMatch(guide, /Değişken eklenince Production deployment'ı yeniden çalıştır/)
+})
+
