@@ -27,11 +27,11 @@ $unauthenticated_delete$;
 CREATE TEMP TABLE test_memory_embedding AS
 SELECT (
   '[' || string_agg(
-    CASE WHEN position = 1 THEN '1' ELSE '0' END,
-    ',' ORDER BY position
+    CASE WHEN idx = 1 THEN '1' ELSE '0' END,
+    ',' ORDER BY idx
   ) || ']'
 )::extensions.vector(384) AS embedding
-FROM generate_series(1, 384) AS seq(position);
+FROM generate_series(1, 384) AS seq(idx);
 
 GRANT SELECT ON test_memory_embedding TO authenticated;
 SELECT set_config(
