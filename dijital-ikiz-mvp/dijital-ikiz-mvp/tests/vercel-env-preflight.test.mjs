@@ -57,3 +57,11 @@ test('rejects unknown environment-list response shapes without leaking payloads'
   )
 })
 
+
+test('unknown environment targets do not count as production configuration', () => {
+  const missing = findMissingProductionEnvVariables(
+    REQUIRED_PRODUCTION_ENVIRONMENT_VARIABLES.map((key) => ({ key }))
+  )
+
+  assert.deepEqual(missing, [...REQUIRED_PRODUCTION_ENVIRONMENT_VARIABLES])
+})
