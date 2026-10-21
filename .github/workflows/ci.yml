@@ -81,6 +81,7 @@ jobs:
             --file supabase/migrations/20261021211000_stage5_atomic_memory_preference_update.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/memory_rls.integration.sql \
+            --file tests/sql/memory_preference_update.integration.sql \
             --file tests/sql/security_rpc.integration.sql
 
       - name: Install
