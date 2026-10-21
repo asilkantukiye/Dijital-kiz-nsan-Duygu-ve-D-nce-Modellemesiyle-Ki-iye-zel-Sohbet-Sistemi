@@ -90,3 +90,16 @@ test('CI smoke-tests the pinned Kaggle CLI flags without launching a training ru
   assert.match(ci, /grep -q -- "--accelerator"/)
   assert.doesNotMatch(ci, /kaggle kernels push -p "\$KAGGLE_RUN_DIR"/)
 })
+
+test('CI smoke-tests the pinned Vercel env-list JSON flag without credentials', async () => {
+  const [ci, workflow] = await Promise.all([
+    readWorkflow('ci.yml'),
+    readWorkflow('vercel-deploy.yml')
+  ])
+
+  assert.match(workflow, /vercel@63\.1\.2 env ls production --format json/)
+  assert.match(ci, /Validate pinned Vercel CLI environment-list flags without credentials/)
+  assert.match(ci, /vercel@63\.1\.2 env ls --help/)
+  assert.match(ci, /grep -q -- "--format"/)
+  assert.doesNotMatch(ci, /vercel@63\.1\.2 env ls production --format json/)
+})
