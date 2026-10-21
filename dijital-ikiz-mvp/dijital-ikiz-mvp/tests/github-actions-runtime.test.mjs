@@ -44,3 +44,25 @@ test('Kaggle workflow uses Node 24-compatible checkout, Python setup, and artifa
   assert.match(workflow, /actions\/upload-artifact@v7/)
   assert.doesNotMatch(workflow, /actions\/(?:checkout@v[1-6]|setup-python@v[1-6]|upload-artifact@v[1-6])/)
 })
+
+test('CI and deployment validation use the committed npm lockfile reproducibly', async () => {
+  const [ci, deploy, packageText, lockText] = await Promise.all([
+    readWorkflow('ci.yml'),
+    readWorkflow('vercel-deploy.yml'),
+    readFile(path.join(repositoryDirectory, 'dijital-ikiz-mvp', 'dijital-ikiz-mvp', 'package.json'), 'utf8'),
+    readFile(path.join(repositoryDirectory, 'dijital-ikiz-mvp', 'dijital-ikiz-mvp', 'package-lock.json'), 'utf8')
+  ])
+
+  const packageJson = JSON.parse(packageText)
+  const lock = JSON.parse(lockText)
+
+  assert.match(ci, /run: npm ci/)
+  assert.match(deploy, /run: npm ci/)
+  assert.match(ci, /cache-dependency-path: dijital-ikiz-mvp\/dijital-ikiz-mvp\/package-lock\.json/)
+  assert.match(deploy, /cache-dependency-path: dijital-ikiz-mvp\/dijital-ikiz-mvp\/package-lock\.json/)
+  assert.equal(lock.lockfileVersion, 3)
+  assert.equal(lock.packages[''].name, packageJson.name)
+  assert.equal(lock.packages[''].version, packageJson.version)
+  assert.deepEqual(lock.packages[''].dependencies, packageJson.dependencies)
+  assert.deepEqual(lock.packages[''].devDependencies, packageJson.devDependencies)
+})
