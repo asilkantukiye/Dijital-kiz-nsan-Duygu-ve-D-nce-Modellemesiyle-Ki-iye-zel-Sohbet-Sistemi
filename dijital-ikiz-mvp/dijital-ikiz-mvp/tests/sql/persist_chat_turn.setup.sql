@@ -6,6 +6,9 @@ CREATE ROLE authenticated NOLOGIN;
 CREATE SCHEMA auth;
 CREATE SCHEMA extensions;
 
+-- Match Supabase's extension-aware object lookup for pgvector opclasses.
+SET search_path = public, extensions;
+
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY
 );
