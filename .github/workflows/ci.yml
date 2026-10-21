@@ -77,6 +77,7 @@ jobs:
             --file supabase/migrations/20261019175000_feedback_message_ownership_rls.sql \
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
+            --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/security_rpc.integration.sql
 
       - name: Install
