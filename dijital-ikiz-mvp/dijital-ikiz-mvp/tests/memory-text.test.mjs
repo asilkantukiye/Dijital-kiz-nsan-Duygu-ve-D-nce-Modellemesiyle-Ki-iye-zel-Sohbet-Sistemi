@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { extractMemories, findConflictingPreferences, formatMemoryContext, preferenceConflictKey } from '../lib/memory-text.ts'
+import { extractMemories, findConflictingPreferences, formatMemoryContext, planPreferenceReplacement, preferenceConflictKey } from '../lib/memory-text.ts'
 
 test('extracts a simple stated preference', () => {
   const memories = extractMemories('Pizza seviyorum.')
@@ -136,4 +136,29 @@ test('matches opposite values within the same preference dimension only', () => 
     preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),
     preferenceConflictKey('Kullanıcı tercihi: filtre kahve')
   )
+})
+
+test('plans an in-place preference update and removes only same-topic duplicates', () => {
+  const rows = [
+    { id: 'old-unsweetened', content: 'Kullanıcı tercihi: şekersiz kahve' },
+    { id: 'already-new', content: 'Kullanıcı tercihi: şekerli kahve' },
+    { id: 'general-coffee', content: 'Kullanıcı tercihi: kahve' },
+    { id: 'filter-coffee', content: 'Kullanıcı tercihi: filtre kahve' },
+    { id: 'tea', content: 'Kullanıcı tercihi: yeşil çay' }
+  ]
+
+  const plan = planPreferenceReplacement(rows, 'Kullanıcı tercihi: şekerli kahve')
+  assert.ok(plan)
+  assert.equal(plan.keep.id, 'already-new')
+  assert.deepEqual(plan.remove.map((row) => row.id), ['old-unsweetened', 'general-coffee'])
+  assert.equal(plan.remove.some((row) => row.id === 'filter-coffee'), false)
+  assert.equal(plan.remove.some((row) => row.id === 'tea'), false)
+})
+
+test('does not create a replacement plan when no same-topic preference exists', () => {
+  const plan = planPreferenceReplacement(
+    [{ id: 'tea', content: 'Kullanıcı tercihi: yeşil çay' }],
+    'Kullanıcı tercihi: şekerli kahve'
+  )
+  assert.equal(plan, null)
 })
