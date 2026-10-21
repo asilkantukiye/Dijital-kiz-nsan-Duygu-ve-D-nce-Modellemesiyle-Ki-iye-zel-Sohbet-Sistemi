@@ -76,6 +76,15 @@ jobs:
           "$cli_venv/bin/kaggle" kernels output --help > "$RUNNER_TEMP/kaggle-kernels-output-help.txt"
           echo "Kaggle CLI version and non-training command interfaces validated; no credentials or GPU run used."
 
+
+      - name: Validate pinned Vercel CLI environment-list flags without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes vercel@63.1.2 env ls --help > "$RUNNER_TEMP/vercel-env-ls-help.txt"
+          grep -q -- "--format" "$RUNNER_TEMP/vercel-env-ls-help.txt"
+          echo "Vercel CLI supports the pinned JSON environment-list command; no token or values used."
+
       - name: Test atomic chat-turn migration against PostgreSQL
         env:
           PGHOST: 127.0.0.1
