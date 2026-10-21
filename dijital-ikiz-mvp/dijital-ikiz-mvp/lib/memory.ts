@@ -153,7 +153,12 @@ export async function persistMemories(
       if (conflictingRows.length > 0) {
         // Prefer the most recently updated row; remove stale same-topic rows
         // so old contradictory values cannot be retrieved alongside the new one.
-        const previous = conflictingRows[0]
+        // Reuse an existing exact-content row when one exists. This avoids
+        // hitting the (user_id, content) unique index before stale topic rows
+        // can be removed.
+        const previous =
+          conflictingRows.find((row) => row.content === item.memory.content) ??
+          conflictingRows[0]
         const { error: updateError } = await supabase
           .from('memory_items')
           .update({
@@ -168,7 +173,9 @@ export async function persistMemories(
 
         if (updateError) throw updateError
 
-        const duplicateIds = conflictingRows.slice(1).map((row) => row.id)
+        const duplicateIds = conflictingRows
+          .filter((row) => row.id !== previous.id)
+          .map((row) => row.id)
         if (duplicateIds.length > 0) {
           const { error: deleteError } = await supabase
             .from('memory_items')
