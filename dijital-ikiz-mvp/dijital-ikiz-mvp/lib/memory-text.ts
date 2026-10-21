@@ -111,6 +111,16 @@ export function preferenceConflictKey(content: string): string | null {
   return meaningful.at(-1) ?? null
 }
 
+export function findConflictingPreferences<T extends { content: string }>(
+  rows: T[],
+  changedContent: string
+): T[] {
+  const changedTopic = preferenceConflictKey(changedContent)
+  if (!changedTopic) return []
+
+  return rows.filter((row) => preferenceConflictKey(row.content) === changedTopic)
+}
+
 function cleanCandidate(value: string) {
   return value
     .replace(/^[,:;\-\s]+|[,:;\-\s]+$/g, '')
