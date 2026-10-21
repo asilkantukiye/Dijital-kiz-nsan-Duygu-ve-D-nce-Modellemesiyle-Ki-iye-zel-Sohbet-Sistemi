@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { extractMemories, formatMemoryContext, preferenceConflictKey } from '../lib/memory-text.ts'
+import { extractMemories, findConflictingPreferences, formatMemoryContext, preferenceConflictKey } from '../lib/memory-text.ts'
 
 test('extracts a simple stated preference', () => {
   const memories = extractMemories('Pizza seviyorum.')
@@ -106,6 +106,17 @@ test('does not consider a different preference topic a conflict', () => {
     preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),
     preferenceConflictKey('Kullanıcı tercihi: yeşil çay')
   )
+})
+
+test('selects only stored preferences with the changed topic', () => {
+  const rows = [
+    { id: 'coffee-old', content: 'Kullanıcı tercihi: şekersiz kahve' },
+    { id: 'tea', content: 'Kullanıcı tercihi: yeşil çay' },
+    { id: 'coffee-duplicate', content: 'Kullanıcı tercihi: filtre kahve' }
+  ]
+
+  const conflicts = findConflictingPreferences(rows, 'Kullanıcı tercihi: şekerli kahve')
+  assert.deepEqual(conflicts.map((row) => row.id), ['coffee-old', 'coffee-duplicate'])
 })
 
 test('marks an explicitly changed negative preference for replacement', () => {
