@@ -116,7 +116,7 @@ test('selects only stored preferences with the changed topic', () => {
   ]
 
   const conflicts = findConflictingPreferences(rows, 'Kullanıcı tercihi: şekerli kahve')
-  assert.deepEqual(conflicts.map((row) => row.id), ['coffee-old', 'coffee-duplicate'])
+  assert.deepEqual(conflicts.map((row) => row.id), ['coffee-old'])
 })
 
 test('marks an explicitly changed negative preference for replacement', () => {
@@ -125,4 +125,15 @@ test('marks an explicitly changed negative preference for replacement', () => {
   assert.equal(changed.length, 1)
   assert.equal(changed[0].replaceExisting, true)
   assert.match(changed[0].content, /olumsuz tercih/)
+})
+
+test('matches opposite values within the same preference dimension only', () => {
+  assert.equal(
+    preferenceConflictKey('Kullanıcı tercihi: şekersiz filtre kahve'),
+    preferenceConflictKey('Kullanıcı tercihi: şekerli filtre kahve')
+  )
+  assert.notEqual(
+    preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),
+    preferenceConflictKey('Kullanıcı tercihi: filtre kahve')
+  )
 })
