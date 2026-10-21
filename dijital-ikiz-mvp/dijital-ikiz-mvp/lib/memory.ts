@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
 
-import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, type MemoryItem } from '@/lib/memory-text'
+import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, preferenceConflictKey, type MemoryItem } from '@/lib/memory-text'
 
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
@@ -129,8 +129,64 @@ export async function persistMemories(
   let persisted = 0
 
   for (const item of embedded) {
-    // The RPC applies auth.uid() scoping; the explicit user filter on writes is
-    // defense in depth. Similarity is checked before inserting to avoid semantic duplicates.
+    const now = new Date().toISOString()
+
+    // Explicit preference changes get a deterministic same-topic lookup first.
+    // Vector similarity alone cannot reliably match opposites such as sweetened
+    // and unsweetened coffee, so it must not decide preference conflicts by itself.
+    if (item.memory.replaceExisting && item.memory.memory_type === 'preference') {
+      const { data: preferenceRows, error: preferenceError } = await supabase
+        .from('memory_items')
+        .select('id, content, updated_at')
+        .eq('user_id', userId)
+        .eq('memory_type', 'preference')
+        .order('updated_at', { ascending: false })
+        .limit(MAX_MEMORY_ITEMS_PER_USER)
+
+      if (preferenceError) throw preferenceError
+
+      const newTopic = preferenceConflictKey(item.memory.content)
+      const conflictingRows = newTopic
+        ? (preferenceRows ?? []).filter((row) => preferenceConflictKey(row.content) === newTopic)
+        : []
+
+      if (conflictingRows.length > 0) {
+        // Prefer the most recently updated row; remove stale same-topic rows
+        // so old contradictory values cannot be retrieved alongside the new one.
+        const previous = conflictingRows[0]
+        const { error: updateError } = await supabase
+          .from('memory_items')
+          .update({
+            content: item.memory.content,
+            importance: item.memory.importance,
+            embedding: item.embedding,
+            source_message_id: sourceMessageId,
+            updated_at: now
+          })
+          .eq('user_id', userId)
+          .eq('id', previous.id)
+
+        if (updateError) throw updateError
+
+        const duplicateIds = conflictingRows.slice(1).map((row) => row.id)
+        if (duplicateIds.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('memory_items')
+            .delete()
+            .eq('user_id', userId)
+            .eq('memory_type', 'preference')
+            .in('id', duplicateIds)
+
+          if (deleteError) throw deleteError
+        }
+
+        persisted += 1
+        continue
+      }
+    }
+
+    // The RPC is scoped by auth.uid(); the explicit user filter on preference
+    // lookups and writes is defense in depth.
     const { data: similarRows, error: similarityError } = await supabase.rpc('match_memory_items', {
       query_embedding: item.embedding,
       match_threshold: MEMORY_DUPLICATE_SIMILARITY_THRESHOLD,
@@ -145,26 +201,10 @@ export async function persistMemories(
         row.similarity >= MEMORY_DUPLICATE_SIMILARITY_THRESHOLD
     )
 
-    const now = new Date().toISOString()
-    if (similar.length > 0) {
-      if (item.memory.replaceExisting && item.memory.memory_type === 'preference') {
-        const previous = similar[0]
-        const { error: updateError } = await supabase
-          .from('memory_items')
-          .update({
-            content: item.memory.content,
-            importance: item.memory.importance,
-            embedding: item.embedding,
-            source_message_id: sourceMessageId,
-            updated_at: now
-          })
-          .eq('user_id', userId)
-          .eq('id', previous.id)
-
-        if (updateError) throw updateError
-        persisted += 1
-      }
-      // A near-duplicate without an explicit change marker is intentionally skipped.
+    if (similar.length > 0 && !item.memory.replaceExisting) {
+      // Ordinary near-duplicates are skipped. Explicit preference changes that
+      // did not match a known topic are allowed to become new records rather
+      // than overwrite a potentially unrelated preference by vector score alone.
       continue
     }
 
