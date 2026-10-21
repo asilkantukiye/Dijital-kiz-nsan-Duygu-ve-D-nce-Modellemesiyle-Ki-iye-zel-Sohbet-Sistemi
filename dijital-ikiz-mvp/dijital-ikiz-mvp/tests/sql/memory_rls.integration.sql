@@ -1,13 +1,23 @@
 \set ON_ERROR_STOP on
 
--- This file runs after persist_chat_turn.integration.sql populated user A and
--- user B with two chat messages each. The memory table is protected by the same
--- auth.uid() USING/WITH CHECK policy shape as the Stage 5 memory migration.
+-- This file runs after the production Stage 5 memory migration and after
+-- persist_chat_turn.integration.sql populated user A and user B with two chat
+-- messages each. The actual migration's RLS policy is under test here.
 RESET ROLE;
 
-INSERT INTO public.memory_items (user_id, content) VALUES
-  ('11111111-1111-4111-8111-111111111111', 'rls-fixture-memory-user-a'),
-  ('22222222-2222-4222-8222-222222222222', 'rls-fixture-memory-user-b');
+INSERT INTO public.memory_items (user_id, memory_type, content, embedding) VALUES
+  (
+    '11111111-1111-4111-8111-111111111111',
+    'preference',
+    'rls-fixture-memory-user-a',
+    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+  ),
+  (
+    '22222222-2222-4222-8222-222222222222',
+    'preference',
+    'rls-fixture-memory-user-b',
+    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+  );
 
 -- Authenticated context A: can read and use A's rows, cannot see or mutate B's.
 SET ROLE authenticated;
