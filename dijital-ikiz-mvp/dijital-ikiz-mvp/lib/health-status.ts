@@ -37,6 +37,7 @@ function isValidUpstashRestUrl(value?: string) {
       url.hostname.endsWith('.upstash.io') &&
       !url.username &&
       !url.password &&
+      !url.search &&
       !url.hash
   } catch {
     return false
