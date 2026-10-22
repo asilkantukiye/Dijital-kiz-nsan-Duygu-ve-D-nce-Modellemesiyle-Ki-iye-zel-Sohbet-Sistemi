@@ -84,7 +84,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
 
       - name: Set up Python for notebook validation
         uses: actions/setup-python@v7
@@ -104,7 +104,7 @@ jobs:
         run: python -m unittest discover -s ml/tests -p "test_*.py"
 
       - name: Install
-        run: npm install
+        run: npm ci
 
       - name: Unit tests (memory and API validation)
         run: npm run test:unit
@@ -132,7 +132,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
 
       - name: Link existing Vercel project
         run: npx --yes vercel@latest link --yes --project dijital-ikiz-insan --scope "help-70c6" --token "${{ secrets.VERCEL_TOKEN }}"

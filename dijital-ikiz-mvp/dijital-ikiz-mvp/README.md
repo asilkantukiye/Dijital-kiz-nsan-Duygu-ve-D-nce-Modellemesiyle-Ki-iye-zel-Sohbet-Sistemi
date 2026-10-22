@@ -41,7 +41,7 @@ Windows PowerShell:
 
 ```powershell
 cd dijital-ikiz-mvp\dijital-ikiz-mvp
-npm install
+npm ci
 Copy-Item .env.local.example .env.local
 ```
 
