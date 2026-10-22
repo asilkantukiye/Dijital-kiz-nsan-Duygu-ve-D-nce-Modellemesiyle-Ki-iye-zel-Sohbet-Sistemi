@@ -19,7 +19,8 @@ test('health is ready only when valid Supabase and Hugging Face configuration is
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-placeholder',
-    huggingfaceToken: 'secret-placeholder'
+    huggingfaceToken: 'secret-placeholder',
+    nodeEnv: 'development'
   })
 
   assert.equal(status.ok, true)
