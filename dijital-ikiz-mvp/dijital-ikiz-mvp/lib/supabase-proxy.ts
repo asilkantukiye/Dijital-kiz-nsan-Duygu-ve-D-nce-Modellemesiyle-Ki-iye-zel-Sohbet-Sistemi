@@ -1,9 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isValidSupabaseUrl } from '@/lib/supabase-url'
+import type { CspRequestContext } from '@/lib/csp'
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request })
+export async function updateSession(request: NextRequest, security?: CspRequestContext) {
+  const continueRequest = () => {
+    const requestHeaders = new Headers(request.headers)
+    if (security) {
+      requestHeaders.set('x-nonce', security.nonce)
+      requestHeaders.set('Content-Security-Policy', security.policy)
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
+  let response = continueRequest()
 
   const pathname = request.nextUrl.pathname
   const protectedRoute =
@@ -48,7 +58,7 @@ export async function updateSession(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
 
-          response = NextResponse.next({ request })
+          response = continueRequest()
 
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options)
