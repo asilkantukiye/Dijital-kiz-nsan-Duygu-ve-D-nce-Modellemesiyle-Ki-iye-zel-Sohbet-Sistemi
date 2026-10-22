@@ -130,14 +130,14 @@ test('README documents how to configure the deploy workflow and verify deploymen
 test('production deployment is manual, uses a pinned CLI, and never passes the token as an argument', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
-  assert.match(workflow, /^on:\\s*\\n\\s+workflow_dispatch:/m)
-  assert.doesNotMatch(workflow, /^\\s+push:\\s*\\n\\s+branches:\\s*\\[\"main\"\\]/m)
+  assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m)
+  assert.doesNotMatch(workflow, /^\s+push:\s*\n\s+branches:\s*\[\"main\"\]/m)
   assert.match(workflow, /environment: production/)
-  assert.equal((workflow.match(/vercel@63\\.1\\.2/g) ?? []).length, 3)
+  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 3)
   assert.doesNotMatch(workflow, /vercel@latest/)
-  assert.doesNotMatch(workflow, /--token\\s+["']?\\$\\{\\{\\s*secrets\\.VERCEL_TOKEN/)
-  assert.doesNotMatch(workflow, /--token\\s+["']?\\$VERCEL_TOKEN/)
-  assert.match(workflow, /VERCEL_TOKEN:\\s*\\$\\{\\{\\s*secrets\\.VERCEL_TOKEN\\s*\\}\\}/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
+  assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
 })
 
 test('README warns that the production Environment must be protected explicitly', async () => {
