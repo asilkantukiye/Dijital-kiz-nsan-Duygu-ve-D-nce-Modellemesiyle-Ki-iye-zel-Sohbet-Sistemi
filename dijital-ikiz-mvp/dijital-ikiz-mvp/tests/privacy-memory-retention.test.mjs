@@ -54,7 +54,7 @@ test('every memory-retention deletion and overflow cleanup is scoped to the curr
   assert.match(inactivePrune[1], /\.lt\('last_used_at', cutoff\)/)
 
   const overflowSelect = memory.match(
-    /const \{ data, error \} = await supabase([\s\S]*?)if \(error\) throw error/
+    /while \(true\) \{([\s\S]*?)if \(error\) throw error/
   )
   assert.ok(overflowSelect, 'memory-cap query must remain explicit')
   assert.match(overflowSelect[1], /\.eq\('user_id', userId\)/)
