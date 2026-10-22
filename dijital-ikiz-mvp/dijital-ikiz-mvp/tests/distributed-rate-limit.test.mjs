@@ -150,8 +150,8 @@ test('chat route denies inference before calling the model when the limiter bloc
 
   assert.ok(limiterPosition >= 0, 'route must call distributed limiter')
   assert.ok(modelPosition > limiterPosition, 'model inference must happen after the limiter')
-  assert.match(route, /rateLimitDecision\\.unavailable \\? 503 : 429/)
-  assert.match(route, /'Retry-After': String\\(rateLimitDecision\\.retryAfterSeconds\\)/)
+  assert.match(route, /rateLimitDecision\.unavailable \? 503 : 429/)
+  assert.match(route, /'Retry-After': String\(rateLimitDecision\.retryAfterSeconds\)/)
 })
 
 test('invalid endpoint and short secret salt are rejected before network access', async () => {
@@ -159,6 +159,7 @@ test('invalid endpoint and short secret salt are rejected before network access'
   for (const environment of [
     { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'http://region-12345.upstash.io' },
     { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'https://attacker.example' },
+    { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'https://region-12345.upstash.io/?token=not-allowed' },
     { ...productionEnvironment, RATE_LIMIT_KEY_SALT: 'short' }
   ]) {
     const result = await enforceChatRateLimit('invalid-config-user', {
