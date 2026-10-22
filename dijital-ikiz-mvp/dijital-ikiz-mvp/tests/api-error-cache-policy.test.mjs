@@ -18,10 +18,12 @@ test('chat auth and rate-limit errors explicitly disable caching', async () => {
     chat,
     /error: 'Oturum bulunamadı\.'[\s\S]{0,140}status: 401, headers: \{ 'Cache-Control': 'no-store' \}/
   )
-  assert.match(
-    chat,
-    /Çok fazla istek gönderildi\.[\s\S]{0,180}status: 429, headers: \{ 'Cache-Control': 'no-store' \}/
-  )
+  assert.match(chat, /enforceChatRateLimit\(user\.id\)/)
+  assert.match(chat, /rateLimitDecision\.unavailable \? 503 : 429/)
+  assert.match(chat, /'Retry-After': String\(rateLimitDecision\.retryAfterSeconds\)/)
+  assert.match(chat, /Çok fazla istek gönderildi\./)
+  assert.match(chat, /İstek sınırı hizmeti şu anda kullanılamıyor\./)
+  assert.match(chat, /'Cache-Control': 'no-store'/)
 })
 
 test('feedback auth and message-ownership errors explicitly disable caching', async () => {
