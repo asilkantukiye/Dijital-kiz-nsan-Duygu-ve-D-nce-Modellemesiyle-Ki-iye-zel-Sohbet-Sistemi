@@ -65,11 +65,11 @@ test('CI and Vercel validation use the committed npm lockfile reproducibly', asy
   assert.deepEqual(install.devDependencies, packageJson.devDependencies)
   assert.deepEqual(install.engines, packageJson.engines)
 
-  assert.match(ci, /cache-dependency-path: dijital-ikiz-mvp\\/dijital-ikiz-mvp\\/package-lock\\.json/)
-  assert.match(ci, /run: npm ci\\b/)
-  assert.doesNotMatch(ci, /run: npm install\\b/)
+  assert.match(ci, /cache-dependency-path: dijital-ikiz-mvp\/dijital-ikiz-mvp\/package-lock\.json/)
+  assert.match(ci, /run: npm ci\b/)
+  assert.doesNotMatch(ci, /run: npm install\b/)
 
-  assert.equal((deploy.match(/cache-dependency-path:.*package-lock\\.json/g) ?? []).length, 2)
-  assert.match(deploy, /run: npm ci\\b/)
-  assert.doesNotMatch(deploy, /run: npm install\\b/)
+  assert.equal((deploy.match(/cache-dependency-path:.*package-lock\.json/g) ?? []).length, 2)
+  assert.match(deploy, /run: npm ci\b/)
+  assert.doesNotMatch(deploy, /run: npm install\b/)
 })
