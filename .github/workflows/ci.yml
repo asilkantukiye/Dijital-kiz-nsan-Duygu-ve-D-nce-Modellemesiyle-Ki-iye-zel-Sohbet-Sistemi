@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package.json
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
 
       - name: Set up Python for notebook validation
         uses: actions/setup-python@v7
@@ -85,7 +85,7 @@ jobs:
             --file tests/sql/security_rpc.integration.sql
 
       - name: Install
-        run: npm install
+        run: npm ci
 
       - name: Unit tests (memory and API validation)
         run: npm run test:unit
