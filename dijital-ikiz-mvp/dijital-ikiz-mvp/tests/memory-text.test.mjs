@@ -135,6 +135,40 @@ test('extracts a direct negative drink preference and marks it for replacement',
   )
 })
 
+test('does not overwrite independent sugar and milk preferences for the same drink', () => {
+  const rows = [
+    { id: 'sugar', content: 'Kullanıcı tercihi: şekersiz kahve' },
+    { id: 'milk', content: 'Kullanıcı tercihi: sütlü kahve' },
+    { id: 'temperature', content: 'Kullanıcı tercihi: sıcak kahve' },
+    { id: 'tea', content: 'Kullanıcı tercihi: yeşil çay' }
+  ]
+
+  assert.notEqual(
+    preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),
+    preferenceConflictKey('Kullanıcı tercihi: sütlü kahve')
+  )
+
+  const sugarConflicts = findConflictingPreferences(rows, 'Kullanıcı tercihi: şekerli kahve')
+  assert.deepEqual(sugarConflicts.map((row) => row.id), ['sugar'])
+
+  const milkConflicts = findConflictingPreferences(rows, 'Kullanıcı tercihi: sütsüz kahve')
+  assert.deepEqual(milkConflicts.map((row) => row.id), ['milk'])
+
+  const temperatureConflicts = findConflictingPreferences(rows, 'Kullanıcı tercihi: soğuk kahve')
+  assert.deepEqual(temperatureConflicts.map((row) => row.id), ['temperature'])
+})
+
+test('allows a specific preference to replace a generic same-topic preference only', () => {
+  const rows = [
+    { id: 'generic', content: 'Kullanıcı tercihi: kahve' },
+    { id: 'milk', content: 'Kullanıcı tercihi: sütlü kahve' },
+    { id: 'tea', content: 'Kullanıcı tercihi: yeşil çay' }
+  ]
+
+  const conflicts = findConflictingPreferences(rows, 'Kullanıcı tercihi: şekersiz kahve')
+  assert.deepEqual(conflicts.map((row) => row.id), ['generic'])
+})
+
 test('does not consider a different preference topic a conflict', () => {
   assert.notEqual(
     preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),

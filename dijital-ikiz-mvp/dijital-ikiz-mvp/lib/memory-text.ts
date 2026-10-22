@@ -74,6 +74,12 @@ const preferenceRules: RegExp[] = [
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|kullanıyorum|kullanmıyorum|kullanırım|izliyorum|izlemiyorum|dinliyorum|dinlemiyorum)[.!?]?$/iu
 ]
 
+const preferenceModifierDimensions: Array<{ dimension: string; values: Set<string> }> = [
+  { dimension: 'sugar', values: new Set(['sekersiz', 'sekerli']) },
+  { dimension: 'milk', values: new Set(['sutlu', 'sutsuz']) },
+  { dimension: 'temperature', values: new Set(['sicak', 'soguk']) }
+]
+
 const preferenceTopicIgnored = new Set([
   'kullanici', 'tercihi', 'olumsuz', 'artik',
   'sekersiz', 'sekerli', 'sutlu', 'sutsuz',
@@ -84,19 +90,22 @@ const preferenceTopicIgnored = new Set([
   'izliyorum', 'dinliyorum', 'ben', 'benim'
 ])
 
-// The final meaningful noun is a lightweight topic key, not a scientific classifier.
-// It is used only when the user explicitly marks a preference as changed.
+// Preference topic keys are conservative heuristics, not a scientific classifier.
+// Opposite values are grouped only within the same dimension (sugar, milk, temperature).
 export function preferenceConflictKey(content: string): string | null {
   const normalized = content
-    .replace(/^kullanıcı\s+tercihi:\s*/iu, '')
-    .replace(/\s*\(olumsuz tercih\)\s*/iu, '')
+    .replace(/^kullanıcı\\s+tercihi:\\s*/iu, '')
+    .replace(/\\s*\\(olumsuz tercih\\)\\s*/iu, '')
     .toLocaleLowerCase('tr-TR')
     .normalize('NFKD')
-    .replace(/\p{M}/gu, '')
+    .replace(/\\p{M}/gu, '')
 
-  const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? []
-  // Remove value modifiers before stemming. Otherwise "şekerli" becomes
-  // "sekerl" and no longer matches the ignored modifier set.
+  const tokens = normalized.match(/[\\p{L}\\p{N}]+/gu) ?? []
+  const dimensions = preferenceModifierDimensions
+    .filter(({ values }) => tokens.some((token) => values.has(token)))
+    .map(({ dimension }) => dimension)
+    .sort()
+
   const topicTokens = tokens.filter(
     (token) => token.length > 1 && !preferenceTopicIgnored.has(token)
   )
@@ -114,7 +123,12 @@ export function preferenceConflictKey(content: string): string | null {
     return token
   }).filter((token) => token.length > 1)
 
-  return meaningful.join(' ') || null
+  const topic = meaningful.join(' ')
+  if (!topic) return null
+
+  // Keep independent dimensions separate: sugar and milk preferences for
+  // the same drink can coexist and must not overwrite each other.
+  return `${dimensions.join('+') || 'general'}::${topic}`
 }
 
 export function findConflictingPreferences<T extends { content: string }>(
@@ -124,7 +138,25 @@ export function findConflictingPreferences<T extends { content: string }>(
   const changedTopic = preferenceConflictKey(changedContent)
   if (!changedTopic) return []
 
-  return rows.filter((row) => preferenceConflictKey(row.content) === changedTopic)
+  const separator = changedTopic.indexOf('::')
+  const changedDimension = changedTopic.slice(0, separator)
+  const changedBase = changedTopic.slice(separator + 2)
+
+  return rows.filter((row) => {
+    const rowTopic = preferenceConflictKey(row.content)
+    if (!rowTopic) return false
+    if (rowTopic === changedTopic) return true
+
+    const rowSeparator = rowTopic.indexOf('::')
+    const rowDimension = rowTopic.slice(0, rowSeparator)
+    const rowBase = rowTopic.slice(rowSeparator + 2)
+
+    // A generic "coffee" preference may be replaced by a more specific
+    // preference for coffee, but two different dimensions (e.g. sugar vs milk)
+    // are not mutually exclusive and must remain separate.
+    return rowBase === changedBase &&
+      (rowDimension === 'general' || changedDimension === 'general')
+  })
 }
 
 export function planPreferenceReplacement<T extends { id: string; content: string }>(
