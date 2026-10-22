@@ -94,13 +94,13 @@ const preferenceTopicIgnored = new Set([
 // Opposite values are grouped only within the same dimension (sugar, milk, temperature).
 export function preferenceConflictKey(content: string): string | null {
   const normalized = content
-    .replace(/^kullanıcı\\s+tercihi:\\s*/iu, '')
-    .replace(/\\s*\\(olumsuz tercih\\)\\s*/iu, '')
+    .replace(/^kullanıcı\s+tercihi:\s*/iu, '')
+    .replace(/\s*\(olumsuz tercih\)\s*/iu, '')
     .toLocaleLowerCase('tr-TR')
     .normalize('NFKD')
-    .replace(/\\p{M}/gu, '')
+    .replace(/\p{M}/gu, '')
 
-  const tokens = normalized.match(/[\\p{L}\\p{N}]+/gu) ?? []
+  const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? []
   const dimensions = preferenceModifierDimensions
     .filter(({ values }) => tokens.some((token) => values.has(token)))
     .map(({ dimension }) => dimension)
