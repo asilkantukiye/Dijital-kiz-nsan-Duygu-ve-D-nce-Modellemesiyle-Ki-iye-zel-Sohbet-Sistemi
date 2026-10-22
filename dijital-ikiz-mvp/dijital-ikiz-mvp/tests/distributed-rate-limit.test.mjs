@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { randomUUID } from 'node:crypto'
 
 import { enforceChatRateLimit } from '../lib/distributed-rate-limit.ts'
 
@@ -47,7 +48,7 @@ test('partial configuration also fails closed rather than silently using a local
 })
 
 test('development without Upstash uses bounded local fallback for tests only', async () => {
-  const userId = 'dev-fallback-' + crypto.randomUUID()
+  const userId = 'dev-fallback-' + randomUUID()
   const environment = { NODE_ENV: 'development' }
 
   for (let attempt = 1; attempt <= 20; attempt += 1) {
