@@ -25,6 +25,8 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 4. 20261018190000_atomic_user_data_deletion.sql
 5. 20261019175000_feedback_message_ownership_rls.sql
 6. 20261020200000_atomic_chat_turn_persistence.sql
+7. 20261021210000_stage5_memory_extensions_usage.sql
+8. 20261021211000_stage5_atomic_memory_preference_update.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -91,13 +93,13 @@ select p.proname,
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'replace_my_memory_preference')
 order by p.proname;
 ~~~
 
 Uygulama fonksiyonları SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false, authenticated_can_execute = true ve anon_can_execute = false beklenir. `anon_can_execute = false` aynı zamanda PUBLIC üzerinden yanlışlıkla verilmiş execute iznini de yakalamaya yardımcı olur.
 
-### pgvector extension
+### pgvector extension ve schema izni
 
 ~~~sql
 select e.extname, n.nspname as extension_schema
@@ -106,12 +108,19 @@ join pg_namespace n on n.oid = e.extnamespace
 where e.extname = 'vector';
 ~~~
 
-Repo şeması vektör extension'ını extensions şemasında bekler.
+Repo şeması vektör extension'ını `extensions` şemasında bekler. Ayrıca authenticated rolü bu şemayı kullanabilmelidir:
+
+~~~sql
+select has_schema_privilege('authenticated', 'extensions', 'USAGE')
+  as authenticated_can_use_extensions;
+~~~
+
+Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'yi devre dışı bırakmaz.
 
 ## Migration sonrası doğrulama
 
 1. CLI migration listesinde beklenen migration'ların applied olduğunu doğrula.
-2. Salt-okunur tablolarda RLS, politikalar, match_memory_items, delete_my_chat_data ve persist_chat_turn fonksiyonlarını tekrar kontrol et.
+2. Salt-okunur kontrollerde RLS/politikaları, `match_memory_items`, `delete_my_chat_data`, `persist_chat_turn` ve `replace_my_memory_preference` fonksiyonlarını/izinlerini; ayrıca `authenticated` rolünün `extensions` şeması için `USAGE` iznini tekrar doğrula.
 3. GitHub'daki CI başarısını şema doğrulamasıyla karıştırma: CI SQL sözleşmelerini/testleri kontrol eder, gerçek Supabase projesinde migration uygulandığını kanıtlamaz.
 4. Oturum açma, iki kullanıcı arasında veri izolasyonu, sohbet kaydetme/okuma, geri bildirim yetkilendirmesi ve veri silme işlemini iki ayrı test hesabıyla dene. Bu E2E testleri yalnızca proje etkin ve migration'lar doğrulandıktan sonra yapılabilir.
 5. Test hesabında veri silmenin chat belleğini, profili, mesajları ve bağlı geri bildirimi temizlediğini kontrol et. Bu işlem Supabase Auth hesabını silmez.
