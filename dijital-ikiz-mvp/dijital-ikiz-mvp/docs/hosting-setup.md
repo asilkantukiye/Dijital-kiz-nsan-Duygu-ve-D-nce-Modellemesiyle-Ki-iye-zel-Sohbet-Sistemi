@@ -22,8 +22,8 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `HF_TOKEN` — gizli değer; Vercel'e doğrudan gir, sohbete veya GitHub dosyasına yazma.
 - `HF_MODEL` — `Qwen/Qwen3-4B-Instruct-2507`
 - `UPSTASH_REDIS_REST_URL` — Upstash REST endpoint (HTTPS)
-- `UPSTASH_REDIS_REST_TOKEN` — secret token, only in Vercel environment settings
-- `RATE_LIMIT_KEY_SALT` — at least 32 random characters, server-side only
+- `UPSTASH_REDIS_REST_TOKEN` — gizli REST token'ı; Vercel ortam ayarlarında sakla
+- `RATE_LIMIT_KEY_SALT` — en az 32 rastgele karakter; yalnızca sunucu tarafında tut
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
 Üretim sohbeti için Upstash rate-limit değişkenleri de zorunludur. Bunlar yoksa `/api/health` `ready: false` bildirir ve sohbet API'si model çağrısını başlatmaz. Token veya salt değerini GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
@@ -33,9 +33,8 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 GitHub deposunda **Settings → Secrets and variables → Actions → New repository secret** bölümüne şunları ekle:
 
 - `VERCEL_TOKEN`: Vercel hesabının Settings → Tokens bölümünde oluşturulan token.
-- `VERCEL_ORG_ID`: `Dijitalİkiz` Vercel takımının scope/ID değeri. Gerekirse Vercel CLI'nin proje bağlantısı veya takım ayarlarından doğrula.
 
-Workflow, bu ikisi olmadan yalnızca ön kontrol yapar ve gerçek deploy'u atlar. Token'ı sohbet mesajlarına veya repodaki dosyalara yazma.
+Takım kapsamı workflow içinde `help-70c6` olarak sabitlenmiştir; `VERCEL_ORG_ID` secret'ı gerekmez. Workflow, `VERCEL_TOKEN` veya `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` yoksa gerçek deploy'u atlar. Token'ı sohbet mesajlarına veya repodaki dosyalara yazma.
 
 ## D. InfinityFree statik tanıtım sayfası
 
