@@ -144,3 +144,18 @@ test('production readiness rejects malformed Upstash URLs and short key salts', 
   assert.equal(status.ready, false)
   assert.equal(status.configured.rateLimit, false)
 })
+
+test('production readiness rejects Upstash endpoint query strings', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder',
+    upstashRedisRestUrl: 'https://region-12345.upstash.io/?token=accidental',
+    upstashRedisRestToken: 'private-test-token',
+    rateLimitKeySalt: 's'.repeat(32),
+    nodeEnv: 'production'
+  })
+
+  assert.equal(status.ready, false)
+  assert.equal(status.configured.rateLimit, false)
+})
