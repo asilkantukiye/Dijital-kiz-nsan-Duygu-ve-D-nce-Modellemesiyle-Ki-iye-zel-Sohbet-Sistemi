@@ -99,6 +99,9 @@ export function preferenceConflictKey(content: string): string | null {
     .toLocaleLowerCase('tr-TR')
     .normalize('NFKD')
     .replace(/\p{M}/gu, '')
+    // Turkish dotless ı is a letter, not a combining mark; fold it explicitly
+    // so values such as "sıcak" match the canonical key "sicak".
+    .replace(/ı/g, 'i')
 
   const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? []
   const dimensions = preferenceModifierDimensions
