@@ -92,10 +92,10 @@ test('production deployment URL is captured and health/readiness is checked afte
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /id: deployment/)
-  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
   assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
-  assert.match(workflow, /vercel@latest curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
+  assert.match(workflow, /vercel@63.1.2 curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
   assert.match(workflow, /health\.ok !== true/)
   assert.match(workflow, /health\.ready !== true/)
   assert.match(workflow, /Production health smoke test passed/)
@@ -109,7 +109,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   const config = JSON.parse(configText)
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
-  assert.match(workflow, /vercel@latest deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
@@ -124,4 +124,26 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /üretim güncellenmiş değildir/)
   assert.match(readme, /\/api\/health/)
   assert.match(readme, /gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz/)
+})
+
+
+test('production deployment is manual, uses a pinned CLI, and never passes the token as an argument', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m)
+  assert.doesNotMatch(workflow, /^\s+push:\s*\n\s+branches:\s*\[\"main\"\]/m)
+  assert.match(workflow, /environment: production/)
+  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 3)
+  assert.doesNotMatch(workflow, /vercel@latest/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN/)
+  assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
+  assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+})
+
+test('README warns that the production Environment must be protected explicitly', async () => {
+  const readme = await readFile(readmePath, 'utf8')
+
+  assert.match(readme, /elle başlatılan/)
+  assert.match(readme, /Environments → production/)
+  assert.match(readme, /environment: production.*tek başına onay kapısı oluşturmaz/s)
 })
