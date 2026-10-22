@@ -69,13 +69,13 @@ test('integration fixture intentionally predates the memory table and production
 })
 
 test('migration catalog checks vector placement, the complete RPC set, RLS and permissions', async () => {
-  const [securitySql, catalogSql] = await Promise.all([
-    readFile(path.join(projectDirectory, 'tests', 'sql', 'security_rpc.integration.sql'), 'utf8'),
+  const [memoryRlsSql, catalogSql] = await Promise.all([
+    readFile(path.join(projectDirectory, 'tests', 'sql', 'memory_rls.integration.sql'), 'utf8'),
     readFile(path.join(projectDirectory, 'tests', 'sql', 'migration_catalog.integration.sql'), 'utf8')
   ])
 
-  assert.match(securitySql, /public\.match_memory_items\(query_embedding, 0\.72, 5\)/)
-  assert.match(securitySql, /memory RPC did not enforce user-scoped retrieval/)
+  assert.match(memoryRlsSql, /public\.match_memory_items\(/)
+  assert.match(memoryRlsSql, /memory matching RPC leaked or hid rows/)
   assert.match(catalogSql, /memory_items\.embedding must be vector\(384\)/)
   assert.match(catalogSql, /row-level security is not enabled/)
   assert.match(catalogSql, /must remain SECURITY INVOKER/)
