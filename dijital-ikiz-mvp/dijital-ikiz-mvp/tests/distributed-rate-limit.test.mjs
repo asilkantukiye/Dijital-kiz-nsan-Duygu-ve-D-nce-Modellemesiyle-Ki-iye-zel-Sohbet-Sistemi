@@ -87,7 +87,7 @@ test('Upstash request uses one atomic EVAL and never sends the raw user ID', asy
   assert.equal(result.allowed, true)
   assert.equal(result.unavailable, false)
   assert.equal(result.reason, 'allowed')
-  assert.equal(requestedUrl, productionEnvironment.UPSTASH_REDIS_REST_URL)
+  assert.equal(requestedUrl, new URL(productionEnvironment.UPSTASH_REDIS_REST_URL).href)
   assert.ok(requestInit)
   assert.equal(requestInit.method, 'POST')
   assert.equal(requestInit.headers.Authorization, 'Bearer test-upstash-token')
