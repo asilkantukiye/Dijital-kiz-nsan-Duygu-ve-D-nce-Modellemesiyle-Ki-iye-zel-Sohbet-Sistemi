@@ -293,7 +293,7 @@ returns void
 language plpgsql
 security invoker
 set search_path = pg_catalog, public, extensions
-as $
+as $$
 declare
   v_user_id uuid := auth.uid();
   v_updated integer := 0;
@@ -332,7 +332,7 @@ begin
     and id <> p_keep_id
     and id = any(coalesce(p_duplicate_ids, array[]::uuid[]));
 end;
-$;
+$$;
 
 revoke all on function public.replace_my_memory_preference(
   uuid, uuid[], text, real, extensions.vector(384), uuid
