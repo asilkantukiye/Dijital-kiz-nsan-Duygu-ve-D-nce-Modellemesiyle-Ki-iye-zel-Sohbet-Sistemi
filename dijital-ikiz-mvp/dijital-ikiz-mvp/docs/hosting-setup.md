@@ -21,9 +21,12 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `HF_TOKEN` — gizli değer; Vercel'e doğrudan gir, sohbete veya GitHub dosyasına yazma.
 - `HF_MODEL` — `Qwen/Qwen3-4B-Instruct-2507`
+- `UPSTASH_REDIS_REST_URL` — Upstash REST endpoint (HTTPS)
+- `UPSTASH_REDIS_REST_TOKEN` — secret token, only in Vercel environment settings
+- `RATE_LIMIT_KEY_SALT` — at least 32 random characters, server-side only
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
-Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
+Üretim sohbeti için Upstash rate-limit değişkenleri de zorunludur. Bunlar yoksa `/api/health` `ready: false` bildirir ve sohbet API'si model çağrısını başlatmaz. Token veya salt değerini GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
 
 ## C. GitHub Actions için Vercel Secrets
 
