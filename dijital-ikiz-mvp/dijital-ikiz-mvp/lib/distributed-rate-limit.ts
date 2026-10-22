@@ -127,6 +127,7 @@ function validUpstashUrl(value?: string): URL | null {
       !url.hostname.endsWith('.upstash.io') ||
       url.username ||
       url.password ||
+      url.search ||
       url.hash
     ) {
       return null
