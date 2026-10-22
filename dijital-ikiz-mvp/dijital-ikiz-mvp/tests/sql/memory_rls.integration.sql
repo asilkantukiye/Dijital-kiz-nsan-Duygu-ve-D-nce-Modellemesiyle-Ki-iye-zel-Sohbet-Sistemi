@@ -5,14 +5,16 @@
 -- messages each. The actual migration's RLS policy is under test here.
 RESET ROLE;
 
-INSERT INTO public.memory_items (user_id, memory_type, content, embedding) VALUES
+INSERT INTO public.memory_items (id, user_id, memory_type, content, embedding) VALUES
   (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '11111111-1111-4111-8111-111111111111',
     'preference',
     'rls-fixture-memory-user-a',
     ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384)
   ),
   (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     '22222222-2222-4222-8222-222222222222',
     'preference',
     'rls-fixture-memory-user-b',
@@ -73,6 +75,26 @@ BEGIN
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected <> 0 THEN
     RAISE EXCEPTION 'User A updated a memory owned by User B';
+  END IF;
+
+  -- The real atomic preference RPC must not bypass RLS even when a caller
+  -- supplies a foreign user's row ID directly.
+  rejected := false;
+  BEGIN
+    PERFORM public.replace_my_memory_preference(
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,
+      ARRAY[]::uuid[],
+      'rls-cross-user-preference-update-by-a',
+      0.5,
+      ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384),
+      NULL::uuid
+    );
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Preference memory not found' THEN RAISE; END IF;
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'User A updated a memory owned by User B through the preference RPC';
   END IF;
 
   DELETE FROM public.memory_items WHERE user_id = other_user;
@@ -170,6 +192,24 @@ BEGIN
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected <> 0 THEN
     RAISE EXCEPTION 'User B updated a memory owned by User A';
+  END IF;
+
+  rejected := false;
+  BEGIN
+    PERFORM public.replace_my_memory_preference(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
+      ARRAY[]::uuid[],
+      'rls-cross-user-preference-update-by-b',
+      0.5,
+      ('[' || array_to_string(ARRAY[1::real] || array_fill(0::real, ARRAY[383]), ',') || ']')::extensions.vector(384),
+      NULL::uuid
+    );
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Preference memory not found' THEN RAISE; END IF;
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'User B updated a memory owned by User A through the preference RPC';
   END IF;
 
   DELETE FROM public.memory_items WHERE user_id = other_user;
