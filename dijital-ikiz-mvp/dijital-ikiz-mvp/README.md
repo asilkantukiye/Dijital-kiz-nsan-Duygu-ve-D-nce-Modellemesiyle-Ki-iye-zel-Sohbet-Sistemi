@@ -53,6 +53,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
 HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+RATE_LIMIT_KEY_SALT=
 ```
 
 **Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
@@ -81,6 +84,16 @@ Hugging Face'de Inference Providers erişimi olan bir fine-grained token oluştu
 Uygulama, OpenAI-uyumlu `https://router.huggingface.co/v1/chat/completions` uç noktasını kullanır.
 
 Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata çıktısına taşımamak üzere hata mesajlarını sınırlar. Geçici 408/429/5xx hatalarında sınırlı yeniden deneme uygulanır ve üretim uzunluğu MVP veri sınırına uygun tutulur.
+
+### Üretim sohbet rate-limit yapılandırması
+
+Üretimde sohbet endpoint'i, kullanıcı limitiyle birlikte proje genelinde dakikalık ve günlük harcama sınırlarına yakın bir istek koruması için Upstash Redis REST kullanır. Üretim ortamında aşağıdaki üç değişken zorunludur:
+
+- \`UPSTASH_REDIS_REST_URL\`: HTTPS ile başlayan Upstash REST endpoint'i (\`*.upstash.io\`).
+- \`UPSTASH_REDIS_REST_TOKEN\`: Upstash panelinden alınan REST token'ı; yalnızca sunucu ortamında tut.
+- \`RATE_LIMIT_KEY_SALT\`: en az 32 karakterlik özel rastgele gizli değer. Üretmek için yerel terminalde \`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"\` çalıştır; değeri repoya veya sohbete koyma.
+
+Varsayılan limitler: kullanıcı başına 20 istek/dakika, tüm proje için 120 istek/dakika ve 1000 istek/UTC günü. Bunlar başlangıç mühendislik sınırlarıdır; gerçek kullanıcı hacmi ve Hugging Face fiyat/harcama limitlerine göre izlenip ayarlanmalıdır. Limit servisi üretimde eksik/erişilemezse sohbet API'si ücretli model çağrısı yapmaz ve \`503\` döndürür. Geliştirme ortamında değişkenler boşken yalnızca yerel testler için süreç içi sayaç kullanılabilir; bu sayaç dağıtık koruma değildir.
 
 ## 5. Lokal çalıştırma
 
@@ -160,7 +173,7 @@ Mevcut sürüm:
 - varyanta göre ayrıştırılmış sohbet geçmişi,
 - kişiselleştirilmiş ve genel koşulların profil durumunu karıştırmaması,
 - veri silme,
-- kullanıcı başına temel istek sınırlama,
+- üretimde dağıtık kullanıcı/dakika ve proje-geneli dakika/UTC-günü rate-limit, geliştirmede süreç içi fallback,
 - istek gövdesi ve sohbet geçmişi boyut sınırları,
 - mutasyon yapan tarayıcı API'lerinde same-origin kontrolü,
 - güvenlik HTTP başlıkları,
@@ -191,7 +204,7 @@ Uygulama kullanıcı konuşmalarını, geri bildirimlerini ve çıkarılan profi
 
 Koruma katmanları arasında Supabase RLS, server-side kullanıcı doğrulaması, same-origin kontrolleri, girdi/çıktı boyut sınırları, process-local istek sınırlama ve güvenlik HTTP başlıkları bulunur.
 
-**Önemli:** process-local rate limiter, sunucusuz ortamlarda instance bazlı olduğu için dağıtık bir kötüye kullanım önleme sistemi değildir. Üretim trafiği büyüdüğünde merkezi bir rate-limit katmanına geçirilmelidir.
+**Önemli:** üretim limit kararı Upstash Redis REST üzerinde atomik Lua komutuyla verilir; process-local sayaç yalnızca Upstash yapılandırmasının tamamen boş olduğu geliştirme ortamında kullanılabilir. Üretimde eksik yapılandırma veya Redis hatası, ücretli inference'ı kapatır.
 
 Proje çocuklar veya psikolojik destek gibi alanlarda gerçek kullanıcı çalışmasına geçmeden önce uygun etik, ebeveyn/onam, veri koruma ve uzman denetimi süreçleri ayrıca değerlendirilmelidir.
 
