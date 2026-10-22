@@ -179,7 +179,8 @@ export function planPreferenceReplacement<T extends { id: string; content: strin
 }
 
 function cleanCandidate(value: string) {
-  return value
+  return stripInvisibleFormatCharacters(value)
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/^[,:;\-\s]+|[,:;\-\s]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -190,26 +191,50 @@ function containsInstructionLikeText(text: string) {
   return instructionLikePatterns.some((pattern) => pattern.test(text))
 }
 
+function stripInvisibleFormatCharacters(value: string) {
+  // Keep the emoji joiner, but strip zero-width separators, bidi overrides,
+  // directional isolates and other Unicode format controls from stored context.
+  return value.replace(/\p{Cf}/gu, (character) => character === '\u200D' ? character : '')
+}
+
 function foldSecurityText(value: string, locale: 'tr-TR' | 'en-US') {
+  return stripInvisibleFormatCharacters(value)
+    .toLocaleLowerCase(locale)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+}
+
+function foldSecurityTextWithSeparators(value: string, locale: 'tr-TR' | 'en-US') {
+  // Also treat format controls as token separators. This detects both
+  // "ig\u200Bnore" and "ignore\u200Bprevious" obfuscation variants.
   return value
+    .replace(/\p{Cf}/gu, ' ')
     .toLocaleLowerCase(locale)
     .normalize('NFKD')
     .replace(/\p{M}/gu, '')
 }
 
 function isBlocked(text: string) {
-  // Check both Turkish-localized and locale-neutral case folding. In Turkish,
-  // uppercase ASCII "I" becomes dotless "ı", which otherwise misses English
-  // secret markers such as "API key".
-  const lowerTurkish = foldSecurityText(text, 'tr-TR')
-  const lowerInvariant = foldSecurityText(text, 'en-US')
+  // Check Turkish/invariant folding and both removal/separator interpretations
+  // of Unicode format characters. This raises coverage, not a guarantee against
+  // all multilingual or semantic prompt injection.
+  const variants = [
+    foldSecurityText(text, 'tr-TR'),
+    foldSecurityText(text, 'en-US'),
+    foldSecurityTextWithSeparators(text, 'tr-TR'),
+    foldSecurityTextWithSeparators(text, 'en-US')
+  ]
 
-  return blockedTerms.some((term) => {
+  const containsBlockedTerm = blockedTerms.some((term) => {
     const normalizedTurkishTerm = foldSecurityText(term, 'tr-TR')
     const normalizedInvariantTerm = foldSecurityText(term, 'en-US')
-    return lowerTurkish.includes(normalizedTurkishTerm) ||
-      lowerInvariant.includes(normalizedInvariantTerm)
-  }) || containsInstructionLikeText(text)
+    return variants.some((candidate) =>
+      candidate.includes(normalizedTurkishTerm) ||
+      candidate.includes(normalizedInvariantTerm)
+    )
+  })
+
+  return containsBlockedTerm || variants.some(containsInstructionLikeText)
 }
 
 function toMemoryContent(type: MemoryType, candidate: string) {
@@ -301,7 +326,11 @@ export function formatMemoryContext(memories: MemoryItem[]) {
       return []
     }
 
-    const safe = memory.content
+    // Check the stored value before normalizing it, then sanitize format
+    // controls so invisible characters are not forwarded to the model.
+    if (isBlocked(memory.content)) return []
+
+    const safe = stripInvisibleFormatCharacters(memory.content)
       .replace(/[\u0000-\u001F\u007F]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
