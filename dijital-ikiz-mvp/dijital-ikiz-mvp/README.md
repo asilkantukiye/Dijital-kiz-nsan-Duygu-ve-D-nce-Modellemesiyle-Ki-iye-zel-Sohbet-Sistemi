@@ -124,12 +124,16 @@ HF_MODEL
 
 ### GitHub Actions üzerinden dağıtım
 
-`.github/workflows/vercel-deploy.yml`, GitHub Actions üzerinden manuel/otomatik üretim dağıtımı içindir. Dağıtım için bir secret ve ayrı bir repository variable gerekir:
+`.github/workflows/vercel-deploy.yml`, yalnızca **elle başlatılan** üretim dağıtımı içindir. Dağıtım için bir secret ve ayrı bir repository variable gerekir:
 
 - `VERCEL_TOKEN` secret'ı: Vercel hesabında oluşturulan erişim token'ı.
 - `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` repository variable'ı: yalnızca doğru Supabase projesinde temel şema ve tüm gerekli migration'lar uygulandıktan; RLS politikaları ve gereken RPC fonksiyon/izinleri runbook'a göre doğrulandıktan sonra tam olarak `true` değerine ayarlanır.
 
 Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ayrıca `VERCEL_ORG_ID` secret'ı oluşturman gerekmez. Token'ı kaynak koda, issue'lara, loglara veya sohbet mesajlarına yazma. GitHub repository ayarlarında **Settings → Secrets and variables → Actions → New repository secret** yoluyla `VERCEL_TOKEN` ekle; aynı sayfadaki **Variables → New repository variable** yoluyla migration onay değişkenini oluştur. Proje Supabase tarafında **INACTIVE** görünüyorsa veya migration'ın uygulandığı doğrulanamıyorsa değişkeni `true` yapma ve dağıtımı başlatma. [Supabase migration runbook](supabase/MIGRATION_RUNBOOK.md) doğru projeyi doğrulama, migration geçmişini kontrol etme ve fonksiyon izinlerini denetleme adımlarını açıklar.
+
+
+
+Üretim dağıtım işi `production` GitHub Environment'ını kullanır. **Settings → Environments → production** altında deployment branch kısıtını yalnızca `main` ile sınırlandırın ve hesab/repo planınız destekliyorsa bağımsız bir Required reviewer ile self-review engelini etkinleştirin. Ortam koruması ayarlanmamışsa `environment: production` tek başına onay kapısı oluşturmaz. CLI sürümü sabittir; `VERCEL_TOKEN` yalnızca adım ortam değişkeni olarak kullanılır ve komut satırı argümanına yazılmaz.
 
 Önkoşullardan biri eksikse workflow açık hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Önkoşullar doğrulandıktan sonra **Actions → Vercel Deploy → Run workflow** ile çalıştırılabilir. Dağıtımdan önce Python/ML doğrulamaları, uygulama birim testleri, TypeScript kontrolü ve production build çalışır; bunlardan biri başarısızsa dağıtım yapılmaz. Dağıtımın ardından workflow Vercel CLI'nin döndürdüğü deployment URL'sine gidip `/api/health` yanıtını doğrular; `ok: true` ve `ready: true` beklenir. `ready`, Supabase ve Hugging Face için gerekli ortam değişkenlerinin mevcut olduğunu gösterir; veritabanının erişilebilir olduğunu veya gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz. Bu nedenle canlı sohbet uçtan uca testi ayrıca gereklidir.
 
