@@ -131,9 +131,9 @@ export async function persistMemories(
   for (const item of embedded) {
     const now = new Date().toISOString()
 
-    // Explicit preference changes get a deterministic same-topic lookup first.
-    // Vector similarity alone cannot reliably match opposites such as sweetened
-    // and unsweetened coffee, so it must not decide preference conflicts by itself.
+    // Explicitly stated preferences get a deterministic same-topic lookup first.
+    // This handles direct statements such as "Şekerli kahve içerim" without
+    // requiring the word "Artık". Vector similarity alone never decides conflicts.
     if (item.memory.replaceExisting && item.memory.memory_type === 'preference') {
       const { data: preferenceRows, error: preferenceError } = await supabase
         .from('memory_items')

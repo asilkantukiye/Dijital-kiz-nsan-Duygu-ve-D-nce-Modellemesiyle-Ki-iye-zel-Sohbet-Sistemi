@@ -63,14 +63,15 @@ const instructionLikePatterns: RegExp[] = [
 
 // Explicit "artık ..." phrasing marks the preference as a replacement, not a new fact.
 const explicitPreferenceChangeRule =
-  /^artık\s+(.{1,100}?)\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|seviyorum|sevmiyorum|tercih\s+ediyorum|tercih\s+ederim|kullanıyorum|kullanırım|izliyorum|dinliyorum|istemiyorum|istiyorum)[.!?]?$/iu
+  /^artık\s+(.{1,100}?)\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|seviyorum|sevmiyorum|tercih\s+ediyorum|tercih\s+ederim|tercih\s+etmiyorum|kullanıyorum|kullanırım|kullanmıyorum|izliyorum|izlemiyorum|dinliyorum|dinlemiyorum|istemiyorum|istiyorum)[.!?]?$/iu
 
 const preferenceRules: RegExp[] = [
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:çok\s+)?seviyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+sevmiyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+tercih\s+ederim[.!?]?$/iu,
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+tercih\s+etmiyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+istemiyorum[.!?]?$/iu,
-  /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:içiyorum|içerim|yiyorum|yerim|kullanıyorum|kullanırım|izliyorum|dinliyorum)[.!?]?$/iu
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|kullanıyorum|kullanmıyorum|kullanırım|izliyorum|izlemiyorum|dinliyorum|dinlemiyorum)[.!?]?$/iu
 ]
 
 const preferenceTopicIgnored = new Set([
@@ -215,7 +216,7 @@ export function extractMemories(text: string) {
       const candidate = cleanCandidate(explicitChange[1])
       const content = toMemoryContent('preference', candidate)
       if (content) {
-        const negative = /sevmiyorum|istemiyorum|içmiyorum|yemiyorum/iu.test(cleaned)
+        const negative = /sevmiyorum|istemiyorum|içmiyorum|yemiyorum|tercih\s+etmiyorum|kullanmıyorum|izlemiyorum|dinlemiyorum/iu.test(cleaned)
         memories.push({
           memory_type: 'preference',
           content: negative ? `${content} (olumsuz tercih)` : content,
@@ -233,11 +234,14 @@ export function extractMemories(text: string) {
       const candidate = cleanCandidate(match[1])
       const content = toMemoryContent('preference', candidate)
       if (content) {
-        const negative = /sevmiyorum|istemiyorum/iu.test(cleaned)
+        const negative = /sevmiyorum|istemiyorum|içmiyorum|yemiyorum|tercih\s+etmiyorum|kullanmıyorum|izlemiyorum|dinlemiyorum/iu.test(cleaned)
         memories.push({
           memory_type: 'preference',
           content: negative ? `${content} (olumsuz tercih)` : content,
-          importance: negative ? 0.65 : 0.7
+          importance: negative ? 0.65 : 0.7,
+          // Every extracted preference here came from an explicit preference statement.
+          // Resolve same-topic conflicts deterministically before similarity dedupe.
+          replaceExisting: true
         })
       }
       break

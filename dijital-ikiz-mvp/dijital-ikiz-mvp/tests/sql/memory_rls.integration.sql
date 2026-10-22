@@ -75,6 +75,12 @@ BEGIN
     RAISE EXCEPTION 'User A updated a memory owned by User B';
   END IF;
 
+  DELETE FROM public.memory_items WHERE user_id = other_user;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN
+    RAISE EXCEPTION 'User A deleted a memory owned by User B';
+  END IF;
+
   DELETE FROM public.messages WHERE user_id = other_user;
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected <> 0 THEN
@@ -164,6 +170,12 @@ BEGIN
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected <> 0 THEN
     RAISE EXCEPTION 'User B updated a memory owned by User A';
+  END IF;
+
+  DELETE FROM public.memory_items WHERE user_id = other_user;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN
+    RAISE EXCEPTION 'User B deleted a memory owned by User A';
   END IF;
 
   DELETE FROM public.messages WHERE user_id = other_user;

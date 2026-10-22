@@ -101,6 +101,40 @@ test('marks an explicit preference change so persistence replaces the same topic
   )
 })
 
+test('marks a directly stated current preference for same-topic replacement without an explicit change adverb', () => {
+  const previous = extractMemories('Şekersiz kahve içerim.')
+  const changed = extractMemories('Şekerli kahve içerim.')
+
+  assert.equal(previous.length, 1)
+  assert.equal(changed.length, 1)
+  assert.equal(changed[0].replaceExisting, true)
+  assert.equal(
+    preferenceConflictKey(previous[0].content),
+    preferenceConflictKey(changed[0].content)
+  )
+
+  const plan = planPreferenceReplacement(
+    [{ id: 'previous-coffee', content: previous[0].content }],
+    changed[0].content
+  )
+  assert.ok(plan)
+  assert.equal(plan.keep.id, 'previous-coffee')
+})
+
+test('extracts a direct negative drink preference and marks it for replacement', () => {
+  const previous = extractMemories('Kahve içerim.')
+  const changed = extractMemories('Kahve içmiyorum.')
+
+  assert.equal(previous.length, 1)
+  assert.equal(changed.length, 1)
+  assert.equal(changed[0].replaceExisting, true)
+  assert.match(changed[0].content, /olumsuz tercih/)
+  assert.equal(
+    preferenceConflictKey(previous[0].content),
+    preferenceConflictKey(changed[0].content)
+  )
+})
+
 test('does not consider a different preference topic a conflict', () => {
   assert.notEqual(
     preferenceConflictKey('Kullanıcı tercihi: şekersiz kahve'),
