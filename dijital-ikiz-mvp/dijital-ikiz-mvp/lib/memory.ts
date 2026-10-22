@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
 
-import { extractMemories, type MemoryItem } from '@/lib/memory-text'
+import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, planPreferenceReplacement, type MemoryItem } from '@/lib/memory-text'
 
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
 
 const MIN_SIMILARITY = 0.72
+// Engineering parameter, not a scientifically validated semantic boundary.
 const MAX_MEMORY_RESULTS = 5
 const MAX_MEMORY_ITEMS_PER_USER = 50
 const MEMORY_RETENTION_DAYS = 180
@@ -128,6 +129,69 @@ export async function persistMemories(
   let persisted = 0
 
   for (const item of embedded) {
+    const now = new Date().toISOString()
+
+    // Explicitly stated preferences get a deterministic same-topic lookup first.
+    // This handles direct statements such as "Şekerli kahve içerim" without
+    // requiring the word "Artık". Vector similarity alone never decides conflicts.
+    if (item.memory.replaceExisting && item.memory.memory_type === 'preference') {
+      const { data: preferenceRows, error: preferenceError } = await supabase
+        .from('memory_items')
+        .select('id, content, updated_at')
+        .eq('user_id', userId)
+        .eq('memory_type', 'preference')
+        .order('updated_at', { ascending: false })
+        .limit(MAX_MEMORY_ITEMS_PER_USER)
+
+      if (preferenceError) throw preferenceError
+
+      const replacementPlan = planPreferenceReplacement(
+        preferenceRows ?? [],
+        item.memory.content
+      )
+
+      if (replacementPlan) {
+        // One SECURITY INVOKER RPC updates the chosen row and removes stale
+        // same-topic rows in a single PostgreSQL transaction.
+        const { error: replacementError } = await supabase.rpc('replace_my_memory_preference', {
+          p_keep_id: replacementPlan.keep.id,
+          p_duplicate_ids: replacementPlan.remove.map((row) => row.id),
+          p_content: item.memory.content,
+          p_importance: item.memory.importance,
+          p_embedding: item.embedding,
+          p_source_message_id: sourceMessageId
+        })
+
+        if (replacementError) throw replacementError
+
+        persisted += 1
+        continue
+      }
+    }
+
+    // The RPC is scoped by auth.uid(); the explicit user filter on preference
+    // lookups and writes is defense in depth.
+    const { data: similarRows, error: similarityError } = await supabase.rpc('match_memory_items', {
+      query_embedding: item.embedding,
+      match_threshold: MEMORY_DUPLICATE_SIMILARITY_THRESHOLD,
+      match_count: 10
+    })
+
+    if (similarityError) throw similarityError
+
+    const similar = ((similarRows ?? []) as MemoryItem[]).filter(
+      (row) => row.memory_type === item.memory.memory_type &&
+        typeof row.similarity === 'number' &&
+        row.similarity >= MEMORY_DUPLICATE_SIMILARITY_THRESHOLD
+    )
+
+    if (similar.length > 0) {
+      // A deterministic same-topic replacement has already been handled above.
+      // If no matching topic exists, similarity alone must not overwrite another
+      // preference or create another near-duplicate memory.
+      continue
+    }
+
     const { error } = await supabase
       .from('memory_items')
       .upsert(
@@ -138,7 +202,7 @@ export async function persistMemories(
           importance: item.memory.importance,
           embedding: item.embedding,
           source_message_id: sourceMessageId,
-          updated_at: new Date().toISOString()
+          updated_at: now
         },
         { onConflict: 'user_id,content' }
       )

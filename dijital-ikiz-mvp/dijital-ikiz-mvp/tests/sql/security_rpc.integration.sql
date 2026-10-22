@@ -23,9 +23,19 @@ $unauthenticated_delete$;
 
 -- Seed one memory row per user and valid feedback for user two as the test
 -- harness. User one's memory/profile/messages will be removed by the RPC.
-INSERT INTO public.memory_items (user_id, content) VALUES
-  ('11111111-1111-4111-8111-111111111111', 'private memory for user one'),
-  ('22222222-2222-4222-8222-222222222222', 'private memory for user two');
+INSERT INTO public.memory_items (user_id, memory_type, content, embedding) VALUES
+  (
+    '11111111-1111-4111-8111-111111111111',
+    'preference',
+    'private memory for user one',
+    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+  ),
+  (
+    '22222222-2222-4222-8222-222222222222',
+    'preference',
+    'private memory for user two',
+    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+  );
 
 INSERT INTO public.message_feedback (message_id, user_id, rating, variant)
 SELECT id, user_id, 4, 'baseline'

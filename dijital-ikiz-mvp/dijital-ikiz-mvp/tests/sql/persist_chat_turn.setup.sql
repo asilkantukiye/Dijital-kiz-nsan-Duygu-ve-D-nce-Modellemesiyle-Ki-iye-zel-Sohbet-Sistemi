@@ -6,6 +6,9 @@ CREATE ROLE authenticated NOLOGIN;
 CREATE SCHEMA auth;
 CREATE SCHEMA extensions;
 
+-- Match Supabase's extension-aware object lookup for pgvector opclasses.
+SET search_path = public, extensions;
+
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY
 );
@@ -38,12 +41,6 @@ CREATE TABLE public.messages (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.memory_items (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  content text NOT NULL
-);
-
 CREATE TABLE public.message_feedback (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id uuid NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
@@ -55,7 +52,6 @@ CREATE TABLE public.message_feedback (
 
 ALTER TABLE public.twin_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.memory_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_feedback ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "test users own twin profiles"
@@ -72,13 +68,6 @@ CREATE POLICY "test users own messages"
   USING ((SELECT auth.uid()) = user_id)
   WITH CHECK ((SELECT auth.uid()) = user_id);
 
-CREATE POLICY "test users own memory items"
-  ON public.memory_items
-  FOR ALL
-  TO authenticated
-  USING ((SELECT auth.uid()) = user_id)
-  WITH CHECK ((SELECT auth.uid()) = user_id);
-
 -- The production migration replaces this deliberately weaker legacy policy.
 CREATE POLICY "users own feedback"
   ON public.message_feedback
@@ -89,7 +78,6 @@ CREATE POLICY "users own feedback"
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.twin_profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.messages TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.memory_items TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.message_feedback TO authenticated;
 
 INSERT INTO auth.users (id) VALUES

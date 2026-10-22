@@ -12,6 +12,9 @@ export type MemoryItem = {
 const MAX_MEMORY_TEXT = 240
 const MAX_MEMORY_RESULTS = 5
 
+// Engineering threshold, not a scientifically validated semantic boundary.
+export const MEMORY_DUPLICATE_SIMILARITY_THRESHOLD = 0.86
+
 const blockedTerms = [
   'şifre',
   'parola',
@@ -53,15 +56,127 @@ const instructionLikePatterns: RegExp[] = [
   /(?:önceki|tüm|bütün)\s+(?:sistem\s+)?(?:talimatları|kuralları|yönergeleri)\s+(?:yok\s+say|unut|çiğne|geçersiz\s+kıl)/iu,
   /\b(?:ignore|disregard|override|forget)\b.{0,80}\b(?:previous|system|developer|all|instructions?|rules?|prompt)\b/i,
   /\b(?:sistem|system|developer)\s+(?:talimatları?|mesajı|promptu?)\b.{0,80}\b(?:göster|ifşa|açığa çıkar|unut|yok say|reveal|show|ignore)\b/iu,
-  /\b(?:api|gizli|secret|access)\s+(?:anahtarı|key|token)\b.{0,50}\b(?:göster|ifşa|açığa çıkar|reveal|print|show)\b/iu
+  /\b(?:api|gizli|secret|access)\s+(?:anahtarı|key|token)\b.{0,50}\b(?:göster|ifşa|açığa çıkar|reveal|print|show)\b/iu,
+  /\b(?:you are now|act as|become)\b.{0,80}\b(?:system administrator|administrator|admin)\b/i,
+  /\b(?:return|reveal|show|print|provide|give)\b.{0,60}\b(?:all\s+)?(?:secrets?|credentials?|private keys?)\b/i
 ]
+
+// Explicit "artık ..." phrasing marks the preference as a replacement, not a new fact.
+const explicitPreferenceChangeRule =
+  /^artık\s+(.{1,100}?)\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|seviyorum|sevmiyorum|tercih\s+ediyorum|tercih\s+ederim|tercih\s+etmiyorum|kullanıyorum|kullanırım|kullanmıyorum|izliyorum|izlemiyorum|dinliyorum|dinlemiyorum|istemiyorum|istiyorum)[.!?]?$/iu
 
 const preferenceRules: RegExp[] = [
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:çok\s+)?seviyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+sevmiyorum[.!?]?$/iu,
   /^(?:ben(?:im)?\s+)?(.{1,100})\s+tercih\s+ederim[.!?]?$/iu,
-  /^(?:ben(?:im)?\s+)?(.{1,100})\s+istemiyorum[.!?]?$/iu
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+tercih\s+etmiyorum[.!?]?$/iu,
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+istemiyorum[.!?]?$/iu,
+  /^(?:ben(?:im)?\s+)?(.{1,100})\s+(?:içiyorum|içmiyorum|içerim|yiyorum|yemiyorum|yerim|kullanıyorum|kullanmıyorum|kullanırım|izliyorum|izlemiyorum|dinliyorum|dinlemiyorum)[.!?]?$/iu
 ]
+
+const preferenceModifierDimensions: Array<{ dimension: string; values: Set<string> }> = [
+  { dimension: 'sugar', values: new Set(['sekersiz', 'sekerli']) },
+  { dimension: 'milk', values: new Set(['sutlu', 'sutsuz']) },
+  { dimension: 'temperature', values: new Set(['sicak', 'soguk']) }
+]
+
+const preferenceTopicIgnored = new Set([
+  'kullanici', 'tercihi', 'olumsuz', 'artik',
+  'sekersiz', 'sekerli', 'sutlu', 'sutsuz',
+  'sicak', 'soguk', 'az', 'cok', 'fazla',
+  'seviyorum', 'sevmiyorum', 'istiyorum', 'istemiyorum',
+  'tercih', 'ederim', 'ediyorum', 'iciyorum', 'icerim',
+  'yiyorum', 'yerim', 'kullaniyorum', 'kullanirim',
+  'izliyorum', 'dinliyorum', 'ben', 'benim'
+])
+
+// Preference topic keys are conservative heuristics, not a scientific classifier.
+// Opposite values are grouped only within the same dimension (sugar, milk, temperature).
+export function preferenceConflictKey(content: string): string | null {
+  const normalized = content
+    .replace(/^kullanıcı\s+tercihi:\s*/iu, '')
+    .replace(/\s*\(olumsuz tercih\)\s*/iu, '')
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    // Turkish dotless ı is a letter, not a combining mark; fold it explicitly
+    // so values such as "sıcak" match the canonical key "sicak".
+    .replace(/ı/g, 'i')
+
+  const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? []
+  const dimensions = preferenceModifierDimensions
+    .filter(({ values }) => tokens.some((token) => values.has(token)))
+    .map(({ dimension }) => dimension)
+    .sort()
+
+  const topicTokens = tokens.filter(
+    (token) => token.length > 1 && !preferenceTopicIgnored.has(token)
+  )
+  const meaningful = topicTokens.map((token) => {
+    for (const suffix of [
+      'larından', 'lerinden', 'ları', 'leri', 'lar', 'ler',
+      'sı', 'si', 'su', 'sü', 'yı', 'yi', 'yu', 'yü',
+      'dan', 'den', 'tan', 'ten', 'da', 'de', 'ta', 'te',
+      'na', 'ne', 'ya', 'ye', 'ı', 'i', 'u', 'ü'
+    ]) {
+      if (token.length > suffix.length + 3 && token.endsWith(suffix)) {
+        return token.slice(0, -suffix.length)
+      }
+    }
+    return token
+  }).filter((token) => token.length > 1)
+
+  const topic = meaningful.join(' ')
+  if (!topic) return null
+
+  // Keep independent dimensions separate: sugar and milk preferences for
+  // the same drink can coexist and must not overwrite each other.
+  return `${dimensions.join('+') || 'general'}::${topic}`
+}
+
+export function findConflictingPreferences<T extends { content: string }>(
+  rows: T[],
+  changedContent: string
+): T[] {
+  const changedTopic = preferenceConflictKey(changedContent)
+  if (!changedTopic) return []
+
+  const separator = changedTopic.indexOf('::')
+  const changedDimension = changedTopic.slice(0, separator)
+  const changedBase = changedTopic.slice(separator + 2)
+
+  return rows.filter((row) => {
+    const rowTopic = preferenceConflictKey(row.content)
+    if (!rowTopic) return false
+    if (rowTopic === changedTopic) return true
+
+    const rowSeparator = rowTopic.indexOf('::')
+    const rowDimension = rowTopic.slice(0, rowSeparator)
+    const rowBase = rowTopic.slice(rowSeparator + 2)
+
+    // A generic "coffee" preference may be replaced by a more specific
+    // preference for coffee, but two different dimensions (e.g. sugar vs milk)
+    // are not mutually exclusive and must remain separate.
+    return rowBase === changedBase &&
+      (rowDimension === 'general' || changedDimension === 'general')
+  })
+}
+
+export function planPreferenceReplacement<T extends { id: string; content: string }>(
+  rows: T[],
+  changedContent: string
+): { keep: T; remove: T[] } | null {
+  const conflicts = findConflictingPreferences(rows, changedContent)
+  if (conflicts.length === 0) return null
+
+  // Reuse an existing exact-content row when present to avoid a unique-index
+  // conflict; otherwise update the most recently updated candidate supplied first.
+  const keep = conflicts.find((row) => row.content === changedContent) ?? conflicts[0]
+  return {
+    keep,
+    remove: conflicts.filter((row) => row.id !== keep.id)
+  }
+}
 
 function cleanCandidate(value: string) {
   return value
@@ -75,9 +190,26 @@ function containsInstructionLikeText(text: string) {
   return instructionLikePatterns.some((pattern) => pattern.test(text))
 }
 
+function foldSecurityText(value: string, locale: 'tr-TR' | 'en-US') {
+  return value
+    .toLocaleLowerCase(locale)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+}
+
 function isBlocked(text: string) {
-  const lower = text.toLocaleLowerCase('tr-TR')
-  return blockedTerms.some((term) => lower.includes(term)) || containsInstructionLikeText(text)
+  // Check both Turkish-localized and locale-neutral case folding. In Turkish,
+  // uppercase ASCII "I" becomes dotless "ı", which otherwise misses English
+  // secret markers such as "API key".
+  const lowerTurkish = foldSecurityText(text, 'tr-TR')
+  const lowerInvariant = foldSecurityText(text, 'en-US')
+
+  return blockedTerms.some((term) => {
+    const normalizedTurkishTerm = foldSecurityText(term, 'tr-TR')
+    const normalizedInvariantTerm = foldSecurityText(term, 'en-US')
+    return lowerTurkish.includes(normalizedTurkishTerm) ||
+      lowerInvariant.includes(normalizedInvariantTerm)
+  }) || containsInstructionLikeText(text)
 }
 
 function toMemoryContent(type: MemoryType, candidate: string) {
@@ -92,7 +224,7 @@ function toMemoryContent(type: MemoryType, candidate: string) {
 }
 
 export function extractMemories(text: string) {
-  const memories: Array<{ memory_type: MemoryType; content: string; importance: number }> = []
+  const memories: Array<{ memory_type: MemoryType; content: string; importance: number; replaceExisting?: boolean }> = []
   const normalized = text.replace(/[\u0000-\u001F\u007F]/g, ' ').trim()
   const sentences = normalized.split(/(?<=[.!?])\s+/u).slice(0, 6)
 
@@ -107,10 +239,26 @@ export function extractMemories(text: string) {
       continue
     }
 
-    const shortAnswers = cleaned.match(/\b(kısa|uzun|detaylı)\s+(?:cevap|yanıt)(?:ları)?\s+tercih\s+ederim\b/iu)
+    const shortAnswers = cleaned.match(/\b(kısa|uzun|detaylı)\s+(?:cevap|yanıt)(?:ları)?\s+tercih\s+(?:ederim|ediyorum)\b/iu)
     if (shortAnswers) {
       const content = toMemoryContent('communication', shortAnswers[0])
       if (content) memories.push({ memory_type: 'communication', content, importance: 0.75 })
+      continue
+    }
+
+    const explicitChange = cleaned.match(explicitPreferenceChangeRule)
+    if (explicitChange) {
+      const candidate = cleanCandidate(explicitChange[1])
+      const content = toMemoryContent('preference', candidate)
+      if (content) {
+        const negative = /sevmiyorum|istemiyorum|içmiyorum|yemiyorum|tercih\s+etmiyorum|kullanmıyorum|izlemiyorum|dinlemiyorum/iu.test(cleaned)
+        memories.push({
+          memory_type: 'preference',
+          content: negative ? `${content} (olumsuz tercih)` : content,
+          importance: negative ? 0.7 : 0.75,
+          replaceExisting: true
+        })
+      }
       continue
     }
 
@@ -121,11 +269,14 @@ export function extractMemories(text: string) {
       const candidate = cleanCandidate(match[1])
       const content = toMemoryContent('preference', candidate)
       if (content) {
-        const negative = /sevmiyorum|istemiyorum/iu.test(cleaned)
+        const negative = /sevmiyorum|istemiyorum|içmiyorum|yemiyorum|tercih\s+etmiyorum|kullanmıyorum|izlemiyorum|dinlemiyorum/iu.test(cleaned)
         memories.push({
           memory_type: 'preference',
           content: negative ? `${content} (olumsuz tercih)` : content,
-          importance: negative ? 0.65 : 0.7
+          importance: negative ? 0.65 : 0.7,
+          // Every extracted preference here came from an explicit preference statement.
+          // Resolve same-topic conflicts deterministically before similarity dedupe.
+          replaceExisting: true
         })
       }
       break
