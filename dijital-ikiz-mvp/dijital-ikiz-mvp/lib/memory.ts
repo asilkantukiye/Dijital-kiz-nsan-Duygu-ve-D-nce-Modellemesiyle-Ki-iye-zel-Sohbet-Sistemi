@@ -185,10 +185,10 @@ export async function persistMemories(
         row.similarity >= MEMORY_DUPLICATE_SIMILARITY_THRESHOLD
     )
 
-    if (similar.length > 0 && !item.memory.replaceExisting) {
-      // Ordinary near-duplicates are skipped. Explicit preference changes that
-      // did not match a known topic are allowed to become new records rather
-      // than overwrite a potentially unrelated preference by vector score alone.
+    if (similar.length > 0) {
+      // A deterministic same-topic replacement has already been handled above.
+      // If no matching topic exists, similarity alone must not overwrite another
+      // preference or create another near-duplicate memory.
       continue
     }
 
