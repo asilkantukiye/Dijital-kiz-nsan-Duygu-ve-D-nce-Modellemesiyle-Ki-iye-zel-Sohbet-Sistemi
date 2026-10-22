@@ -10,7 +10,8 @@ test('health is live but not ready when backend configuration is missing', () =>
   assert.equal(status.ready, false)
   assert.deepEqual(status.configured, {
     supabase: false,
-    huggingface: false
+    huggingface: false,
+    rateLimit: false
   })
 })
 
@@ -18,14 +19,16 @@ test('health is ready only when valid Supabase and Hugging Face configuration is
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-placeholder',
-    huggingfaceToken: 'secret-placeholder'
+    huggingfaceToken: 'secret-placeholder',
+    nodeEnv: 'development'
   })
 
   assert.equal(status.ok, true)
   assert.equal(status.ready, true)
   assert.deepEqual(status.configured, {
     supabase: true,
-    huggingface: true
+    huggingface: true,
+    rateLimit: false
   })
 })
 
@@ -86,7 +89,8 @@ test('whitespace-only environment values count as missing', () => {
   assert.equal(status.ready, false)
   assert.deepEqual(status.configured, {
     supabase: false,
-    huggingface: false
+    huggingface: false,
+    rateLimit: false
   })
 })
 
@@ -100,4 +104,59 @@ test('health response reports configuration presence, never credential values', 
 
   assert.doesNotMatch(serialized, /publishable-secret-must-not-appear/)
   assert.doesNotMatch(serialized, /hf-secret-must-not-appear/)
+})
+
+
+test('production readiness requires a valid distributed rate-limit configuration', () => {
+  const base = {
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder',
+    nodeEnv: 'production'
+  }
+
+  const withoutLimiter = buildHealthStatus(base)
+  assert.equal(withoutLimiter.ok, true)
+  assert.equal(withoutLimiter.ready, false)
+  assert.equal(withoutLimiter.configured.rateLimit, false)
+
+  const configured = buildHealthStatus({
+    ...base,
+    upstashRedisRestUrl: 'https://region-12345.upstash.io',
+    upstashRedisRestToken: 'private-test-token',
+    rateLimitKeySalt: 'x'.repeat(32)
+  })
+  assert.equal(configured.ready, true)
+  assert.equal(configured.configured.rateLimit, true)
+  assert.doesNotMatch(JSON.stringify(configured), /private-test-token|x{32}/)
+})
+
+test('production readiness rejects malformed Upstash URLs and short key salts', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder',
+    upstashRedisRestUrl: 'http://region-12345.upstash.io',
+    upstashRedisRestToken: 'private-test-token',
+    rateLimitKeySalt: 'too-short',
+    nodeEnv: 'production'
+  })
+
+  assert.equal(status.ready, false)
+  assert.equal(status.configured.rateLimit, false)
+})
+
+test('production readiness rejects Upstash endpoint query strings', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder',
+    upstashRedisRestUrl: 'https://region-12345.upstash.io/?token=accidental',
+    upstashRedisRestToken: 'private-test-token',
+    rateLimitKeySalt: 's'.repeat(32),
+    nodeEnv: 'production'
+  })
+
+  assert.equal(status.ready, false)
+  assert.equal(status.configured.rateLimit, false)
 })

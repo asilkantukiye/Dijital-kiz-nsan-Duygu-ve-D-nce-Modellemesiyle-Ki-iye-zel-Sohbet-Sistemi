@@ -10,53 +10,12 @@ import { qwenChat } from '@/lib/huggingface'
 import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
 import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
 import { readJsonBodyLimited } from '@/lib/request-body'
+import { enforceChatRateLimit } from '@/lib/distributed-rate-limit'
 
 const MAX_MESSAGE_LENGTH = MAX_CHAT_MESSAGE_LENGTH
 const MAX_HISTORY = 8
 const MAX_HISTORY_ITEM_LENGTH = 2000
 const MAX_HISTORY_CHARS = 12000
-const RATE_WINDOW_MS = 60_000
-const RATE_LIMIT = 20
-const MAX_RATE_LIMIT_KEYS = 10_000
-
-const rateLimit = new Map<string, { count: number; resetAt: number }>()
-
-function pruneRateLimit(now: number) {
-  for (const [key, entry] of rateLimit) {
-    if (entry.resetAt <= now) {
-      rateLimit.delete(key)
-    }
-  }
-
-  // A burst of unique authenticated users should not grow the process-local
-  // limiter without bound. The limiter is still best-effort on serverless
-  // platforms because each instance has its own memory.
-  while (rateLimit.size >= MAX_RATE_LIMIT_KEYS) {
-    const oldestKey = rateLimit.keys().next().value
-    if (!oldestKey) break
-    rateLimit.delete(oldestKey)
-  }
-}
-
-function allowRequest(userId: string) {
-  const now = Date.now()
-  const current = rateLimit.get(userId)
-
-  if (!current || current.resetAt <= now) {
-    if (rateLimit.size >= MAX_RATE_LIMIT_KEYS) {
-      pruneRateLimit(now)
-    }
-
-    rateLimit.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return true
-  }
-
-  if (current.count >= RATE_LIMIT) return false
-
-  current.count += 1
-  return true
-}
-
 function boundReply(text: string) {
   if (text.length <= MAX_MESSAGE_LENGTH) return text
 
@@ -98,6 +57,8 @@ function boundHistory(
   return bounded
 }
 
+export const runtime = 'nodejs'
+
 export async function POST(req: Request) {
   try {
     const originError = rejectCrossOrigin(req)
@@ -137,10 +98,23 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!allowRequest(user.id)) {
+    const rateLimitDecision = await enforceChatRateLimit(user.id)
+
+    if (!rateLimitDecision.allowed) {
+      const status = rateLimitDecision.unavailable ? 503 : 429
+      const error = rateLimitDecision.unavailable
+        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
+        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
+
       return NextResponse.json(
-        { error: 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.' },
-        { status: 429, headers: { 'Cache-Control': 'no-store' } }
+        { error },
+        {
+          status,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
+          }
+        }
       )
     }
 

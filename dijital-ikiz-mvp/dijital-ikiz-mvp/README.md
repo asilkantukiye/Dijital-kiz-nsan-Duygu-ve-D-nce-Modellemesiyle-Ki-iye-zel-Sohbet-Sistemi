@@ -53,6 +53,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
 HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+RATE_LIMIT_KEY_SALT=
 ```
 
 **Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
@@ -81,6 +84,16 @@ Hugging Face'de Inference Providers erişimi olan bir fine-grained token oluştu
 Uygulama, OpenAI-uyumlu `https://router.huggingface.co/v1/chat/completions` uç noktasını kullanır.
 
 Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata çıktısına taşımamak üzere hata mesajlarını sınırlar. Geçici 408/429/5xx hatalarında sınırlı yeniden deneme uygulanır ve üretim uzunluğu MVP veri sınırına uygun tutulur.
+
+### Üretim sohbet rate-limit yapılandırması
+
+Üretimde sohbet endpoint'i, kullanıcı ve proje genelindeki istek hacmini sınırlamak için Upstash Redis REST kullanır. Bu, model maliyetini azaltan bir korumadır; sağlayıcı harcaması için kesin bir para bütçesi/tavanı değildir. Üretim ortamında aşağıdaki üç değişken zorunludur:
+
+- `UPSTASH_REDIS_REST_URL`: HTTPS ile başlayan Upstash REST endpoint'i (`*.upstash.io`).
+- `UPSTASH_REDIS_REST_TOKEN`: Upstash panelinden alınan REST token'ı; yalnızca sunucu ortamında tut.
+- `RATE_LIMIT_KEY_SALT`: en az 32 karakterlik özel rastgele gizli değer. Üretmek için yerel terminalde `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"` çalıştır; değeri repoya veya sohbete koyma.
+
+Varsayılan limitler: kullanıcı başına 20 istek/dakika, tüm proje için 120 istek/dakika ve 1000 istek/UTC günü. Bunlar başlangıç mühendislik sınırlarıdır; gerçek kullanıcı hacmi ve Hugging Face fiyat/harcama limitlerine göre izlenip ayarlanmalıdır. Limit servisi üretimde eksik/erişilemezse sohbet API'si ücretli model çağrısı yapmaz ve `503` döndürür. Geliştirme ortamında değişkenler boşken yalnızca yerel testler için süreç içi sayaç kullanılabilir; bu sayaç dağıtık koruma değildir.
 
 ## 5. Lokal çalıştırma
 
@@ -118,6 +131,10 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 HF_TOKEN
 HF_MODEL
+HF_EMBEDDING_MODEL
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+RATE_LIMIT_KEY_SALT
 ```
 
 Üretim, preview ve development ortamları için gerekli değişkenleri ekleyin.
@@ -135,7 +152,7 @@ Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ay
 
 Üretim dağıtım işi `production` GitHub Environment'ını kullanır. **Settings → Environments → production** altında deployment branch kısıtını yalnızca `main` ile sınırlandırın ve hesab/repo planınız destekliyorsa bağımsız bir Required reviewer ile self-review engelini etkinleştirin. Ortam koruması ayarlanmamışsa `environment: production` tek başına onay kapısı oluşturmaz. CLI sürümü sabittir; `VERCEL_TOKEN` yalnızca adım ortam değişkeni olarak kullanılır ve komut satırı argümanına yazılmaz.
 
-Önkoşullardan biri eksikse workflow açık hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Önkoşullar doğrulandıktan sonra **Actions → Vercel Deploy → Run workflow** ile çalıştırılabilir. Dağıtımdan önce Python/ML doğrulamaları, uygulama birim testleri, TypeScript kontrolü ve production build çalışır; bunlardan biri başarısızsa dağıtım yapılmaz. Dağıtımın ardından workflow Vercel CLI'nin döndürdüğü deployment URL'sine gidip `/api/health` yanıtını doğrular; `ok: true` ve `ready: true` beklenir. `ready`, Supabase ve Hugging Face için gerekli ortam değişkenlerinin mevcut olduğunu gösterir; veritabanının erişilebilir olduğunu veya gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz. Bu nedenle canlı sohbet uçtan uca testi ayrıca gereklidir.
+Önkoşullardan biri eksikse workflow açık hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Önkoşullar doğrulandıktan sonra **Actions → Vercel Deploy → Run workflow** ile çalıştırılabilir. Dağıtımdan önce Python/ML doğrulamaları, uygulama birim testleri, TypeScript kontrolü ve production build çalışır; bunlardan biri başarısızsa dağıtım yapılmaz. Dağıtımın ardından workflow Vercel CLI'nin döndürdüğü deployment URL'sine gidip `/api/health` yanıtını doğrular; `ok: true` ve `ready: true` beklenir. `ready`, Supabase, Hugging Face ve üretimde gerekli Upstash rate-limit yapılandırmasının mevcut olduğunu gösterir; veritabanının erişilebilir olduğunu veya gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz. Bu nedenle canlı sohbet uçtan uca testi ayrıca gereklidir.
 
 Vercel Git entegrasyonu PR/özellik dalı önizlemeleri oluşturabilir; ancak uygulama kökündeki `vercel.json`, `main` dalından gelen otomatik Git dağıtımını kapatır (`git.deploymentEnabled.main: false`). Böylece `main` dalına merge yapılması tek başına üretim dağıtımı başlatmamalıdır. Üretim dağıtımı yalnızca GitHub Actions `Vercel Deploy` workflow'u üzerinden yapılmalıdır; bu yol hem `VERCEL_TOKEN` hem de Supabase temel şeması, gerekli tüm migration'lar, RLS politikaları ve RPC fonksiyon/izinleri doğrulandıktan sonra ayarlanacak `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` değişkenini zorunlu tutar. Merge sonrası Vercel’in Git durumu yine de otomatik bir `main` dağıtımı gösterirse, Vercel projesinin Root Directory değerinin `dijital-ikiz-mvp/dijital-ikiz-mvp` olduğunu ve bu `vercel.json` dosyasının dağıtım kökünde bulunduğunu kontrol edin. Her durumda canlı üretim URL’sini ve `/api/health` sonucunu ayrıca doğrulayın.
 
@@ -160,7 +177,7 @@ Mevcut sürüm:
 - varyanta göre ayrıştırılmış sohbet geçmişi,
 - kişiselleştirilmiş ve genel koşulların profil durumunu karıştırmaması,
 - veri silme,
-- kullanıcı başına temel istek sınırlama,
+- üretimde dağıtık kullanıcı/dakika ve proje-geneli dakika/UTC-günü rate-limit, geliştirmede süreç içi fallback,
 - istek gövdesi ve sohbet geçmişi boyut sınırları,
 - mutasyon yapan tarayıcı API'lerinde same-origin kontrolü,
 - güvenlik HTTP başlıkları,
@@ -189,9 +206,9 @@ Deney yapılmadan sonuçlar bilimsel başarı olarak raporlanmamalıdır.
 
 Uygulama kullanıcı konuşmalarını, geri bildirimlerini ve çıkarılan profil verilerini saklar. Kullanıcı arayüzünden kendi sohbet ve profil verilerini silebilir.
 
-Koruma katmanları arasında Supabase RLS, server-side kullanıcı doğrulaması, same-origin kontrolleri, girdi/çıktı boyut sınırları, process-local istek sınırlama ve güvenlik HTTP başlıkları bulunur.
+Koruma katmanları arasında Supabase RLS, server-side kullanıcı doğrulaması, same-origin kontrolleri, girdi/çıktı boyut sınırları, üretimde dağıtık Upstash rate-limit ve güvenlik HTTP başlıkları bulunur.
 
-**Önemli:** process-local rate limiter, sunucusuz ortamlarda instance bazlı olduğu için dağıtık bir kötüye kullanım önleme sistemi değildir. Üretim trafiği büyüdüğünde merkezi bir rate-limit katmanına geçirilmelidir.
+**Önemli:** üretim limit kararı Upstash Redis REST üzerinde atomik Lua komutuyla verilir; process-local sayaç yalnızca Upstash yapılandırmasının tamamen boş olduğu geliştirme ortamında kullanılabilir. Üretimde eksik yapılandırma veya Redis hatası, ücretli inference'ı kapatır.
 
 Proje çocuklar veya psikolojik destek gibi alanlarda gerçek kullanıcı çalışmasına geçmeden önce uygun etik, ebeveyn/onam, veri koruma ve uzman denetimi süreçleri ayrıca değerlendirilmelidir.
 
