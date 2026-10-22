@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { randomUUID } from 'node:crypto'
 
 import { enforceChatRateLimit } from '../lib/distributed-rate-limit.ts'
+
+const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 
 const productionEnvironment = {
   NODE_ENV: 'production',
@@ -136,6 +141,17 @@ test('malformed responses, non-success statuses and network errors fail closed',
     assert.equal(result.unavailable, true, 'failure ' + index)
     assert.equal(result.reason, 'backend', 'failure ' + index)
   }
+})
+
+test('chat route denies inference before calling the model when the limiter blocks', async () => {
+  const route = await readFile(path.join(testDirectory, '..', 'app', 'api', 'chat', 'route.ts'), 'utf8')
+  const limiterPosition = route.indexOf('await enforceChatRateLimit(user.id)')
+  const modelPosition = route.indexOf('await qwenChat(modelMessages)')
+
+  assert.ok(limiterPosition >= 0, 'route must call distributed limiter')
+  assert.ok(modelPosition > limiterPosition, 'model inference must happen after the limiter')
+  assert.match(route, /rateLimitDecision\\.unavailable \\? 503 : 429/)
+  assert.match(route, /'Retry-After': String\\(rateLimitDecision\\.retryAfterSeconds\\)/)
 })
 
 test('invalid endpoint and short secret salt are rejected before network access', async () => {
