@@ -87,7 +87,7 @@ begin
     $cap_cleanup$
   );
 end
-$;
+$$;
 
 comment on index public.memory_items_retention_never_used_idx is
   'Supports bounded pg_cron deletion of never-used memory older than the retention window.';
