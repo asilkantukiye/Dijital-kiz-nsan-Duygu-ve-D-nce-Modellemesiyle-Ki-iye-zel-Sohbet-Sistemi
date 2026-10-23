@@ -8,7 +8,7 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 
-test('CI applies all nine Supabase migrations in timestamp order', async () => {
+test('CI applies all ten Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
@@ -24,7 +24,8 @@ test('CI applies all nine Supabase migrations in timestamp order', async () => {
     '20261020200000_atomic_chat_turn_persistence.sql',
     '20261021210000_stage5_memory_extensions_usage.sql',
     '20261021211000_stage5_atomic_memory_preference_update.sql',
-    '20261023196000_aud_01_chat_write_boundary.sql'
+    '20261023196000_aud_01_chat_write_boundary.sql',
+    '20261023200000_aud_02_chat_deduplication.sql'
   ]
 
   const positions = migrations.map((migration) => {
@@ -39,6 +40,7 @@ test('CI applies all nine Supabase migrations in timestamp order', async () => {
     'tests/sql/migration_catalog.integration.sql',
     'tests/sql/persist_chat_turn.integration.sql',
     'tests/sql/chat_write_boundary.integration.sql',
+    'tests/sql/chat_idempotency.integration.sql',
     'tests/sql/memory_rls.integration.sql',
     'tests/sql/memory_preference_update.integration.sql',
     'tests/sql/security_rpc.integration.sql'
