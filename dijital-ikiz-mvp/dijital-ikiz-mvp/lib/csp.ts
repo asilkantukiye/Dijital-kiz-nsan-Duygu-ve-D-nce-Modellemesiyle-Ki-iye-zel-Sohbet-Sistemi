@@ -27,9 +27,10 @@ export function buildContentSecurityPolicy(nonce: string, production = true) {
     "frame-ancestors 'none'",
     "form-action 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    // The current UI contains React inline style attributes. Keep this narrower
-    // than script-src and track removal as a follow-up CSP tightening task.
-    "style-src 'self' 'unsafe-inline'",
+    // Nonce style elements; permit only current React style attributes separately.
+    // Removing those attributes can later let style-src-attr become self-only.
+    `style-src 'self' 'nonce-${nonce}'`,
+    "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "manifest-src 'self'",
