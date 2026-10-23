@@ -28,6 +28,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 7. 20261021210000_stage5_memory_extensions_usage.sql
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
 9. 20261023196000_aud_01_chat_write_boundary.sql
+10. 20261023200000_aud_02_chat_deduplication.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -36,6 +37,12 @@ Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut 
 `20261023196000_aud_01_chat_write_boundary.sql`, `authenticated` rolünden `messages` ve `twin_profiles` INSERT/UPDATE izinlerini kaldırır ve eski `persist_chat_turn` RPC'sini authenticated için kapatır. Yeni `persist_chat_turn_server` yalnızca `service_role` ile çağrılır. `/api/chat` önce `auth.getUser()` ile oturumu doğrular, kullanıcı kimliğini doğrulanmış oturumdan alır; istek gövdesindeki `user_id`/`session_id` reddedilir. Bu tasarım için `SUPABASE_SERVICE_ROLE_KEY` yalnızca Next.js sunucu ortamında tanımlanmalıdır. Bu değer kesinlikle `NEXT_PUBLIC_` ile başlamamalı veya tarayıcı bundle'ına eklenmemelidir.
 
 Migration sonrası `tests/sql/chat_write_boundary.integration.sql` eşdeğeri kontrollerde authenticated rolünün `messages` ve `twin_profiles` INSERT/UPDATE yetkilerinin ve iki chat-writer RPC'si için EXECUTE yetkisinin bulunmadığını doğrula. Kendi mesajlarını okuma ve veri silme akışını ayrıca test et.
+
+## AUD-02: aynı sohbet isteğini tekilleştirme
+
+`20261023200000_aud_02_chat_deduplication.sql`, doğrulanmış kullanıcı, varyant ve normalize edilmiş mesaj için SHA-256 parmak izi kullanır; ham mesaj metni idempotency tablosuna kopyalanmaz. `claim_chat_request_server` PostgreSQL tarafında atomik sahiplik alır. Tamamlanmış yanıt 10 saniye boyunca tekrar kullanılabilir; etkin istek için ikinci istek yeni model çağrısı başlatmaz ve `202` / `Retry-After` ile yeniden kontrol eder. Profil güncellemesi, kullanıcı/asistan mesaj çifti ve yanıt önbelleği `persist_chat_turn_idempotent_server` içinde tek bir transaction'da tamamlanır. `chat_request_deduplication` tablosu ve claim/release/writer RPC'leri yalnızca `service_role` içindir. Başarısız istek sahipliği `release_chat_request_server` ile bırakılır; claim işlemi eski önbellek kayıtlarını sınırlı sayıda temizler.
+
+Migration sonrası `tests/sql/chat_idempotency.integration.sql` eşdeğeri kontrollerde ilk claim'in `claimed`, eşzamanlı tekrarın `in_progress`, tamamlanmış tekrarın `replay` döndürdüğünü; yanıt önbelleği ile mesaj çiftinin tek işlemde kaydedildiğini doğrula. CI başarısı canlı Supabase migration'ının uygulandığını kanıtlamaz.
 
 ## Migration geçmişini kontrol et
 
@@ -60,7 +67,7 @@ Doğru projede SQL Editor üzerinden aşağıdaki sorgular veriyi silmez veya ş
 select table_name
 from information_schema.tables
 where table_schema = 'public'
-  and table_name in ('twin_profiles', 'messages', 'message_feedback', 'memory_items')
+  and table_name in ('twin_profiles', 'messages', 'message_feedback', 'memory_items', 'chat_request_deduplication')
 order by table_name;
 ~~~
 
@@ -75,7 +82,7 @@ where n.nspname = 'public'
 order by c.relname;
 ~~~
 
-Dört tabloda da rls_enabled = true beklenir.
+Beş tabloda da rls_enabled = true beklenir; `chat_request_deduplication` yalnızca sunucu rolü tarafından okunup yazılabilmelidir.
 
 ### Politika kontrolü
 
@@ -101,7 +108,7 @@ select p.proname,
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'persist_chat_turn_server', 'replace_my_memory_preference')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'replace_my_memory_preference')
 order by p.proname;
 ~~~
 
@@ -128,7 +135,7 @@ Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'
 ## Migration sonrası doğrulama
 
 1. CLI migration listesinde beklenen migration'ların applied olduğunu doğrula.
-2. Salt-okunur kontrollerde RLS/politikaları, `match_memory_items`, `delete_my_chat_data`, `persist_chat_turn` ve `replace_my_memory_preference` fonksiyonlarını/izinlerini; ayrıca `authenticated` rolünün `extensions` şeması için `USAGE` iznini tekrar doğrula.
+2. Salt-okunur kontrollerde RLS/politikaları, `match_memory_items`, `delete_my_chat_data`, `persist_chat_turn`, `persist_chat_turn_server`, `claim_chat_request_server`, `release_chat_request_server`, `persist_chat_turn_idempotent_server` ve `replace_my_memory_preference` fonksiyonlarını/izinlerini; ayrıca `authenticated` rolünün `extensions` şeması için `USAGE` iznini tekrar doğrula.
 3. GitHub'daki CI başarısını şema doğrulamasıyla karıştırma: CI SQL sözleşmelerini/testleri kontrol eder, gerçek Supabase projesinde migration uygulandığını kanıtlamaz.
 4. Oturum açma, iki kullanıcı arasında veri izolasyonu, sohbet kaydetme/okuma, geri bildirim yetkilendirmesi ve veri silme işlemini iki ayrı test hesabıyla dene. Bu E2E testleri yalnızca proje etkin ve migration'lar doğrulandıktan sonra yapılabilir.
 5. Test hesabında veri silmenin chat belleğini, profili, mesajları ve bağlı geri bildirimi temizlediğini kontrol et. Bu işlem Supabase Auth hesabını silmez.
