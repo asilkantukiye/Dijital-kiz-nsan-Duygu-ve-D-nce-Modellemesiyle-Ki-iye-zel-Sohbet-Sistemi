@@ -47,7 +47,7 @@ test('CI applies all eleven Supabase migrations in timestamp order', async () =>
     'tests/sql/security_rpc.integration.sql'
   ]
   assert.match(workflow, /name: Test concurrent profile updates against PostgreSQL/)
-  assert.match(workflow, /node tests\\/profile-update-concurrency\\.integration\\.mjs/)
+  assert.ok(workflow.includes('node tests/profile-update-concurrency.integration.mjs'))
 
   for (const check of postMigrationChecks) {
     const position = workflow.indexOf('--file ' + check)
