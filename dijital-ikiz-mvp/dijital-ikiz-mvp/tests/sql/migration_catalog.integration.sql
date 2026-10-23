@@ -111,6 +111,19 @@ BEGIN
     RAISE EXCEPTION 'unique user-scoped memory preference-key index is missing';
   END IF;
 
+  IF to_regclass('public.memory_items_user_updated_cap_idx') IS NULL THEN
+    RAISE EXCEPTION 'user-scoped memory cap index is missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.memory_items'::regclass
+      AND tgname = 'memory_items_cap_before_insert'
+      AND NOT tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'database-level memory cap trigger is missing';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public'
