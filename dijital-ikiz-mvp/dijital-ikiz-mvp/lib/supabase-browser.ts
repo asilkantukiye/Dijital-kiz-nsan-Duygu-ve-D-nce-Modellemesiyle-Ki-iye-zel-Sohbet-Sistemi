@@ -1,8 +1,12 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { isValidSupabaseUrl } from './supabase-url'
 
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  if (!isValidSupabaseUrl(supabaseUrl) || !publishableKey?.trim()) {
+    throw new Error('Supabase public client configuration is invalid.')
+  }
+
+  return createBrowserClient(supabaseUrl.trim(), publishableKey.trim())
 }

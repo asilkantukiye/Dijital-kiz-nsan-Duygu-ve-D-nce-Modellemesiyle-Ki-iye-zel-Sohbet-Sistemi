@@ -38,6 +38,16 @@ BEGIN
     RAISE EXCEPTION 'memory_items.embedding must be vector(384), got typmod %', embedding_typmod;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.memory_items'::regclass
+      AND conname = 'memory_items_embedding_integrity_check'
+      AND contype = 'c'
+      AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'AUD-05 embedding integrity constraint is missing or unvalidated';
+  END IF;
+
   SELECT attnum INTO memory_source_attnum
   FROM pg_attribute
   WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_id' AND NOT attisdropped;

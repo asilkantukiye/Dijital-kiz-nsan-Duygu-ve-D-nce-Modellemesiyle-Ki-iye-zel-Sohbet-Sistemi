@@ -1121,3 +1121,15 @@ ALTER TABLE public.memory_items
   ON DELETE SET NULL (source_message_id);
 
 COMMIT;
+-- AUD-05: keep memory vectors correctly dimensioned, finite-norm and non-zero.
+ALTER TABLE public.memory_items
+  DROP CONSTRAINT IF EXISTS memory_items_embedding_integrity_check;
+ALTER TABLE public.memory_items
+  ADD CONSTRAINT memory_items_embedding_integrity_check
+  CHECK (
+    extensions.vector_dims(embedding) = 384
+    AND extensions.vector_norm(embedding) > 0
+    AND extensions.vector_norm(embedding) < 'Infinity'::real
+  ) NOT VALID;
+ALTER TABLE public.memory_items
+  VALIDATE CONSTRAINT memory_items_embedding_integrity_check;

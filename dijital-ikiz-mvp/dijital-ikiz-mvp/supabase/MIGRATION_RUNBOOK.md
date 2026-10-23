@@ -31,6 +31,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 10. 20261023200000_aud_02_chat_deduplication.sql
 11. 20261023210000_aud_03_concurrent_profile_updates.sql
 12. 20261023220000_aud_04_memory_ownership_validation.sql
+13. 20261023230000_aud_05_embedding_validation.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -160,3 +161,10 @@ CI ayrıca `tests/profile-update-concurrency.integration.mjs` ile 13 farklı pro
 `lib/memory.ts`, memory okuma/yazma öncesi `auth.getUser()` ile verilen kullanıcı kimliğini doğrular. Yeni bellek eklemeden önce kaynak mesajın oturum sahibine ait olduğunu ve `role = 'user'` olduğunu da kontrol eder. Bunlar erken reddetme için ek savunmadır; yetkili güvenlik sınırı bileşik veritabanı yabancı anahtarıdır.
 
 CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A ve B→B ilişkilerini, A mesajını B kullanıcısına bağlama girişiminin `foreign_key_violation` ile reddedildiğini, bir satırın sahibini B'ye çevirmeye yönelik UPDATE girişiminin de reddedildiğini ve kaynak mesaj silinince memory sahipliğinin korunduğunu doğrular. `tests/sql/migration_catalog.integration.sql` bileşik anahtar ve seçici `ON DELETE SET NULL (source_message_id)` davranışının gerçekten kurulu olduğunu denetler.
+
+
+## AUD-05 / AUD-06: vector integrity and bounded memory garbage collection
+
+`20261023230000_aud_05_embedding_validation.sql` adds and validates a database CHECK constraint requiring `vector(384)`, a positive vector norm, and a finite norm. `lib/embedding-validation.ts` rejects empty, wrong-dimension, non-numeric, null, NaN, infinite, zero and overflow-norm arrays before any pgvector RPC or write; token-level pooling no longer fabricates missing dimensions as zero. CI runs `tests/sql/memory_embedding_integrity.integration.sql` to prove the database rejects a zero vector.
+
+`lib/memory.ts` now handles stale and over-cap cleanup in deterministic batches. Each request deletes at most four batches per category, reapplies stale predicates on DELETE to protect a concurrently used row, and leaves additional cleanup for later memory operations instead of running unbounded DELETE loops.

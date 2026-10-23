@@ -14,7 +14,13 @@ export type TwinProfile = {
   avg_sentence_length: number
 }
 
-const clamp = (n: number) => Math.max(0, Math.min(1, n))
+// These hand-authored coefficients are exploratory heuristics, not calibrated
+// psychological measurements. They must not be treated as diagnostic scores.
+export const TWIN_MODEL_CALIBRATION_NOTE =
+  'Uncalibrated heuristic; weights and neutral baselines require external validation.'
+
+const PROFILE_SMOOTHING_ALPHA = 0.25
+const clamp = (n: number) => Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.5
 
 const defaultProfile: TwinProfile = {
   valence: 0.5,
@@ -82,7 +88,7 @@ export function analyzeMessage(text: string, previous: TwinProfile | null): Twin
   const safePrevious = previous ? normalizeProfile(previous) : null
   if (!safePrevious) return current
 
-  const alpha = 0.25
+  const alpha = PROFILE_SMOOTHING_ALPHA
 
   return (Object.keys(current) as Array<keyof TwinProfile>).reduce((acc, key) => {
     acc[key] = safePrevious[key] * (1 - alpha) + current[key] * alpha

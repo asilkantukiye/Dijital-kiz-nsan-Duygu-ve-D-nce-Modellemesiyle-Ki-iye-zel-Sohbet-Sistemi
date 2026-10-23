@@ -1,7 +1,7 @@
 import { InferenceClient } from '@huggingface/inference'
 import { withAbortTimeout } from './abort-timeout.js'
+import { MEMORY_EMBEDDING_DIMENSION, validateEmbeddingVector } from './embedding-validation'
 
-const EMBEDDING_DIMENSION = 384
 const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
 const EMBEDDING_TIMEOUT_MS = 15_000
 const EMBEDDING_MAX_ATTEMPTS = 2
@@ -11,42 +11,40 @@ function backoffMs(attempt: number) {
 }
 
 function normalizeEmbedding(value: unknown): number[] {
-  const source = Array.isArray(value) ? value : []
-  let rows: unknown = source
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error('Embedding çıktısı boş veya geçersiz.')
+  }
 
-  if (Array.isArray(source[0]) && Array.isArray(source[0][0])) {
-    const tokenRows = source[0] as unknown[]
-    const usable = tokenRows.filter((row): row is unknown[] => Array.isArray(row))
-    if (usable.length === 0) {
-      throw new Error('Embedding çıktısı boş.')
-    }
-
-    const pooled = Array.from({ length: EMBEDDING_DIMENSION }, (_, index) => {
-      const values = usable.map((row) => Number(row[index])).filter(Number.isFinite)
-      return values.length > 0
-        ? values.reduce((sum, item) => sum + item, 0) / values.length
-        : 0
+  let rows: unknown
+  const first = value[0]
+  if (typeof first === 'number') {
+    rows = value
+  } else if (Array.isArray(first) && typeof first[0] === 'number') {
+    // Batch-wrapped sentence embedding.
+    rows = first
+  } else if (Array.isArray(first) && Array.isArray(first[0])) {
+    // Pool token-level output only if every vector has the full expected shape.
+    const tokenRows = first
+    if (tokenRows.length === 0) throw new Error('Embedding token çıktısı boş.')
+    const checkedRows = tokenRows.map((row) => {
+      if (!Array.isArray(row) || row.length !== MEMORY_EMBEDDING_DIMENSION) {
+        throw new Error('Embedding token boyutu beklenen 384 değer değil.')
+      }
+      if (row.some((item) => typeof item !== 'number' || !Number.isFinite(item))) {
+        throw new Error('Embedding token çıktısı geçersiz sayılar içeriyor.')
+      }
+      return row as number[]
     })
-    rows = pooled
-  } else if (Array.isArray(source[0])) {
-    rows = source[0]
+    rows = Array.from({ length: MEMORY_EMBEDDING_DIMENSION }, (_, index) => {
+      const mean = checkedRows.reduce((total, row) => total + row[index], 0) / checkedRows.length
+      if (!Number.isFinite(mean)) throw new Error('Embedding ortalaması geçersiz.')
+      return mean
+    })
+  } else {
+    throw new Error('Embedding çıktısının türü veya şekli beklenen formatta değil.')
   }
 
-  if (!Array.isArray(rows) || rows.length !== EMBEDDING_DIMENSION) {
-    throw new Error('Embedding boyutu beklenen 384 değer değil.')
-  }
-
-  const numbers = rows.map(Number)
-  if (numbers.some((n) => !Number.isFinite(n))) {
-    throw new Error('Embedding geçersiz sayılar içeriyor.')
-  }
-
-  const norm = Math.sqrt(numbers.reduce((sum, n) => sum + n * n, 0))
-  if (!Number.isFinite(norm) || norm === 0) {
-    throw new Error('Embedding normalize edilemedi.')
-  }
-
-  return numbers.map((n) => n / norm)
+  return validateEmbeddingVector(rows)
 }
 
 export interface EmbeddingProvider {
@@ -64,7 +62,10 @@ export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
     const token = process.env.HF_TOKEN
     if (!token) throw new Error('HF_TOKEN tanımlı değil.')
 
-    const input = `${kind}: ${text.slice(0, 2000)}`
+    if (typeof text !== 'string' || !text.trim()) throw new Error('Embedding metni boş.')
+    if (kind !== 'query' && kind !== 'passage') throw new Error('Embedding türü geçersiz.')
+
+    const input = `${kind}: ${text.trim().slice(0, 2000)}`
     let lastError: unknown = null
 
     for (let attempt = 1; attempt <= EMBEDDING_MAX_ATTEMPTS; attempt += 1) {
