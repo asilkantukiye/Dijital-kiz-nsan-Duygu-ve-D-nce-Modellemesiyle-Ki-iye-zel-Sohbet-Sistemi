@@ -17,7 +17,7 @@ test('production policy is nonce-based and has no unsafe-eval or wildcard script
   const policy = buildContentSecurityPolicy(nonce, true)
 
   assert.match(policy, /default-src 'self'/)
-  assert.match(policy, new RegExp(`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`))
+  assert.ok(policy.includes(`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`))
   assert.match(policy, /object-src 'none'/)
   assert.match(policy, /frame-ancestors 'none'/)
   assert.match(policy, /base-uri 'self'/)
