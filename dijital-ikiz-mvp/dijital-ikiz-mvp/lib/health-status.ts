@@ -3,6 +3,7 @@ import { isValidSupabaseUrl } from './supabase-url.ts'
 export type HealthEnvironment = {
   supabaseUrl?: string
   supabasePublishableKey?: string
+  supabaseServiceRoleKey?: string
   huggingfaceToken?: string
   upstashRedisRestUrl?: string
   upstashRedisRestToken?: string
@@ -19,6 +20,7 @@ export type HealthStatus = {
     supabase: boolean
     huggingface: boolean
     rateLimit: boolean
+    serverWriteBoundary: boolean
   }
 }
 
@@ -50,6 +52,7 @@ export function buildHealthStatus(environment: HealthEnvironment): HealthStatus 
     environment.supabasePublishableKey?.trim()
   )
   const huggingface = Boolean(environment.huggingfaceToken?.trim())
+  const serverWriteBoundary = Boolean(environment.supabaseServiceRoleKey?.trim())
   const rateLimit = Boolean(
     isValidUpstashRestUrl(environment.upstashRedisRestUrl) &&
     environment.upstashRedisRestToken?.trim() &&
@@ -59,13 +62,14 @@ export function buildHealthStatus(environment: HealthEnvironment): HealthStatus 
   return {
     ok: true,
     // In production, without a distributed limiter the chat route fails closed.
-    ready: supabase && huggingface && (environment.nodeEnv !== 'production' || rateLimit),
+    ready: supabase && serverWriteBoundary && huggingface && (environment.nodeEnv !== 'production' || rateLimit),
     service: 'dijital-ikiz-insan',
     version: '0.3.0',
     configured: {
       supabase,
       huggingface,
-      rateLimit
+      rateLimit,
+      serverWriteBoundary
     }
   }
 }

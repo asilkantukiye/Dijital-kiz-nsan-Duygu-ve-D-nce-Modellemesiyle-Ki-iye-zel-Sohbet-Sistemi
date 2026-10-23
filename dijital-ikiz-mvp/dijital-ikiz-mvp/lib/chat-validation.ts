@@ -23,6 +23,11 @@ export function validateChatPayload(input: unknown): ChatPayloadValidation {
   }
 
   const body = input as Record<string, unknown>
+  const allowedKeys = new Set(['message', 'variant'])
+  if (Object.keys(body).some((key) => !allowedKeys.has(key))) {
+    return { ok: false, error: 'İstek yalnızca mesaj ve varyant içerebilir.', status: 400 }
+  }
+
   if (body.variant !== 'personalized' && body.variant !== 'baseline') {
     return { ok: false, error: 'Geçersiz deney varyantı.', status: 400 }
   }

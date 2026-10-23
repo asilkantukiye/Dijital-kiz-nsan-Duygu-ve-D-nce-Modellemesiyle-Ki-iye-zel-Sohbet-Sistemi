@@ -27,8 +27,23 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 6. 20261020200000_atomic_chat_turn_persistence.sql
 7. 20261021210000_stage5_memory_extensions_usage.sql
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
+9. 20261023196000_aud_01_chat_write_boundary.sql
+10. 20261023200000_aud_02_chat_deduplication.sql
+11. 20261023210000_aud_03_concurrent_profile_updates.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
+
+## AUD-01: sohbet/profil yazma sınırı
+
+`20261023196000_aud_01_chat_write_boundary.sql`, `authenticated` rolünden `messages` ve `twin_profiles` INSERT/UPDATE izinlerini kaldırır ve eski `persist_chat_turn` RPC'sini authenticated için kapatır. Yeni `persist_chat_turn_server` yalnızca `service_role` ile çağrılır. `/api/chat` önce `auth.getUser()` ile oturumu doğrular, kullanıcı kimliğini doğrulanmış oturumdan alır; istek gövdesindeki `user_id`/`session_id` reddedilir. Bu tasarım için `SUPABASE_SERVICE_ROLE_KEY` yalnızca Next.js sunucu ortamında tanımlanmalıdır. Bu değer kesinlikle `NEXT_PUBLIC_` ile başlamamalı veya tarayıcı bundle'ına eklenmemelidir.
+
+Migration sonrası `tests/sql/chat_write_boundary.integration.sql` eşdeğeri kontrollerde authenticated rolünün `messages` ve `twin_profiles` INSERT/UPDATE yetkilerinin ve iki chat-writer RPC'si için EXECUTE yetkisinin bulunmadığını doğrula. Kendi mesajlarını okuma ve veri silme akışını ayrıca test et.
+
+## AUD-02: aynı sohbet isteğini tekilleştirme
+
+`20261023200000_aud_02_chat_deduplication.sql`, doğrulanmış kullanıcı, varyant ve normalize edilmiş mesaj için SHA-256 parmak izi kullanır; ham mesaj metni idempotency tablosuna kopyalanmaz. `claim_chat_request_server` PostgreSQL tarafında atomik sahiplik alır. Tamamlanmış yanıt 10 saniye boyunca tekrar kullanılabilir; etkin istek için ikinci istek yeni model çağrısı başlatmaz ve `202` / `Retry-After` ile yeniden kontrol eder. Profil güncellemesi, kullanıcı/asistan mesaj çifti ve yanıt önbelleği `persist_chat_turn_idempotent_server` içinde tek bir transaction'da tamamlanır. `chat_request_deduplication` tablosu ve claim/release/writer RPC'leri yalnızca `service_role` içindir. Başarısız istek sahipliği `release_chat_request_server` ile bırakılır; claim işlemi eski önbellek kayıtlarını sınırlı sayıda temizler.
+
+Migration sonrası `tests/sql/chat_idempotency.integration.sql` eşdeğeri kontrollerde ilk claim'in `claimed`, eşzamanlı tekrarın `in_progress`, tamamlanmış tekrarın `replay` döndürdüğünü; yanıt önbelleği ile mesaj çiftinin tek işlemde kaydedildiğini doğrula. CI başarısı canlı Supabase migration'ının uygulandığını kanıtlamaz.
 
 ## Migration geçmişini kontrol et
 
@@ -53,7 +68,7 @@ Doğru projede SQL Editor üzerinden aşağıdaki sorgular veriyi silmez veya ş
 select table_name
 from information_schema.tables
 where table_schema = 'public'
-  and table_name in ('twin_profiles', 'messages', 'message_feedback', 'memory_items')
+  and table_name in ('twin_profiles', 'messages', 'message_feedback', 'memory_items', 'chat_request_deduplication')
 order by table_name;
 ~~~
 
@@ -64,11 +79,11 @@ select c.relname as table_name, c.relrowsecurity as rls_enabled
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public'
-  and c.relname in ('twin_profiles', 'messages', 'message_feedback', 'memory_items')
+  and c.relname in ('twin_profiles', 'messages', 'message_feedback', 'memory_items', 'chat_request_deduplication')
 order by c.relname;
 ~~~
 
-Dört tabloda da rls_enabled = true beklenir.
+Beş tabloda da rls_enabled = true beklenir; `chat_request_deduplication` yalnızca sunucu rolü tarafından okunup yazılabilmelidir.
 
 ### Politika kontrolü
 
@@ -76,7 +91,7 @@ Dört tabloda da rls_enabled = true beklenir.
 select tablename, policyname, roles, cmd, qual, with_check
 from pg_policies
 where schemaname = 'public'
-  and tablename in ('twin_profiles', 'messages', 'message_feedback', 'memory_items')
+  and tablename in ('twin_profiles', 'messages', 'message_feedback', 'memory_items', 'chat_request_deduplication')
 order by tablename, policyname;
 ~~~
 
@@ -89,15 +104,16 @@ select p.proname,
        pg_get_function_identity_arguments(p.oid) as arguments,
        p.prosecdef as security_definer,
        has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute,
+       has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_can_execute,
        has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'replace_my_memory_preference')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'replace_my_memory_preference')
 order by p.proname;
 ~~~
 
-Uygulama fonksiyonları SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false, authenticated_can_execute = true ve anon_can_execute = false beklenir. `anon_can_execute = false` aynı zamanda PUBLIC üzerinden yanlışlıkla verilmiş execute iznini de yakalamaya yardımcı olur.
+Uygulama fonksiyonları SECURITY INVOKER olarak tasarlanmıştır. `match_memory_items`, `delete_my_chat_data` ve `replace_my_memory_preference` için authenticated EXECUTE beklenir; eski `persist_chat_turn` için authenticated EXECUTE **false** olmalı; yeni `persist_chat_turn_server` için authenticated ve anon EXECUTE **false**, service_role EXECUTE **true** olmalıdır. Service-role anahtarını SQL çıktılarına veya CI loglarına yazma. `anon_can_execute = false` aynı zamanda PUBLIC üzerinden yanlışlıkla verilmiş execute iznini de yakalamaya yardımcı olur.
 
 ### pgvector extension ve schema izni
 
@@ -120,8 +136,17 @@ Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'
 ## Migration sonrası doğrulama
 
 1. CLI migration listesinde beklenen migration'ların applied olduğunu doğrula.
-2. Salt-okunur kontrollerde RLS/politikaları, `match_memory_items`, `delete_my_chat_data`, `persist_chat_turn` ve `replace_my_memory_preference` fonksiyonlarını/izinlerini; ayrıca `authenticated` rolünün `extensions` şeması için `USAGE` iznini tekrar doğrula.
+2. Salt-okunur kontrollerde RLS/politikaları, `match_memory_items`, `delete_my_chat_data`, `persist_chat_turn`, `persist_chat_turn_server`, `claim_chat_request_server`, `release_chat_request_server`, `persist_chat_turn_idempotent_server` ve `replace_my_memory_preference` fonksiyonlarını/izinlerini; ayrıca `authenticated` rolünün `extensions` şeması için `USAGE` iznini tekrar doğrula.
 3. GitHub'daki CI başarısını şema doğrulamasıyla karıştırma: CI SQL sözleşmelerini/testleri kontrol eder, gerçek Supabase projesinde migration uygulandığını kanıtlamaz.
 4. Oturum açma, iki kullanıcı arasında veri izolasyonu, sohbet kaydetme/okuma, geri bildirim yetkilendirmesi ve veri silme işlemini iki ayrı test hesabıyla dene. Bu E2E testleri yalnızca proje etkin ve migration'lar doğrulandıktan sonra yapılabilir.
 5. Test hesabında veri silmenin chat belleğini, profili, mesajları ve bağlı geri bildirimi temizlediğini kontrol et. Bu işlem Supabase Auth hesabını silmez.
 6. Yukarıdaki doğrulamaların tümü doğru projede tamamlandıktan sonra GitHub repository **Settings → Secrets and variables → Actions → Variables** bölümünde `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` değişkenini tam olarak `true` yap. Yalnızca son chat-turn migration'ının uygulanması yeterli değildir; temel şema, listedeki bütün gerekli migration'lar, RLS politikaları ve tüm kritik RPC fonksiyonları/izinleri doğrulanmış olmalıdır. Proje INACTIVE ise veya bu kontrollerden biri belirsizse değişkeni oluşturma ya da `true` yapma.
+
+
+## AUD-03: eşzamanlı dijital ikiz profil güncellemeleri
+
+`20261023210000_aud_03_concurrent_profile_updates.sql`, chat route'un eski profil üzerinden hesapladığı tam JSON görüntüsünü doğrudan yazmasını engeller. Route, yalnızca gelen mesajdan türetilen 13 sayısal profil gözlemini gönderir. `persist_chat_turn_idempotent_server` önce istek sahipliğini `FOR UPDATE` ile doğrular; ardından `twin_profiles(user_id)` üzerindeki benzersiz anahtarlı UPSERT ve `merge_twin_profile_observation` fonksiyonu, çakışan satır kilidi altında gözlemi en güncel kayda uygular. Böylece farklı mesajların eşzamanlı güncellemeleri eski snapshot ile birbirini ezmez.
+
+Aynı PostgreSQL transaction'ında kanonik birleştirilmiş profil mesajların `profile_snapshot` alanına ve idempotency yanıtının `profile` alanına yazılır. Payload 13 bilinen alanı içermeli; tüm değerler sayısal ve 0–1 aralığında olmalıdır. Herhangi bir mesaj yazımı veya validasyon başarısız olursa profil, mesajlar ve cache birlikte rollback olur. `merge_twin_profile_observation` yalnızca `service_role` için çalıştırılabilir.
+
+CI ayrıca `tests/profile-update-concurrency.integration.mjs` ile 13 farklı profil özelliğini aynı kullanıcı için paralel isteklerle günceller; her özelliğin son değerde temsil edildiğini, 13 mesaj çiftinin ve tamamlanmış istek kaydının bulunduğunu, profil snapshot'larının geçerli olduğunu ve 20 saniyelik işlem sınırında deadlock olmadığını kontrol eder. Bu entegrasyon testi canlı Supabase verisine dokunmaz; CI'nin kendi PostgreSQL 17 test veritabanını kullanır.

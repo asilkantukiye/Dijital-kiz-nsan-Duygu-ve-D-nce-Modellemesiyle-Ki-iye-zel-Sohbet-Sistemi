@@ -50,6 +50,7 @@ Copy-Item .env.local.example .env.local
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
 HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
@@ -58,7 +59,7 @@ UPSTASH_REDIS_REST_TOKEN=
 RATE_LIMIT_KEY_SALT=
 ```
 
-**Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
+`SUPABASE_SERVICE_ROLE_KEY`, Supabase proje ayarlarındaki service-role/secret server key'dir. Yalnızca server environment (`.env.local` veya Vercel Environment Variables) içinde tutulmalıdır; adının başına `NEXT_PUBLIC_` eklemeyin. **Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
 
 ## 3. Supabase kurulumu
 
@@ -71,7 +72,8 @@ Bu SQL:
 - `message_feedback` tablosunu oluşturur.
 - RLS'yi etkinleştirir.
 - Kullanıcıların yalnızca kendi kayıtlarına erişmesini sınırlar.
-- API için `authenticated` rolüne gerekli tablo izinlerini verir.
+- Oturum açmış kullanıcıların kendi kayıtlarını okumasına/silmesine izin verir; sohbet mesajı ve profil INSERT/UPDATE işlemlerini authenticated rolünden kaldırır.
+- `persist_chat_turn_server` RPC'sini yalnız `service_role` için açar. `/api/chat` kullanıcının Supabase oturumunu `auth.getUser()` ile doğrular, `user.id` değerini sunucu tarafında alır ve bu RPC'yi server-only anahtarla çağırır.
 
 Supabase Data API ayarlarında otomatik tablo gösterimi kapalıysa, kullanılan tabloları Dashboard'daki **Data API** bölümünden açıkça expose etmeniz gerekir.
 
@@ -129,6 +131,7 @@ Vercel Environment Variables:
 ```text
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SERVICE_ROLE_KEY
 HF_TOKEN
 HF_MODEL
 HF_EMBEDDING_MODEL
@@ -152,7 +155,7 @@ Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ay
 
 Üretim dağıtım işi `production` GitHub Environment'ını kullanır. **Settings → Environments → production** altında deployment branch kısıtını yalnızca `main` ile sınırlandırın ve hesab/repo planınız destekliyorsa bağımsız bir Required reviewer ile self-review engelini etkinleştirin. Ortam koruması ayarlanmamışsa `environment: production` tek başına onay kapısı oluşturmaz. CLI sürümü sabittir; `VERCEL_TOKEN` yalnızca adım ortam değişkeni olarak kullanılır ve komut satırı argümanına yazılmaz.
 
-Önkoşullardan biri eksikse workflow açık hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Önkoşullar doğrulandıktan sonra **Actions → Vercel Deploy → Run workflow** ile çalıştırılabilir. Dağıtımdan önce Python/ML doğrulamaları, uygulama birim testleri, TypeScript kontrolü ve production build çalışır; bunlardan biri başarısızsa dağıtım yapılmaz. Dağıtımın ardından workflow Vercel CLI'nin döndürdüğü deployment URL'sine gidip `/api/health` yanıtını doğrular; `ok: true` ve `ready: true` beklenir. `ready`, Supabase, Hugging Face ve üretimde gerekli Upstash rate-limit yapılandırmasının mevcut olduğunu gösterir; veritabanının erişilebilir olduğunu veya gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz. Bu nedenle canlı sohbet uçtan uca testi ayrıca gereklidir.
+Önkoşullardan biri eksikse workflow açık hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Önkoşullar doğrulandıktan sonra **Actions → Vercel Deploy → Run workflow** ile çalıştırılabilir. Dağıtımdan önce Python/ML doğrulamaları, uygulama birim testleri, TypeScript kontrolü ve production build çalışır; bunlardan biri başarısızsa dağıtım yapılmaz. Dağıtımın ardından workflow Vercel CLI'nin döndürdüğü deployment URL'sine gidip `/api/health` yanıtını doğrular; `ok: true` ve `ready: true` beklenir. `ready`, Supabase bağlantı bilgileri, server-only yazım anahtarı, Hugging Face ve üretimde gerekli Upstash rate-limit yapılandırmasının mevcut olduğunu gösterir; veritabanının erişilebilir olduğunu veya gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz. Bu nedenle canlı sohbet uçtan uca testi ayrıca gereklidir.
 
 Vercel Git entegrasyonu PR/özellik dalı önizlemeleri oluşturabilir; ancak uygulama kökündeki `vercel.json`, `main` dalından gelen otomatik Git dağıtımını kapatır (`git.deploymentEnabled.main: false`). Böylece `main` dalına merge yapılması tek başına üretim dağıtımı başlatmamalıdır. Üretim dağıtımı yalnızca GitHub Actions `Vercel Deploy` workflow'u üzerinden yapılmalıdır; bu yol hem `VERCEL_TOKEN` hem de Supabase temel şeması, gerekli tüm migration'lar, RLS politikaları ve RPC fonksiyon/izinleri doğrulandıktan sonra ayarlanacak `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` değişkenini zorunlu tutar. Merge sonrası Vercel’in Git durumu yine de otomatik bir `main` dağıtımı gösterirse, Vercel projesinin Root Directory değerinin `dijital-ikiz-mvp/dijital-ikiz-mvp` olduğunu ve bu `vercel.json` dosyasının dağıtım kökünde bulunduğunu kontrol edin. Her durumda canlı üretim URL’sini ve `/api/health` sonucunu ayrıca doğrulayın.
 
