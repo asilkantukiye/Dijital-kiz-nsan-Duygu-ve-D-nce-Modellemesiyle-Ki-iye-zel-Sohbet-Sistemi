@@ -11,7 +11,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "fix/aud-01-security-hardening"]
+    branches: ["main", "fix/aud-01-security-hardening", "fix/aud-02-chat-deduplication"]
 
 jobs:
   web:
@@ -83,6 +83,7 @@ jobs:
             --file supabase/migrations/20261021211000_stage5_atomic_memory_preference_update.sql \
             --file supabase/migrations/20261023196000_aud_01_chat_write_boundary.sql \
             --file supabase/migrations/20261023200000_aud_02_chat_deduplication.sql \
+            --file supabase/migrations/20261023210000_aud_03_concurrent_profile_updates.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/chat_write_boundary.integration.sql \
@@ -90,6 +91,15 @@ jobs:
             --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/memory_preference_update.integration.sql \
             --file tests/sql/security_rpc.integration.sql
+
+      - name: Test concurrent profile updates against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: node tests/profile-update-concurrency.integration.mjs
 
       - name: Install
         run: npm ci
