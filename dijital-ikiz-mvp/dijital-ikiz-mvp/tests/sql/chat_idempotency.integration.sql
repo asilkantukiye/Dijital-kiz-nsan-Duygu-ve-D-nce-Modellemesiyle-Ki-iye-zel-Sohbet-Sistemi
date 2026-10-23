@@ -121,7 +121,7 @@ BEGIN
   BEGIN
     PERFORM * FROM public.persist_chat_turn_idempotent_server(
       actor,
-      request_hash,
+      v_request_hash,
       owner_token,
       'personalized',
       'this request must roll back',
