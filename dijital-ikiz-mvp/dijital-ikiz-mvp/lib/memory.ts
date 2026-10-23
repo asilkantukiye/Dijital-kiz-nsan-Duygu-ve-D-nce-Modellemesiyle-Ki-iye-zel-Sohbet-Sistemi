@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
 
-import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, planPreferenceReplacement, type MemoryItem } from '@/lib/memory-text'
+import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, planPreferenceReplacement, preferenceConflictKey, type MemoryItem } from '@/lib/memory-text'
 
 export { extractMemories, formatMemoryContext } from '@/lib/memory-text'
 export type { MemoryItem, MemoryType } from '@/lib/memory-text'
@@ -131,10 +131,14 @@ export async function persistMemories(
   for (const item of embedded) {
     const now = new Date().toISOString()
 
-    // Explicitly stated preferences get a deterministic same-topic lookup first.
-    // This handles direct statements such as "Şekerli kahve içerim" without
-    // requiring the word "Artık". Vector similarity alone never decides conflicts.
-    if (item.memory.replaceExisting && item.memory.memory_type === 'preference') {
+    // Every explicit preference goes through one database RPC, including first-time
+    // inserts. The RPC takes a per-user advisory transaction lock and resolves the
+    // conflict key under that lock, so two concurrent requests cannot both observe
+    // "no row" and persist opposite preferences as independent facts.
+    if (item.memory.memory_type === 'preference' && item.memory.replaceExisting) {
+      const preferenceKey = preferenceConflictKey(item.memory.content)
+      if (!preferenceKey) continue
+
       const { data: preferenceRows, error: preferenceError } = await supabase
         .from('memory_items')
         .select('id, content, updated_at')
@@ -150,23 +154,19 @@ export async function persistMemories(
         item.memory.content
       )
 
-      if (replacementPlan) {
-        // One SECURITY INVOKER RPC updates the chosen row and removes stale
-        // same-topic rows in a single PostgreSQL transaction.
-        const { error: replacementError } = await supabase.rpc('replace_my_memory_preference', {
-          p_keep_id: replacementPlan.keep.id,
-          p_duplicate_ids: replacementPlan.remove.map((row) => row.id),
-          p_content: item.memory.content,
-          p_importance: item.memory.importance,
-          p_embedding: item.embedding,
-          p_source_message_id: sourceMessageId
-        })
+      const { error: preferenceWriteError } = await supabase.rpc('upsert_my_memory_preference', {
+        p_preference_key: preferenceKey,
+        p_keep_id: replacementPlan?.keep.id ?? null,
+        p_duplicate_ids: replacementPlan?.remove.map((row) => row.id) ?? [],
+        p_content: item.memory.content,
+        p_importance: item.memory.importance,
+        p_embedding: item.embedding,
+        p_source_message_id: sourceMessageId
+      })
 
-        if (replacementError) throw replacementError
-
-        persisted += 1
-        continue
-      }
+      if (preferenceWriteError) throw preferenceWriteError
+      persisted += 1
+      continue
     }
 
     // The RPC is scoped by auth.uid(); the explicit user filter on preference

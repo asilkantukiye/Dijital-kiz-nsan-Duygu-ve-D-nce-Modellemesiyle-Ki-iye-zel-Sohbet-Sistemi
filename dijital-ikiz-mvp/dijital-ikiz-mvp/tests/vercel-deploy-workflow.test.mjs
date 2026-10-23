@@ -21,7 +21,7 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   assert.match(workflow, /only after the baseline schema and all required migrations are applied/)
   assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
-  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
+  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 5)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
@@ -35,7 +35,7 @@ test('missing deployment prerequisites are explained without exposing secret val
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /Missing prerequisites mean no production deployment was attempted/)
-  assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
+  assert.match(workflow, /Never put either token in source code, workflow logs, issues, or chat/)
   assert.match(workflow, /leave the variable unset/)
   assert.match(workflow, /Deployment prerequisites are missing[^\n]*\n\s*exit 1/)
 })
@@ -123,7 +123,7 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /help-70c6/)
   assert.match(readme, /üretim güncellenmiş değildir/)
   assert.match(readme, /\/api\/health/)
-  assert.match(readme, /gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz/)
+  assert.match(readme, /modelin inference router üzerinde cevap üretebildiğini kanıtlamaz/)
 })
 
 
@@ -133,7 +133,7 @@ test('production deployment is manual, uses a pinned CLI, and never passes the t
   assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m)
   assert.doesNotMatch(workflow, /^\s+push:\s*\n\s+branches:\s*\[\"main\"\]/m)
   assert.match(workflow, /environment: production/)
-  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 3)
+  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 5)
   assert.doesNotMatch(workflow, /vercel@latest/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)

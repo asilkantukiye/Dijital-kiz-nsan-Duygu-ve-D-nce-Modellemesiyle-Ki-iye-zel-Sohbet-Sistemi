@@ -70,6 +70,9 @@ jobs:
           PGPASSWORD: postgres
           PGDATABASE: digital_twin_test
         run: |
+          # pg_cron is a hosted Supabase extension and is not provided by the
+          # stock pgvector CI image. Its migration has separate contract tests;
+          # the live cron jobs must be verified in Supabase using MIGRATION_RUNBOOK.md.
           psql --version
           psql --set ON_ERROR_STOP=1 \
             --file tests/sql/persist_chat_turn.setup.sql \
@@ -81,10 +84,14 @@ jobs:
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
             --file supabase/migrations/20261021210000_stage5_memory_extensions_usage.sql \
             --file supabase/migrations/20261021211000_stage5_atomic_memory_preference_update.sql \
+            --file supabase/migrations/20261023194000_stage5_1_atomic_preference_upsert.sql \
+            --file supabase/migrations/20261023195000_stage5_1_memory_hard_cap.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/memory_preference_update.integration.sql \
+            --file tests/sql/memory_preference_upsert.integration.sql \
+            --file tests/sql/memory_cap.integration.sql \
             --file tests/sql/security_rpc.integration.sql
 
       - name: Install
