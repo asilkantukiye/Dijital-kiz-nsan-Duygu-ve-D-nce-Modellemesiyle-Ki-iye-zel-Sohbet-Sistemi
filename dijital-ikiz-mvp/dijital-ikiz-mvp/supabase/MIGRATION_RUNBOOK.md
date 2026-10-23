@@ -29,12 +29,15 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
 9. 20261023193000_stage5_1_memory_retention_cron.sql
 10. 20261023194000_stage5_1_atomic_preference_upsert.sql
+11. 20261023195000_stage5_1_memory_hard_cap.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
 **Yeni retention migration'ı `pg_cron` uzantısını kurar ve 15 dakikada bir en fazla 1.000 bayat `memory_items` kaydını silen bir iş planlar.** Hosted Supabase üzerinde `pg_cron` desteklenmeli ve migration'ı çalıştıran rol `cron` şemasında iş planlama yetkisine sahip olmalıdır. Uzantı oluşturulamıyorsa migration başarısız kalmalıdır; 180 günlük saklama şartı sessizce devre dışı bırakılmış sayılmamalıdır. Bu iş yalnızca bellek kayıtlarını temizler; sohbet mesajları ve profil verileri için ayrı bir saklama/silme politikası gerekir.
 
 Yeni `upsert_my_memory_preference` RPC'si kullanıcı başına transaction-scoped advisory lock alır ve tercihin `preference_key` değerini kilit altında yeniden sorgulayarak ekleme/güncelleme yarışını kapatır. Eski, anahtarsız kayıtlar ilk eşleşen yazmada yerinde anahtarlanır. Tüm uygulama instance'larının yeni kodla çalıştığı doğrulanana kadar eski sürümün yazdığı satırlar nedeniyle geçici eski-yeni kod eşzamanlılığı riski kalabilir; rollout sonrası aynı tercih için birden fazla kayıt kontrol edilmelidir.
+
+`20261023195000_stage5_1_memory_hard_cap.sql`, RLS açık `memory_items` için kullanıcı başına transaction-scoped advisory lock kullanan INSERT trigger'ı ve `(user_id, updated_at desc, id asc)` indeksini ekler. Yeni bir farklı içerik eklenmeden önce kullanıcının önceki satırları 49'a indirilir; yeni satırla beraber toplam hedef en fazla 50 olur. Bu koruma authenticated kullanıcıların Data API/SDK üzerinden yaptığı doğrudan insertleri de uygulama katmanını atlamadan kısıtlar. Trigger, auth claim yoksa veya `new.user_id` oturum sahibinden farklıysa hiçbir silme yapmadan döner; sonrasında normal RLS kontrolü foreign insert'i reddeder. Güvenilir migration/admin rolü gibi RLS'yi bypass eden aktörler ayrıcalıklı kabul edilir.
 
 ## Migration geçmişini kontrol et
 
@@ -123,25 +126,31 @@ select has_schema_privilege('authenticated', 'extensions', 'USAGE')
 
 Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'yi devre dışı bırakmaz.
 
-### Otomatik retention işi
+### Otomatik retention ve cap-cleanup işleri
 
 ~~~sql
-select jobid, jobname, schedule, username, command
-from cron.job
-where jobname = 'stage5-memory-retention-cleanup';
-
-select status, start_time, end_time, return_message
-from cron.job_run_details
-where jobid = (
-  select jobid from cron.job
-  where jobname = 'stage5-memory-retention-cleanup'
-  order by jobid desc limit 1
+select j.jobid, j.jobname, j.schedule, j.username,
+       r.status, r.start_time, r.end_time, r.return_message
+from cron.job j
+left join lateral (
+  select status, start_time, end_time, return_message
+  from cron.job_run_details d
+  where d.jobid = j.jobid
+  order by start_time desc
+  limit 1
+) r on true
+where j.jobname in (
+  'stage5-memory-retention-cleanup',
+  'stage5-memory-cap-cleanup'
 )
-order by start_time desc
-limit 20;
+order by j.jobname;
 ~~~
 
-Job tanımı görünmeli, `schedule` değeri `*/15 * * * *` olmalı ve en az bir tamamlanmış çalışmanın `status = 'succeeded'` olduğu doğrulanmalıdır. Migration'ın applied görünmesi tek başına scheduler'ın etkin olduğunu kanıtlamaz. pg_cron işlerinin her biri veritabanı bağlantısı tükettiğinden job sayısını ve `cron.job_run_details` hatalarını gözlemle.
+İki job da görünmelidir:
+- `stage5-memory-retention-cleanup`: `*/15 * * * *`, her koşulda en fazla 1.000 belleği eski `updated_at` ve eski/null `last_used_at` durumuna göre siler.
+- `stage5-memory-cap-cleanup`: `15 3 * * *`, gecelik çalışır ve tarihsel olarak 50 satırın üstünde kalmış her kullanıcı için en fazla 1.000 overflow satırını temizler.
+
+En az bir son başarılı çalışma (`status = 'succeeded'`) doğrulanmalıdır. Migration'ın applied görünmesi tek başına scheduler'ın etkin olduğunu kanıtlamaz. pg_cron işlerinin her biri veritabanı bağlantısı tükettiğinden job sayısını, çalışma süresini ve `cron.job_run_details` hatalarını izleyin. Cron uzantısı stock PostgreSQL CI imajında bulunmadığı için GitHub CI bu migration'ı canlı scheduler olarak çalıştırmaz; hosted Supabase üzerinde ayrı doğrulama zorunludur.
 
 ## Migration sonrası doğrulama
 
