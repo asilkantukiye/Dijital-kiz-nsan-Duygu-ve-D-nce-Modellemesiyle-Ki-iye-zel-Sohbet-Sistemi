@@ -78,7 +78,7 @@ select c.relname as table_name, c.relrowsecurity as rls_enabled
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public'
-  and c.relname in ('twin_profiles', 'messages', 'message_feedback', 'memory_items')
+  and c.relname in ('twin_profiles', 'messages', 'message_feedback', 'memory_items', 'chat_request_deduplication')
 order by c.relname;
 ~~~
 
@@ -90,7 +90,7 @@ Beş tabloda da rls_enabled = true beklenir; `chat_request_deduplication` yalnı
 select tablename, policyname, roles, cmd, qual, with_check
 from pg_policies
 where schemaname = 'public'
-  and tablename in ('twin_profiles', 'messages', 'message_feedback', 'memory_items')
+  and tablename in ('twin_profiles', 'messages', 'message_feedback', 'memory_items', 'chat_request_deduplication')
 order by tablename, policyname;
 ~~~
 
