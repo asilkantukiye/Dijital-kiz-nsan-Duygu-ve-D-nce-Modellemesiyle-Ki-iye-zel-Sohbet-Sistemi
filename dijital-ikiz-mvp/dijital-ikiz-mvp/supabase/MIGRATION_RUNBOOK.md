@@ -1,6 +1,6 @@
 # Supabase migration ve geri yükleme kontrol listesi
 
-Bu runbook, mevcut Supabase projesini kontrol etmek veya tekrar etkinleştirildikten sonra şemayı güvenli biçimde eşitlemek içindir. **Tek başına veritabanını etkinleştirmez, plan değiştirmez ve migration uygulamaz.**
+Bu runbook, mevcut Supabase projesini kontrol etmek veya tekrar etkinleştirildikten sonra şemayı güvenli biçimde eşitlemek içindir. Bir incident sırasında geri dönüş gerekiyorsa, DROP işlemlerini tahmin ederek çalıştırmak yerine [Stage 5.1 Rollback Runbook](STAGE5_1_ROLLBACK_RUNBOOK.md) içindeki kontrollü planı kullan. **Tek başına veritabanını etkinleştirmez, plan değiştirmez ve migration uygulamaz.**
 
 ## Önce doğru proje ve maliyet
 
