@@ -32,6 +32,8 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_target_id uuid;
+  v_input_dimension text;
+  v_input_topic text;
 begin
   if v_user_id is null then
     raise exception 'Authentication required';
@@ -39,6 +41,8 @@ begin
 
   if p_preference_key is null
      or char_length(p_preference_key) not between 1 and 240
+     or position('::' in p_preference_key) < 2
+     or split_part(p_preference_key, '::', 2) = ''
      or p_content is null
      or char_length(p_content) not between 2 and 240
      or p_importance is null
@@ -55,14 +59,32 @@ begin
     hashtextextended(v_user_id::text || ':memory-preference', 0)
   );
 
-  -- Every caller re-checks the canonical conflict key after acquiring the
-  -- lock, not just the candidate list fetched by application code beforehand.
+  -- Besides an exact key, preserve the app's generic-vs-specific replacement
+  -- rule. A generic topic (e.g. general::kahve) conflicts with a dimensioned
+  -- variant (e.g. sugar::kahve); sugar and milk variants remain independent.
+  v_input_dimension := split_part(p_preference_key, '::', 1);
+  v_input_topic := split_part(p_preference_key, '::', 2);
+
+  -- Every caller re-checks all relevant conflicts after acquiring the lock,
+  -- not just the candidate list fetched by application code beforehand.
   select id
     into v_target_id
     from public.memory_items
    where user_id = v_user_id
      and memory_type = 'preference'
-     and preference_key = p_preference_key
+     and preference_key is not null
+     and (
+       preference_key = p_preference_key
+       or (
+         split_part(preference_key, '::', 2) = v_input_topic
+         and (
+           split_part(preference_key, '::', 1) = 'general'
+           or v_input_dimension = 'general'
+         )
+       )
+     )
+   order by (preference_key = p_preference_key) desc, updated_at desc, id asc
+   limit 1
    for update;
 
   if v_target_id is null and p_keep_id is not null then
@@ -114,6 +136,14 @@ begin
      and id <> v_target_id
      and (
        preference_key = p_preference_key
+       or (
+         preference_key is not null
+         and split_part(preference_key, '::', 2) = v_input_topic
+         and (
+           split_part(preference_key, '::', 1) = 'general'
+           or v_input_dimension = 'general'
+         )
+       )
        or id = p_keep_id
        or id = any(coalesce(p_duplicate_ids, array[]::uuid[]))
      );
