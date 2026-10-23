@@ -140,7 +140,7 @@ BEGIN
       RAISE EXCEPTION 'Personalized chat requires a profile observation';
     END IF;
 
-    IF jsonb_object_length(p_profile_snapshot) <> 13
+    IF (SELECT count(*) FROM jsonb_object_keys(p_profile_snapshot)) <> 13
        OR EXISTS (
          SELECT 1
          FROM jsonb_each(p_profile_snapshot) AS item(key, value)
