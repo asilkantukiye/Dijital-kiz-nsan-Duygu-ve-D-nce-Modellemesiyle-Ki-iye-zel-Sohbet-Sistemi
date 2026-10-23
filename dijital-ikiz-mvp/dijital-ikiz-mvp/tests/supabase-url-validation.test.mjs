@@ -59,7 +59,7 @@ test('server and browser Supabase clients validate public environment before SDK
   ])
 
   for (const source of [serverClient, browserClient]) {
-    const validationIndex = source.indexOf('if (!isValidSupabaseUrl(supabaseUrl) || !publishableKey?.trim())')
+    const validationIndex = source.indexOf('if (typeof supabaseUrl !== \'string\' || !isValidSupabaseUrl(supabaseUrl) || typeof publishableKey !== \'string\' || !publishableKey.trim())')
     const constructorIndex = source.indexOf('createServerClient(') >= 0
       ? source.indexOf('createServerClient(')
       : source.indexOf('createBrowserClient(')
