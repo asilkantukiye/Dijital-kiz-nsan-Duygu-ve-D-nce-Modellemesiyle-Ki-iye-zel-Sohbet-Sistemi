@@ -41,6 +41,8 @@ test('retention migration schedules a bounded nightly cleanup for legacy over-ca
   )
 
   assert.match(migration, /stage5-memory-cap-cleanup/)
+  assert.match(migration, /do \\$\\$[\\s\\S]*?end\\s+\\$\\$;/i)
+  assert.doesNotMatch(migration, /end\\s+\\$;/i)
   assert.match(migration, /'15 3 \* \* \*'/)
   assert.match(migration, /row_number\(\) over\s*\(\s*partition by user_id/i)
   assert.match(migration, /row_number > 50/i)
