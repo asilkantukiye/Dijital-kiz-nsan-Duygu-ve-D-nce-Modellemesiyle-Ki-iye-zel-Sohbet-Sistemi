@@ -23,7 +23,7 @@ test('memory source ownership is enforced by a composite database foreign key', 
   assert.match(migration, /DELETE FROM public\.memory_items AS memory[\s\S]*?source\.user_id IS DISTINCT FROM memory\.user_id/i)
   assert.match(memory, /supabase\.auth\.getUser\(\)/)
   assert.match(memory, /user\.id !== userId/)
-  assert.match(memory, /\.eq\('id', sourceMessageId\)[\s\S]*?\.eq\('user_id', user\.id\)/)
+  assert.match(memory, /\.eq\('id', sourceMessageId\)[\s\S]*?\.eq\('user_id', authenticatedUserId\)/)
   assert.match(memory, /sourceMessage\.role !== 'user'/)
   assert.match(sqlTest, /EXCEPTION WHEN foreign_key_violation/)
   assert.match(sqlTest, /cross-tenant source-message insert was accepted/)
