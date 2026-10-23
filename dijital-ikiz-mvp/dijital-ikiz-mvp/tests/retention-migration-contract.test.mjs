@@ -33,3 +33,16 @@ test('retention migration declares indexes for stale memory scans', async () => 
   assert.match(migration, /last_used_at is null/i)
   assert.match(migration, /last_used_at < now\(\) - interval '180 days'/i)
 })
+
+test('retention migration schedules a bounded nightly cleanup for legacy over-cap users', async () => {
+  const migration = await readFile(
+    path.join(appRoot, 'supabase', 'migrations', '20261023193000_stage5_1_memory_retention_cron.sql'),
+    'utf8'
+  )
+
+  assert.match(migration, /stage5-memory-cap-cleanup/)
+  assert.match(migration, /'15 3 \* \* \*'/)
+  assert.match(migration, /row_number\(\) over\s*\(\s*partition by user_id/i)
+  assert.match(migration, /row_number > 50/i)
+  assert.match(migration, /limit 1000/i)
+})
