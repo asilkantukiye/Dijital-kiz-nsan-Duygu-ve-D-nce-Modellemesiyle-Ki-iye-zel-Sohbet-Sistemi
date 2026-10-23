@@ -38,7 +38,8 @@ BEGIN
     'twin_profiles',
     'messages',
     'message_feedback',
-    'memory_items'
+    'memory_items',
+    'chat_request_deduplication'
   ]
   LOOP
     table_oid := to_regclass(format('public.%I', table_name));
@@ -61,6 +62,9 @@ BEGIN
     'delete_my_chat_data',
     'persist_chat_turn',
     'persist_chat_turn_server',
+    'claim_chat_request_server',
+    'release_chat_request_server',
+    'persist_chat_turn_idempotent_server',
     'replace_my_memory_preference'
   ]
   LOOP
@@ -86,13 +90,13 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server') THEN
+    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server') THEN
       IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
       END IF;
-      IF function_name = 'persist_chat_turn_server'
+      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server')
          AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
-        RAISE EXCEPTION 'service_role is missing EXECUTE on server chat writer';
+        RAISE EXCEPTION 'service_role is missing EXECUTE on server-only chat RPC %', function_name;
       END IF;
     ELSE
       IF NOT has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
