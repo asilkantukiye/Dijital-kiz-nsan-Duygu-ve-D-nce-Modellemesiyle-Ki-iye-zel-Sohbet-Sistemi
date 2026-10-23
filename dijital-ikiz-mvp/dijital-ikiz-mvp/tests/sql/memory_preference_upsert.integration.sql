@@ -214,7 +214,7 @@ BEGIN
       AND content = 'foreign-user preference fixture'
       AND preference_key = 'test::foreign-user-preference'
   ) THEN
-    RAISE EXCEPTION 'preference RPC altered/deleted another user's row';
+    RAISE EXCEPTION 'preference RPC altered/deleted another user''s row';
   END IF;
 END
 $preference_upsert_cross_tenant$;
