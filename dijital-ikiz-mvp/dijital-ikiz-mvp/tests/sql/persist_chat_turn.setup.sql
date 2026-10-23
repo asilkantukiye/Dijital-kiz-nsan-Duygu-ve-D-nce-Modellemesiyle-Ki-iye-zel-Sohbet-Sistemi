@@ -4,6 +4,7 @@
 -- add memory_items, pgvector, its RLS policy, and all three RPCs itself.
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE service_role NOLOGIN BYPASSRLS;
 CREATE SCHEMA auth;
 CREATE SCHEMA extensions;
 
