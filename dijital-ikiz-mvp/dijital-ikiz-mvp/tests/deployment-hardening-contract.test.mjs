@@ -22,7 +22,7 @@ test('production deployment is staged; production approval happens only after he
   assert.ok(promoteJob > deepHealth, 'production approval job must be separate and run after health gates')
   assert.ok(promotion > promoteJob, 'production promotion must run in the approval-protected job')
   assert.match(workflow, /promote:[\s\S]*?environment:\s*production/)
-  assert.match(workflow, /GITHUB_REF: \$\{\{ github\.ref \}\}/)
+  assert.match(workflow, /WORKFLOW_REF: \$\{\{ github\.ref \}\}/)
   assert.match(workflow, /refs\/heads\/main/)
 })
 
