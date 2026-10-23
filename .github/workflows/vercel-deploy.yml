@@ -23,11 +23,11 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
-          GITHUB_REF: ${{ github.ref }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
           missing=()
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            missing+=("deployment must be dispatched from main (current ref: $GITHUB_REF)")
+          if [[ "$WORKFLOW_REF" != "refs/heads/main" ]]; then
+            missing+=("deployment must be dispatched from main (current ref: $WORKFLOW_REF)")
           fi
           if [[ -z "$VERCEL_TOKEN" ]]; then
             missing+=("VERCEL_TOKEN (GitHub Actions secret)")
