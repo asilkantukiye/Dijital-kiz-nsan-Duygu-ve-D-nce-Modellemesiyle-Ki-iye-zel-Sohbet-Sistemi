@@ -112,11 +112,11 @@ $idempotency_persist$;
 DO $idempotency_rollback$
 DECLARE
   failed_as_expected boolean := false;
-  request_hash text := repeat('b', 64);
+  v_request_hash text := repeat('b', 64);
   owner_token uuid := 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid;
   actor uuid := '33333333-3333-4333-8333-333333333333'::uuid;
 BEGIN
-  PERFORM * FROM public.claim_chat_request_server(actor, request_hash, owner_token);
+  PERFORM * FROM public.claim_chat_request_server(actor, v_request_hash, owner_token);
 
   BEGIN
     PERFORM * FROM public.persist_chat_turn_idempotent_server(
@@ -148,11 +148,11 @@ BEGIN
     RAISE EXCEPTION 'failed idempotent turn left a profile update';
   END IF;
 
-  IF (SELECT status FROM public.chat_request_deduplication WHERE user_id = actor AND request_hash = request_hash) <> 'processing' THEN
+  IF (SELECT status FROM public.chat_request_deduplication WHERE user_id = actor AND chat_request_deduplication.request_hash = v_request_hash) <> 'processing' THEN
     RAISE EXCEPTION 'failed transaction unexpectedly committed idempotency completion';
   END IF;
 
-  PERFORM public.release_chat_request_server(actor, request_hash, owner_token);
+  PERFORM public.release_chat_request_server(actor, v_request_hash, owner_token);
 
   IF (SELECT status FROM public.chat_request_deduplication WHERE user_id = actor AND request_hash = request_hash) <> 'failed' THEN
     RAISE EXCEPTION 'failed owner did not release its idempotency claim';
