@@ -8,7 +8,7 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 
-test('CI applies all ten Supabase migrations in timestamp order', async () => {
+test('CI applies all eleven Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
@@ -25,7 +25,8 @@ test('CI applies all ten Supabase migrations in timestamp order', async () => {
     '20261021210000_stage5_memory_extensions_usage.sql',
     '20261021211000_stage5_atomic_memory_preference_update.sql',
     '20261023196000_aud_01_chat_write_boundary.sql',
-    '20261023200000_aud_02_chat_deduplication.sql'
+    '20261023200000_aud_02_chat_deduplication.sql',
+    '20261023210000_aud_03_concurrent_profile_updates.sql'
   ]
 
   const positions = migrations.map((migration) => {
@@ -45,6 +46,9 @@ test('CI applies all ten Supabase migrations in timestamp order', async () => {
     'tests/sql/memory_preference_update.integration.sql',
     'tests/sql/security_rpc.integration.sql'
   ]
+  assert.match(workflow, /name: Test concurrent profile updates against PostgreSQL/)
+  assert.match(workflow, /node tests\\/profile-update-concurrency\\.integration\\.mjs/)
+
   for (const check of postMigrationChecks) {
     const position = workflow.indexOf('--file ' + check)
     assert.ok(position > finalMigration, check + ' must run after every migration')
