@@ -60,7 +60,8 @@ BEGIN
     'match_memory_items',
     'delete_my_chat_data',
     'persist_chat_turn',
-    'replace_my_memory_preference'
+    'replace_my_memory_preference',
+    'upsert_my_memory_preference'
   ]
   LOOP
     function_oid := NULL;
@@ -104,6 +105,19 @@ BEGIN
 
   IF to_regclass('public.memory_items_source_message_idx') IS NULL THEN
     RAISE EXCEPTION 'memory source-message foreign-key index is missing';
+  END IF;
+
+  IF to_regclass('public.memory_items_user_preference_key_uidx') IS NULL THEN
+    RAISE EXCEPTION 'unique user-scoped memory preference-key index is missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'memory_items'
+      AND column_name = 'preference_key'
+  ) THEN
+    RAISE EXCEPTION 'memory_items.preference_key column is missing';
   END IF;
 
 END
