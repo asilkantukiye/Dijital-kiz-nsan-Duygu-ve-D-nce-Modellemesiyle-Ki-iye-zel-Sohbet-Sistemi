@@ -69,6 +69,17 @@ test('local loopback HTTP is accepted for development readiness', () => {
   assert.equal(status.configured.supabase, true)
 })
 
+test('health is not ready when the server-only write key is missing', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder'
+  })
+
+  assert.equal(status.ready, false)
+  assert.equal(status.configured.serverWriteBoundary, false)
+})
+
 test('health is not ready if any required provider configuration is absent', () => {
   const missingSupabaseKey = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
@@ -94,7 +105,8 @@ test('whitespace-only environment values count as missing', () => {
   assert.deepEqual(status.configured, {
     supabase: false,
     huggingface: false,
-    rateLimit: false
+    rateLimit: false,
+  serverWriteBoundary: false
   })
 })
 
