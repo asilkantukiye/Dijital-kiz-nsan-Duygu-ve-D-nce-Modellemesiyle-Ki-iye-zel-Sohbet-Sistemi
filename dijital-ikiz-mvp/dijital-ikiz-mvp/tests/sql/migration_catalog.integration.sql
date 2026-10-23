@@ -12,6 +12,10 @@ DECLARE
   function_name text;
   function_oid oid;
   is_security_definer boolean;
+  memory_source_attnum smallint;
+  memory_user_attnum smallint;
+  message_id_attnum smallint;
+  message_user_attnum smallint;
 BEGIN
   SELECT n.nspname
   INTO extension_schema
@@ -32,6 +36,37 @@ BEGIN
 
   IF embedding_typmod IS DISTINCT FROM 384 THEN
     RAISE EXCEPTION 'memory_items.embedding must be vector(384), got typmod %', embedding_typmod;
+  END IF;
+
+  SELECT attnum INTO memory_source_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_id' AND NOT attisdropped;
+  SELECT attnum INTO memory_user_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.memory_items'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO message_id_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.messages'::regclass AND attname = 'id' AND NOT attisdropped;
+  SELECT attnum INTO message_user_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.messages'::regclass AND attname = 'user_id' AND NOT attisdropped;
+
+  IF to_regclass('public.messages_id_user_id_uidx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-04 composite messages(id,user_id) unique index is missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conrelid = 'public.memory_items'::regclass
+      AND c.confrelid = 'public.messages'::regclass
+      AND c.contype = 'f'
+      AND c.conkey = ARRAY[memory_source_attnum, memory_user_attnum]::smallint[]
+      AND c.confkey = ARRAY[message_id_attnum, message_user_attnum]::smallint[]
+      AND c.confdeltype = 'n'
+      AND c.confdelsetcols = ARRAY[memory_source_attnum]::smallint[]
+  ) THEN
+    RAISE EXCEPTION 'AUD-04 memory source composite owner foreign key is missing or malformed';
   END IF;
 
   FOREACH table_name IN ARRAY ARRAY[
