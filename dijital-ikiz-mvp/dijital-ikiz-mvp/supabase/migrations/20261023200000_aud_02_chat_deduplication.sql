@@ -71,18 +71,18 @@ BEGIN
 
   -- Opportunistic bounded cleanup prevents old response payloads from accumulating.
   -- Expired message fingerprints are metadata only; chat messages are not deleted here.
-  DELETE FROM public.chat_request_deduplication
-  WHERE ctid IN (
-    SELECT ctid
-    FROM public.chat_request_deduplication
+  DELETE FROM public.chat_request_deduplication AS expired
+  WHERE expired.ctid IN (
+    SELECT candidate.ctid
+    FROM public.chat_request_deduplication AS candidate
     WHERE (
-      status IN ('completed', 'failed')
-      AND dedupe_expires_at <= clock_timestamp()
+      candidate.status IN ('completed', 'failed')
+      AND candidate.dedupe_expires_at <= clock_timestamp()
     ) OR (
-      status = 'processing'
-      AND lease_expires_at < clock_timestamp() - interval '1 hour'
+      candidate.status = 'processing'
+      AND candidate.lease_expires_at < clock_timestamp() - interval '1 hour'
     )
-    ORDER BY updated_at
+    ORDER BY candidate.updated_at
     LIMIT 100
   );
 
