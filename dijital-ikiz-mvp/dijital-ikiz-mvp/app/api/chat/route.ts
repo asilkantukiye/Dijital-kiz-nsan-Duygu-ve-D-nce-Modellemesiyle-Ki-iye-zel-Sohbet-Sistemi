@@ -65,6 +65,16 @@ export async function POST(req: Request) {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
 
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Oturum bulunamadı.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
+
     const bodyResult = await readJsonBodyLimited(req, 16 * 1024)
     if (!bodyResult.ok) {
       return NextResponse.json(
@@ -88,16 +98,6 @@ export async function POST(req: Request) {
     }
 
     const { message, variant } = validation.value
-
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Oturum bulunamadı.' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      )
-    }
 
     // The publishable/session client is used for auth and user-scoped reads.
     // Only this server-side privileged client may persist assistant/profile writes.
