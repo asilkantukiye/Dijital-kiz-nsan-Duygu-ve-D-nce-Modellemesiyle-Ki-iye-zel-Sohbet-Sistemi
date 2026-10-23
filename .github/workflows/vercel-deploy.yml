@@ -21,11 +21,15 @@ jobs:
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
         run: |
           missing=()
           if [[ -z "$VERCEL_TOKEN" ]]; then
             missing+=("VERCEL_TOKEN (GitHub Actions secret)")
+          fi
+          if [[ ${#HEALTHCHECK_TOKEN} -lt 32 ]]; then
+            missing+=("HEALTHCHECK_TOKEN (GitHub Actions secret, minimum 32 characters)")
           fi
           if [[ "$SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true" ]]; then
             missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
@@ -36,7 +40,7 @@ jobs:
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "Vercel access and the database migration confirmation are present."
+              echo "Vercel access, upstream-health probe secret, and database migration confirmation are present."
               echo ""
               echo "The migration confirmation is manual. CI cannot prove the live Supabase project was migrated; confirm the migration and function permissions in the intended project first."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -53,7 +57,9 @@ jobs:
               done
               echo ""
               echo "Add VERCEL_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
-              echo "Never put the token in source code, workflow logs, issues, or chat."
+              echo "Never put either token in source code, workflow logs, issues, or chat."
+              echo ""
+              echo "Add HEALTHCHECK_TOKEN as a GitHub Actions secret (at least 32 random characters) and configure the identical value as a Vercel Production environment variable. The post-deploy deep probe will fail if those values do not match."
               echo ""
               echo "Set repository variable **SUPABASE_PRODUCTION_SCHEMA_VERIFIED** to exactly **true** only after the baseline schema and all required migrations are applied to the intended Supabase project, and RLS policies plus required RPC permissions/functions are verified. Follow supabase/MIGRATION_RUNBOOK.md."
               echo ""
@@ -206,4 +212,53 @@ jobs:
             echo ""
             echo "- Endpoint /api/health returned valid JSON."
             echo "- The app confirmed liveness and minimum chat-provider configuration."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify production upstream connectivity
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          header_file="$(mktemp)"
+          trap 'rm -f "$header_file"' EXIT
+          printf 'x-healthcheck-token: %s\n' "$HEALTHCHECK_TOKEN" > "$header_file"
+
+          probe_response="$(npx --yes vercel@63.1.2 curl /api/health/deep --deployment "$DEPLOYMENT_URL" --scope "help-70c6" -H "@$header_file")"
+
+          printf '%s' "$probe_response" | node -e '
+          let input = "";
+          process.stdin.setEncoding("utf8");
+          process.stdin.on("data", chunk => input += chunk);
+          process.stdin.on("end", () => {
+            let result;
+            try {
+              result = JSON.parse(input);
+            } catch {
+              console.error("Deep health endpoint did not return valid JSON.");
+              process.exit(1);
+            }
+
+            if (
+              result.ok !== true ||
+              result.providers?.supabase !== true ||
+              result.providers?.huggingface !== true ||
+              result.providers?.rateLimit !== true
+            ) {
+              console.error("Upstream connectivity probe failed. See provider booleans; no secret values are returned.");
+              process.exit(1);
+            }
+
+            console.log("Deep health probe passed for Supabase Auth, Hugging Face token authentication, and Upstash Redis.");
+          });
+          '
+
+          {
+            echo ""
+            echo "## Production upstream connectivity passed"
+            echo ""
+            echo "- Supabase Auth HTTP probe passed."
+            echo "- Hugging Face token identity probe passed (model inference is not billed/tested by this probe)."
+            echo "- Upstash Redis PING passed."
           } >> "$GITHUB_STEP_SUMMARY"
