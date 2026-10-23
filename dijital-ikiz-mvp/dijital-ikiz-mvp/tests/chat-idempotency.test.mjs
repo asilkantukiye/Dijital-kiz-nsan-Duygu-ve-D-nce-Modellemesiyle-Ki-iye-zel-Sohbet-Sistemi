@@ -133,8 +133,9 @@ test('production SQL keeps idempotency table and writer RPCs server-only', async
     path.join(projectDirectory, 'supabase/migrations/20261023200000_aud_02_chat_deduplication.sql'),
     'utf8'
   )
+  const repositoryDirectory = path.resolve(testDirectory, '../../..')
   const workflow = await readFile(
-    path.resolve(projectDirectory, '../../..', '.github/workflows/ci.yml'),
+    path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
   )
 
