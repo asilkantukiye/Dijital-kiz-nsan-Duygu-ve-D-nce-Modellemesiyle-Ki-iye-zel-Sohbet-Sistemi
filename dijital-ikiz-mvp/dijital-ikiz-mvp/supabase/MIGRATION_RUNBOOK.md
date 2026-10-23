@@ -30,6 +30,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 9. 20261023196000_aud_01_chat_write_boundary.sql
 10. 20261023200000_aud_02_chat_deduplication.sql
 11. 20261023210000_aud_03_concurrent_profile_updates.sql
+12. 20261023220000_aud_04_memory_ownership_validation.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -150,3 +151,12 @@ Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'
 Aynı PostgreSQL transaction'ında kanonik birleştirilmiş profil mesajların `profile_snapshot` alanına ve idempotency yanıtının `profile` alanına yazılır. Payload 13 bilinen alanı içermeli; tüm değerler sayısal ve 0–1 aralığında olmalıdır. Herhangi bir mesaj yazımı veya validasyon başarısız olursa profil, mesajlar ve cache birlikte rollback olur. `merge_twin_profile_observation` yalnızca `service_role` için çalıştırılabilir.
 
 CI ayrıca `tests/profile-update-concurrency.integration.mjs` ile 13 farklı profil özelliğini aynı kullanıcı için paralel isteklerle günceller; her özelliğin son değerde temsil edildiğini, 13 mesaj çiftinin ve tamamlanmış istek kaydının bulunduğunu, profil snapshot'larının geçerli olduğunu ve 20 saniyelik işlem sınırında deadlock olmadığını kontrol eder. Bu entegrasyon testi canlı Supabase verisine dokunmaz; CI'nin kendi PostgreSQL 17 test veritabanını kullanır.
+
+ 
+## AUD-04: memory source ownership validation
+
+`20261023220000_aud_04_memory_ownership_validation.sql`, eski tek alanlı `memory_items.source_message_id → messages.id` yabancı anahtarını bileşik `(source_message_id, user_id) → (messages.id, user_id)` kuralıyla değiştirir. `messages(id,user_id)` için benzersiz anahtar eklenir. Böylece hem INSERT hem UPDATE sırasında bellek kaydının kullanıcısı ile kaynak mesajının kullanıcısı PostgreSQL tarafından aynı olmak zorundadır; RLS veya istemci doğrulamasından bağımsızdır. Migration, varsa kaynak mesajı başka kullanıcıya ait eski memory_items satırlarını temizler. Kaynak mesaj silinince yalnızca `source_message_id` NULL yapılır ve `user_id` korunur.
+
+`lib/memory.ts`, memory okuma/yazma öncesi `auth.getUser()` ile verilen kullanıcı kimliğini doğrular. Yeni bellek eklemeden önce kaynak mesajın oturum sahibine ait olduğunu ve `role = 'user'` olduğunu da kontrol eder. Bunlar erken reddetme için ek savunmadır; yetkili güvenlik sınırı bileşik veritabanı yabancı anahtarıdır.
+
+CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A ve B→B ilişkilerini, A mesajını B kullanıcısına bağlama girişiminin `foreign_key_violation` ile reddedildiğini, bir satırın sahibini B'ye çevirmeye yönelik UPDATE girişiminin de reddedildiğini ve kaynak mesaj silinince memory sahipliğinin korunduğunu doğrular. `tests/sql/migration_catalog.integration.sql` bileşik anahtar ve seçici `ON DELETE SET NULL (source_message_id)` davranışının gerçekten kurulu olduğunu denetler.
