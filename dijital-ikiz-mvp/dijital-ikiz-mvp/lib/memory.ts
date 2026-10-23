@@ -56,17 +56,22 @@ async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: stri
   await pruneNeverUsedMemories(supabase, userId, cutoff)
   await pruneInactiveMemories(supabase, userId, cutoff)
   for (let batch = 0; batch < MAX_PRUNE_BATCHES_PER_PASS; batch += 1) {
-    const { data, error } = await supabase.from('memory_items').select('id,updated_at').eq('user_id', userId).order('updated_at', { ascending: false }).order('id', { ascending: true }).range(MAX_MEMORY_ITEMS_PER_USER, MAX_MEMORY_ITEMS_PER_USER + MEMORY_PRUNE_BATCH_SIZE - 1)
+    const { data, error } = await supabase.from('memory_items').select('id,updated_at,last_used_at').eq('user_id', userId).order('updated_at', { ascending: false }).order('id', { ascending: true }).range(MAX_MEMORY_ITEMS_PER_USER, MAX_MEMORY_ITEMS_PER_USER + MEMORY_PRUNE_BATCH_SIZE - 1)
     if (error) throw error
-    const rows = (data ?? []).filter((item): item is { id: string; updated_at: string } => typeof item.id === 'string' && typeof item.updated_at === 'string')
+    const rows = (data ?? []).filter((item): item is { id: string; updated_at: string; last_used_at: string | null } => typeof item.id === 'string' && typeof item.updated_at === 'string' && (typeof item.last_used_at === 'string' || item.last_used_at === null))
     if (rows.length === 0) break
 
-    // Delete only the exact versions selected. If a concurrent write refreshes a
-    // memory's updated_at between SELECT and DELETE, that row must survive.
+    // Delete only the exact versions selected. Concurrent content updates change
+    // updated_at; retrievals change last_used_at. Either change must protect the row.
     for (let offset = 0; offset < rows.length; offset += MAX_PRUNE_FILTER_CLAUSES) {
       const chunk = rows.slice(offset, offset + MAX_PRUNE_FILTER_CLAUSES)
       const ids = chunk.map((row) => row.id)
-      const updatedSnapshotFilter = chunk.map((row) => `and(id.eq.${row.id},updated_at.eq.${row.updated_at})`).join(',')
+      const updatedSnapshotFilter = chunk.map((row) => {
+        const activityPredicate = row.last_used_at === null
+          ? 'last_used_at.is.null'
+          : `last_used_at.eq.${row.last_used_at}`
+        return `and(id.eq.${row.id},updated_at.eq.${row.updated_at},${activityPredicate})`
+      }).join(',')
       const { error: deleteError } = await supabase.from('memory_items').delete().eq('user_id', userId).in('id', ids).or(updatedSnapshotFilter)
       if (deleteError) throw deleteError
     }
