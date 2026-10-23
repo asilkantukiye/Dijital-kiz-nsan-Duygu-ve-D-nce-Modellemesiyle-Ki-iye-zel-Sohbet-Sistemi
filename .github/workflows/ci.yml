@@ -81,10 +81,12 @@ jobs:
             --file supabase/migrations/20261020200000_atomic_chat_turn_persistence.sql \
             --file supabase/migrations/20261021210000_stage5_memory_extensions_usage.sql \
             --file supabase/migrations/20261021211000_stage5_atomic_memory_preference_update.sql \
+            --file supabase/migrations/20261023194000_stage5_1_atomic_preference_upsert.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/memory_preference_update.integration.sql \
+            --file tests/sql/memory_preference_upsert.integration.sql \
             --file tests/sql/security_rpc.integration.sql
 
       - name: Install
