@@ -154,7 +154,7 @@ BEGIN
 
   PERFORM public.release_chat_request_server(actor, v_request_hash, owner_token);
 
-  IF (SELECT status FROM public.chat_request_deduplication WHERE user_id = actor AND request_hash = request_hash) <> 'failed' THEN
+  IF (SELECT status FROM public.chat_request_deduplication WHERE user_id = actor AND chat_request_deduplication.request_hash = v_request_hash) <> 'failed' THEN
     RAISE EXCEPTION 'failed owner did not release its idempotency claim';
   END IF;
 END
