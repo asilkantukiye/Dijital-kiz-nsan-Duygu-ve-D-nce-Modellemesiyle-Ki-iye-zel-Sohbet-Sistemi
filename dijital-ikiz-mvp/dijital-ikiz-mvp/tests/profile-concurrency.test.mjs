@@ -18,7 +18,7 @@ test('profile persistence merges observations against the locked latest row', as
   assert.match(migration, /RETURNING profile INTO v_profile_snapshot/i)
   assert.match(migration, /SELECT \*[\s\S]*?FOR UPDATE/i)
   assert.match(migration, /SET profile = public\.merge_twin_profile_observation/i)
-  assert.match(migration, /jsonb_object_length\(p_profile_snapshot\) <> 13/i)
+  assert.match(migration, /\(SELECT count\(\*\) FROM jsonb_object_keys\(p_profile_snapshot\)\) <> 13/i)
   assert.match(migration, /status = 'completed'[\s\S]*?response = v_response/s)
   assert.match(migration, /FROM PUBLIC, anon, authenticated/i)
   assert.match(migration, /TO service_role/i)
