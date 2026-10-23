@@ -8,18 +8,22 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const appRoot = path.resolve(here, '..')
 const repoRoot = path.resolve(appRoot, '..', '..')
 
-test('production deployment is staged and promoted only after health gates', async () => {
+test('production deployment is staged; production approval happens only after health gates', async () => {
   const workflow = await readFile(path.join(repoRoot, '.github', 'workflows', 'vercel-deploy.yml'), 'utf8')
   const stagedDeploy = workflow.indexOf('vercel@63.1.2 deploy --prod --skip-domain')
   const configHealth = workflow.indexOf('Verify production health and chat configuration')
   const deepHealth = workflow.indexOf('Verify production upstream connectivity')
+  const promoteJob = workflow.indexOf('\n  promote:')
   const promotion = workflow.indexOf('vercel@63.1.2 promote')
 
   assert.ok(stagedDeploy >= 0, 'deploy command should be pinned and staged without domains')
   assert.ok(configHealth > stagedDeploy, 'configuration health must run after staged deploy')
   assert.ok(deepHealth > configHealth, 'provider network probe must run after configuration health')
-  assert.ok(promotion > deepHealth, 'production promotion must happen last')
-  assert.match(workflow, /environment:\s*production/)
+  assert.ok(promoteJob > deepHealth, 'production approval job must be separate and run after health gates')
+  assert.ok(promotion > promoteJob, 'production promotion must run in the approval-protected job')
+  assert.match(workflow, /promote:[\s\S]*?environment:\s*production/)
+  assert.match(workflow, /GITHUB_REF: \$\{\{ github\.ref \}\}/)
+  assert.match(workflow, /refs\/heads\/main/)
 })
 
 test('deploy workflow avoids floating CLI tags and command-line token arguments', async () => {
