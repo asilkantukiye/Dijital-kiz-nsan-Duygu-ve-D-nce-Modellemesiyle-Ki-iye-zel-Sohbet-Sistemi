@@ -48,6 +48,19 @@ SELECT set_config(
   false
 );
 
+SELECT set_config(
+  'test.preference_foreign_source_message_id',
+  (
+    SELECT id::text
+    FROM public.messages
+    WHERE user_id = '11111111-1111-4111-8111-111111111111'
+      AND role = 'user'
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  ),
+  false
+);
+
 SET ROLE authenticated;
 SET request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 
@@ -59,7 +72,7 @@ DECLARE
   first_id uuid;
   second_id uuid;
   inserted_foreign_id uuid;
-  foreign_source_id uuid;
+  foreign_source_id uuid := current_setting('test.preference_foreign_source_message_id')::uuid;
   rejected boolean := false;
   key_count integer;
 BEGIN
@@ -126,13 +139,6 @@ BEGIN
 
   -- A foreign message cannot be used as provenance. The function's exception
   -- aborts all row changes made during that SQL function call.
-  SELECT id INTO foreign_source_id
-  FROM public.messages
-  WHERE user_id = '11111111-1111-4111-8111-111111111111'
-    AND role = 'user'
-  ORDER BY created_at DESC, id DESC
-  LIMIT 1;
-
   BEGIN
     PERFORM public.upsert_my_memory_preference(
       'test::invalid-source',
