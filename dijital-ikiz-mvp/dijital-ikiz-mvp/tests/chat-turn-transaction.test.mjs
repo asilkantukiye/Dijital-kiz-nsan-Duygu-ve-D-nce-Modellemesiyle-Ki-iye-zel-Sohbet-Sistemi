@@ -19,7 +19,7 @@ test('chat route uses verified auth identity and server-only atomic persistence'
   const route = await readFile(routePath, 'utf8')
 
   assert.match(route, /supabase\.auth\.getUser\(\)/)
-  assert.match(route, /adminSupabase\.rpc\('persist_chat_turn_server'/)
+  assert.match(route, /adminSupabase\.rpc\('persist_chat_turn_idempotent_server'/)
   assert.match(route, /p_user_id:\s*user\.id/)
   assert.doesNotMatch(route, /bodyResult\.value\.(?:user_id|userId|session_id|sessionId)/)
   assert.doesNotMatch(route, /\.from\('twin_profiles'\)\s*\.upsert/)
