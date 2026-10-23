@@ -500,8 +500,7 @@ GRANT EXECUTE ON FUNCTION public.persist_chat_turn_server(
 -- into this table. Claiming is an atomic INSERT/ON CONFLICT operation.
 CREATE TABLE public.chat_request_deduplication (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  request_hash text NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}
-),
+  request_hash text NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
   status text NOT NULL DEFAULT 'processing'
     CHECK (status IN ('processing', 'completed', 'failed')),
   owner_token uuid,
@@ -548,7 +547,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, public
-AS $
+AS $$
 DECLARE
   v_claimed_owner uuid;
   v_claimed_lease timestamptz;
@@ -563,8 +562,7 @@ BEGIN
     RAISE EXCEPTION 'Chat request identity is required';
   END IF;
 
-  IF p_request_hash IS NULL OR p_request_hash !~ '^[0-9a-f]{64}
- THEN
+  IF p_request_hash IS NULL OR p_request_hash !~ '^[0-9a-f]{64}$' THEN
     RAISE EXCEPTION 'Invalid chat request hash';
   END IF;
 
@@ -649,7 +647,7 @@ BEGIN
   RAISE EXCEPTION 'Chat request claim must be retried'
     USING ERRCODE = '40001';
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.release_chat_request_server(
   p_user_id uuid,
@@ -660,7 +658,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, public
-AS $
+AS $$
 BEGIN
   IF current_user <> 'service_role' THEN
     RAISE EXCEPTION 'Server-only chat idempotency release'
@@ -681,7 +679,7 @@ BEGIN
     AND status = 'processing'
     AND owner_token = p_owner_token;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.persist_chat_turn_idempotent_server(
   p_user_id uuid,
@@ -704,7 +702,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, public
-AS $
+AS $$
 DECLARE
   v_claim public.chat_request_deduplication%ROWTYPE;
   v_user_message_id uuid;
@@ -720,8 +718,7 @@ BEGIN
     RAISE EXCEPTION 'Chat request identity is required';
   END IF;
 
-  IF p_request_hash IS NULL OR p_request_hash !~ '^[0-9a-f]{64}
- THEN
+  IF p_request_hash IS NULL OR p_request_hash !~ '^[0-9a-f]{64}$' THEN
     RAISE EXCEPTION 'Invalid chat request hash';
   END IF;
 
@@ -835,7 +832,7 @@ BEGIN
     v_response,
     'completed'::text;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.claim_chat_request_server(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.release_chat_request_server(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
