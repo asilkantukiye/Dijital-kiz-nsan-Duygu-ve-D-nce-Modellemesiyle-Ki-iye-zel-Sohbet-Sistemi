@@ -37,7 +37,7 @@ test('every memory-retention deletion and overflow cleanup is scoped to the curr
   const memory = await readFile(memoryPath, 'utf8')
 
   const neverUsedPrune = memory.match(
-    /async function pruneNeverUsedMemories\([\\s\\S]*?\n\}/
+    /async function pruneNeverUsedMemories\([\s\S]*?\n\}/
   )
   assert.ok(neverUsedPrune, 'never-used retention helper must remain explicit and bounded')
   assert.match(neverUsedPrune[0], /\.eq\('user_id', userId\)/)
@@ -47,7 +47,7 @@ test('every memory-retention deletion and overflow cleanup is scoped to the curr
   assert.match(neverUsedPrune[0], /\.limit\(MEMORY_PRUNE_BATCH_SIZE\)/)
 
   const inactivePrune = memory.match(
-    /async function pruneInactiveMemories\([\\s\\S]*?\n\}/
+    /async function pruneInactiveMemories\([\s\S]*?\n\}/
   )
   assert.ok(inactivePrune, 'inactive-memory retention helper must remain explicit and bounded')
   assert.match(inactivePrune[0], /\.eq\('user_id', userId\)/)
@@ -57,7 +57,7 @@ test('every memory-retention deletion and overflow cleanup is scoped to the curr
   assert.match(inactivePrune[0], /\.limit\(MEMORY_PRUNE_BATCH_SIZE\)/)
 
   const lifecyclePrune = memory.match(
-    /async function pruneMemoryLifecycle\([\\s\\S]*?\n\}/
+    /async function pruneMemoryLifecycle\([\s\S]*?\n\}/
   )
   assert.ok(lifecyclePrune, 'memory-cap cleanup must remain explicit')
   assert.match(lifecyclePrune[0], /MAX_PRUNE_BATCHES_PER_PASS/)
