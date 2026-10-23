@@ -1,11 +1,13 @@
 \set ON_ERROR_STOP on
 
--- Personalized turn: profile + user message + assistant message all persist.
-SET ROLE authenticated;
+-- The trusted backend writer persists profile + both message rows atomically.
+RESET ROLE;
+SET ROLE service_role;
 SET request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 SELECT *
-FROM public.persist_chat_turn(
+FROM public.persist_chat_turn_server(
+  '11111111-1111-4111-8111-111111111111'::uuid,
   'personalized',
   'personalized user input',
   'personalized assistant reply',
@@ -13,6 +15,10 @@ FROM public.persist_chat_turn(
   '2026-10-20 20:00:00.001+00'::timestamptz,
   '{"tone":"concise"}'::jsonb
 );
+
+RESET ROLE;
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 DO $$
 DECLARE
@@ -37,10 +43,13 @@ END
 $$;
 
 -- Baseline turn: messages persist, but no personalized profile is written.
+RESET ROLE;
+SET ROLE service_role;
 SET request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 
 SELECT *
-FROM public.persist_chat_turn(
+FROM public.persist_chat_turn_server(
+  '22222222-2222-4222-8222-222222222222'::uuid,
   'baseline',
   'baseline user input',
   'baseline assistant reply',
@@ -48,6 +57,10 @@ FROM public.persist_chat_turn(
   '2026-10-20 20:01:00.001+00'::timestamptz,
   NULL
 );
+
+RESET ROLE;
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 
 DO $$
 DECLARE
@@ -70,7 +83,7 @@ BEGIN
 END
 $$;
 
--- RLS: the first user must not see the second user's rows.
+-- RLS still isolates rows for normal user-facing reads.
 SET request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 DO $$
@@ -91,14 +104,18 @@ BEGIN
 END
 $$;
 
--- The RPC itself rejects malformed payloads at the database boundary.
+-- The trusted RPC validates payloads itself even though only service_role can call it.
+RESET ROLE;
+SET ROLE service_role;
+
 DO $$
 DECLARE
   rejected boolean;
 BEGIN
   rejected := false;
   BEGIN
-    PERFORM * FROM public.persist_chat_turn(
+    PERFORM * FROM public.persist_chat_turn_server(
+      '11111111-1111-4111-8111-111111111111'::uuid,
       'unexpected', 'user', 'assistant',
       '2026-10-20 20:02:00+00', '2026-10-20 20:02:00.001+00', NULL
     );
@@ -110,7 +127,8 @@ BEGIN
 
   rejected := false;
   BEGIN
-    PERFORM * FROM public.persist_chat_turn(
+    PERFORM * FROM public.persist_chat_turn_server(
+      '11111111-1111-4111-8111-111111111111'::uuid,
       'personalized', repeat('x', 4001), 'assistant',
       '2026-10-20 20:02:00+00', '2026-10-20 20:02:00.001+00', '{"ok":true}'::jsonb
     );
@@ -122,7 +140,8 @@ BEGIN
 
   rejected := false;
   BEGIN
-    PERFORM * FROM public.persist_chat_turn(
+    PERFORM * FROM public.persist_chat_turn_server(
+      '11111111-1111-4111-8111-111111111111'::uuid,
       'baseline', 'user', 'assistant',
       '2026-10-20 20:02:00+00', '2026-10-20 20:02:00.001+00', '{"leak":true}'::jsonb
     );
@@ -134,7 +153,7 @@ BEGIN
 END
 $$;
 
--- If the second message insert fails, the profile and first message must roll back too.
+-- If the second message insert fails, the profile and first message roll back too.
 SET request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 
 DO $$
@@ -143,7 +162,8 @@ DECLARE
   actor uuid := auth.uid();
 BEGIN
   BEGIN
-    PERFORM * FROM public.persist_chat_turn(
+    PERFORM * FROM public.persist_chat_turn_server(
+      actor,
       'personalized',
       'this user message must roll back',
       'simulate-second-write-failure',
@@ -172,23 +192,39 @@ $$;
 
 RESET ROLE;
 
--- Check the exact function ACL, independently from table-level RLS errors.
+-- ACLs must prevent any browser/user JWT from calling a trusted chat writer.
 DO $acl$
 BEGIN
   IF has_function_privilege(
     'anon',
     'public.persist_chat_turn(text,text,text,timestamptz,timestamptz,jsonb)',
     'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'anon unexpectedly has EXECUTE permission on persist_chat_turn';
-  END IF;
-
-  IF NOT has_function_privilege(
+  ) OR has_function_privilege(
     'authenticated',
     'public.persist_chat_turn(text,text,text,timestamptz,timestamptz,jsonb)',
     'EXECUTE'
   ) THEN
-    RAISE EXCEPTION 'authenticated is missing EXECUTE permission on persist_chat_turn';
+    RAISE EXCEPTION 'anon/authenticated unexpectedly have EXECUTE on legacy persist_chat_turn';
+  END IF;
+
+  IF has_function_privilege(
+    'anon',
+    'public.persist_chat_turn_server(uuid,text,text,text,timestamptz,timestamptz,jsonb)',
+    'EXECUTE'
+  ) OR has_function_privilege(
+    'authenticated',
+    'public.persist_chat_turn_server(uuid,text,text,text,timestamptz,timestamptz,jsonb)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'anon/authenticated unexpectedly have EXECUTE on persist_chat_turn_server';
+  END IF;
+
+  IF NOT has_function_privilege(
+    'service_role',
+    'public.persist_chat_turn_server(uuid,text,text,text,timestamptz,timestamptz,jsonb)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'service_role is missing EXECUTE on persist_chat_turn_server';
   END IF;
 END
 $acl$;
