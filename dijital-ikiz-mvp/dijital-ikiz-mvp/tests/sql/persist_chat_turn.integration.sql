@@ -159,7 +159,7 @@ SET request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 DO $$
 DECLARE
   failed_as_expected boolean := false;
-  actor uuid := auth.uid();
+  actor uuid := '33333333-3333-4333-8333-333333333333'::uuid;
 BEGIN
   BEGIN
     PERFORM * FROM public.persist_chat_turn_server(
