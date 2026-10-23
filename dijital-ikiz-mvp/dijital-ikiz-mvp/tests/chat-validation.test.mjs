@@ -48,6 +48,26 @@ test('rejects unsupported experiment variants', () => {
   if (!result.ok) assert.match(result.error, /varyant/i)
 })
 
+test('rejects client-supplied user and session identity fields', () => {
+  for (const extra of [
+    { user_id: 'victim-user-id' },
+    { userId: 'victim-user-id' },
+    { session_id: 'forged-session-id' },
+    { sessionId: 'forged-session-id' }
+  ]) {
+    const result = validateChatPayload({
+      message: 'Merhaba',
+      variant: 'personalized',
+      ...extra
+    })
+    assert.equal(result.ok, false)
+    if (!result.ok) {
+      assert.equal(result.status, 400)
+      assert.match(result.error, /mesaj ve varyant/i)
+    }
+  }
+})
+
 test('trims messages and removes control characters before checking emptiness', () => {
   const valid = validateChatPayload({
     message: '  Mer\u0000haba\u0007  ',
