@@ -60,6 +60,7 @@ BEGIN
     'match_memory_items',
     'delete_my_chat_data',
     'persist_chat_turn',
+    'persist_chat_turn_server',
     'replace_my_memory_preference'
   ]
   LOOP
@@ -85,10 +86,27 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF NOT has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
-      RAISE EXCEPTION 'authenticated is missing EXECUTE on public.%', function_name;
+    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server') THEN
+      IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
+        RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
+      END IF;
+      IF function_name = 'persist_chat_turn_server'
+         AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
+        RAISE EXCEPTION 'service_role is missing EXECUTE on server chat writer';
+      END IF;
+    ELSE
+      IF NOT has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
+        RAISE EXCEPTION 'authenticated is missing EXECUTE on public.%', function_name;
+      END IF;
     END IF;
   END LOOP;
+
+  IF has_table_privilege('authenticated', 'public.messages', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.messages', 'UPDATE')
+     OR has_table_privilege('authenticated', 'public.twin_profiles', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.twin_profiles', 'UPDATE') THEN
+    RAISE EXCEPTION 'authenticated unexpectedly has direct chat/profile write privilege';
+  END IF;
 
   IF NOT has_schema_privilege('authenticated', 'extensions', 'USAGE') THEN
     RAISE EXCEPTION 'authenticated is missing USAGE on extensions schema';
