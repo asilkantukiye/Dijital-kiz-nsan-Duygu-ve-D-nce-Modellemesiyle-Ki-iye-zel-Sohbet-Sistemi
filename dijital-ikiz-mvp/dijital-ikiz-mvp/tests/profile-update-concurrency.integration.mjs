@@ -142,7 +142,7 @@ async function main() {
       AND role IN ('user', 'assistant')
       AND (
         profile_snapshot IS NULL
-        OR jsonb_object_length(profile_snapshot) <> 13
+        OR (SELECT count(*) FROM jsonb_object_keys(profile_snapshot)) <> 13
         OR EXISTS (
           SELECT 1 FROM jsonb_each(profile_snapshot) AS kv(key, value)
           WHERE jsonb_typeof(value) <> 'number'
