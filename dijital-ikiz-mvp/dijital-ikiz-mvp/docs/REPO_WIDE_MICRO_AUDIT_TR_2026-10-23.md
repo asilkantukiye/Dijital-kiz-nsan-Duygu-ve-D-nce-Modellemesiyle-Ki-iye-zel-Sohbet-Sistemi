@@ -255,6 +255,7 @@ Placeholder SHA bu hâliyle kullanılmamalıdır. Gerçek SHA resmi action depos
 
 **Üretim düzeltmesi:** Eğitim komutunda tam HF commit SHA zorunlu olmalı; tokenizer ve model aynı revizyona sabitlenmeli. Pip için hash'li lock/constraints ve eğitim raporunda dataset hash'lerinin yanı sıra model/tokenizer revision, çalışma ortamı, CUDA/driver ve bağımlılık çözümlemesi yer almalı.
 
+    # Import bölümüne: import re
     parser.add_argument(
         "--model-revision",
         required=True,
@@ -267,7 +268,7 @@ Bu, mevcut bilinçli deneysel tasarımdaki esnekliği azaltır ama karşılaşt�
 
 ### AUD-12 — MEDIUM — Heuristic puanlar Big Five/VAD ölçümü gibi yorumlanırsa bilimsel geçerlilik riski var
 
-**Konum:** `lib/twin.ts:16–32, 46–83`; UI etiketleri `app/page.tsx:47–60`; `ml/model-card.md:15–19`.
+**Konum:** `lib/twin.ts:18–33, 59–85`; UI etiketleri `app/page.tsx:47–60`; `ml/model-card.md:15–19`.
 
 **Neden:** `analyzeMessage` sabit regex ve ağırlıklarla valence/arousal/dominance, beş Big Five boyutu ve iletişim stili skorları üretip önceki profille sabit `alpha = 0.25` üzerinden yumuşatıyor. Örneğin noktalama/emoji/“çok” gibi işaretler arousal/extraversion değiştiriyor; uzun mesaj sorumluluğu artırıyor; olumlu kelimeler agreeableness artırıyor. Bu eşlemelerin katılımcı ölçeği, kalibrasyonu, belirsizlik aralığı ya da bağımsız test skoru yok. Bir mesajın tonu kişilik özelliğinin doğrulanmış ölçümü değildir.
 
@@ -305,7 +306,7 @@ Gerçek Supabase tipleri için Promise birleşimi uygun şekilde tiplendirilmeli
 
 ### AUD-15 — LOW — Geniş substring prompt/bellek filtresi meşru tercihleri de yanlışlıkla düşürebilir
 
-**Konum:** `lib/memory-text.ts` içinde `blockedTerms`, `isBlocked`, `toMemoryContent`, `formatMemoryContext` blokları (filtre kullanımının kesin bir semantic garanti olmadığı not edilmeli).
+**Konum:** `lib/memory-text.ts:18–36, 217–236`; belleğe kabul/formatlama çağrıları aynı dosyanın 245–356 aralığında.
 
 **Neden:** Bazı güvenlik kelimeleri normalize metinde `includes` ile aranıyor; tüm terimler kelime sınırı veya bağlam ayrımıyla eşleşmiyor. Kısa bir terimin başka bir kelimenin alt dizgisi olması güvenli/normal bir tercih metninin belleğe hiç kaydedilmemesine neden olabilir. Diğer taraftan, regex blocklist dilsel/semantik prompt injection'ın tüm varyantlarını yakalayamaz. İkinci durumun prompt sınırıyla azaltılması doğru; blocklist tam güvenlik duvarı değildir.
 
