@@ -16,6 +16,7 @@ create index if not exists memory_items_retention_used_idx
 do $$
 declare
   v_job_id bigint;
+  v_cap_job_id bigint;
 begin
   -- Jobs belong to the role that scheduled them. Replace only this migration
   -- role's job with the same name; don't cancel jobs owned by another role.
@@ -48,8 +49,45 @@ begin
        where memory.id = stale.id;
     $cleanup$
   );
+  select jobid
+    into v_cap_job_id
+    from cron.job
+   where jobname = 'stage5-memory-cap-cleanup'
+     and username = current_user
+   limit 1;
+
+  if v_cap_job_id is not null then
+    perform cron.unschedule(v_cap_job_id);
+  end if;
+
+  -- Existing inactive accounts may have accumulated more than 50 rows before
+  -- the insert trigger was introduced. Drain that historical overflow daily.
+  perform cron.schedule(
+    'stage5-memory-cap-cleanup',
+    '15 3 * * *',
+    $cap_cleanup$
+      with ranked as (
+        select id,
+               row_number() over (
+                 partition by user_id
+                 order by updated_at desc, id asc
+               ) as row_number
+          from public.memory_items
+      ),
+      overflow as (
+        select id
+          from ranked
+         where row_number > 50
+         order by id
+         limit 1000
+      )
+      delete from public.memory_items as memory
+       using overflow
+       where memory.id = overflow.id;
+    $cap_cleanup$
+  );
 end
-$$;
+$;
 
 comment on index public.memory_items_retention_never_used_idx is
   'Supports bounded pg_cron deletion of never-used memory older than the retention window.';
