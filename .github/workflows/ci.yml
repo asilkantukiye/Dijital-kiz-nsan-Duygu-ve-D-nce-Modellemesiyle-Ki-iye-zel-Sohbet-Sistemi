@@ -9,7 +9,7 @@ concurrency:
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "fix/aud-03-concurrent-profile-updates"]
   pull_request:
     branches: ["main", "fix/aud-01-security-hardening", "fix/aud-02-chat-deduplication"]
 
