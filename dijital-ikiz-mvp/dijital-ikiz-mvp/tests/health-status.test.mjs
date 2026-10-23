@@ -11,14 +11,16 @@ test('health is live but not ready when backend configuration is missing', () =>
   assert.deepEqual(status.configured, {
     supabase: false,
     huggingface: false,
-    rateLimit: false
+    rateLimit: false,
+    serverWriteBoundary: false
   })
 })
 
-test('health is ready only when valid Supabase and Hugging Face configuration is present', () => {
+test('health is ready only when Supabase, server-only writes and Hugging Face are configured', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-placeholder',
+    supabaseServiceRoleKey: 'service-role-placeholder',
     huggingfaceToken: 'secret-placeholder',
     nodeEnv: 'development'
   })
@@ -28,7 +30,8 @@ test('health is ready only when valid Supabase and Hugging Face configuration is
   assert.deepEqual(status.configured, {
     supabase: true,
     huggingface: true,
-    rateLimit: false
+    rateLimit: false,
+    serverWriteBoundary: true
   })
 })
 
@@ -58,6 +61,7 @@ test('local loopback HTTP is accepted for development readiness', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'http://localhost:54321',
     supabasePublishableKey: 'publishable-placeholder',
+    supabaseServiceRoleKey: 'service-role-placeholder',
     huggingfaceToken: 'secret-placeholder'
   })
 
@@ -98,12 +102,14 @@ test('health response reports configuration presence, never credential values', 
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-secret-must-not-appear',
+    supabaseServiceRoleKey: 'service-role-secret-must-not-appear',
     huggingfaceToken: 'hf-secret-must-not-appear'
   })
   const serialized = JSON.stringify(status)
 
   assert.doesNotMatch(serialized, /publishable-secret-must-not-appear/)
   assert.doesNotMatch(serialized, /hf-secret-must-not-appear/)
+  assert.doesNotMatch(serialized, /service-role-secret-must-not-appear/)
 })
 
 
@@ -111,6 +117,7 @@ test('production readiness requires a valid distributed rate-limit configuration
   const base = {
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-placeholder',
+    supabaseServiceRoleKey: 'service-role-placeholder',
     huggingfaceToken: 'secret-placeholder',
     nodeEnv: 'production'
   }
