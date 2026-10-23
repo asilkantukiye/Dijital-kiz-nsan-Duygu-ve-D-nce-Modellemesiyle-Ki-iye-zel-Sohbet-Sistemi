@@ -10,17 +10,21 @@ const readmePath = path.join(projectDirectory, 'README.md')
 const privacyPath = path.join(projectDirectory, 'app', 'privacy', 'page.tsx')
 const memoryPath = path.join(projectDirectory, 'lib', 'memory.ts')
 
-test('README and privacy notice disclose that memory cleanup is not a scheduled background job', async () => {
+test('README distinguishes pending scheduled cleanup from current production behavior', async () => {
   const [readme, privacy] = await Promise.all([
     readFile(readmePath, 'utf8'),
     readFile(privacyPath, 'utf8')
   ])
 
-  for (const document of [readme, privacy]) {
-    assert.match(document, /arka planda zamanlanmış bir iş değildir/i)
-    assert.match(document, /hiç geri dönmezse/i)
-    assert.match(document, /otomatik silinmez/i)
-  }
+  assert.match(readme, /20261023193000_stage5_1_memory_retention_cron\.sql/)
+  assert.match(readme, /Migration uygulanana kadar mevcut üretim davranışı/i)
+  assert.match(readme, /hiç geri dönmezse/i)
+  assert.match(readme, /otomatik silinmez/i)
+
+  // The privacy page describes the actually deployed app, not a draft branch.
+  assert.match(privacy, /arka planda zamanlanmış bir iş değildir/i)
+  assert.match(privacy, /hiç geri dönmezse/i)
+  assert.match(privacy, /otomatik silinmez/i)
 })
 
 test('memory lifecycle pruning is triggered in authenticated-user memory flows', async () => {
