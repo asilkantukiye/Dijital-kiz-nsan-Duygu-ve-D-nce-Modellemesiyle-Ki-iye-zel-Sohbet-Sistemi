@@ -15,13 +15,16 @@ const migrationPath = path.join(
   '20261020200000_atomic_chat_turn_persistence.sql'
 )
 
-test('chat route delegates paired message and profile persistence to the atomic RPC', async () => {
+test('chat route uses verified auth identity and server-only atomic persistence', async () => {
   const route = await readFile(routePath, 'utf8')
 
-  assert.match(route, /supabase\.rpc\('persist_chat_turn'/)
+  assert.match(route, /supabase\.auth\.getUser\(\)/)
+  assert.match(route, /adminSupabase\.rpc\('persist_chat_turn_server'/)
+  assert.match(route, /p_user_id:\s*user\.id/)
+  assert.doesNotMatch(route, /bodyResult\.value\.(?:user_id|userId|session_id|sessionId)/)
   assert.doesNotMatch(route, /\.from\('twin_profiles'\)\s*\.upsert/)
   assert.doesNotMatch(route, /\.from\('messages'\)\s*\.insert/)
-  assert.match(route, /p_profile_snapshot:\s*profileSnapshot/)
+  assert.match(route, /if \(!user\)[\s\S]*?status: 401/)
   assert.match(route, /persistMemories\(user\.id,\s*userMessageId,\s*message\)/)
   assert.match(route, /messageId:\s*assistantMessageId/)
 })
@@ -50,4 +53,22 @@ test('atomic chat-turn SQL is included in both the consolidated schema and migra
   assert.match(migration, /from public/i)
   assert.match(migration, /from anon/i)
   assert.match(migration, /grant execute on function public\.persist_chat_turn.*to authenticated/i)
+})
+
+
+test('AUD-01 migration closes user JWT write paths and grants only the service writer', async () => {
+  const boundaryPath = path.join(
+    appDirectory,
+    'supabase',
+    'migrations',
+    '20261023196000_aud_01_chat_write_boundary.sql'
+  )
+  const boundary = await readFile(boundaryPath, 'utf8')
+
+  assert.match(boundary, /revoke insert, update on table public\.messages, public\.twin_profiles from authenticated/i)
+  assert.match(boundary, /revoke all on function public\.persist_chat_turn\([\s\S]*?from public, anon, authenticated/i)
+  assert.match(boundary, /create or replace function public\.persist_chat_turn_server\(/i)
+  assert.match(boundary, /current_user <> 'service_role'/i)
+  assert.match(boundary, /grant execute on function public\.persist_chat_turn_server\([\s\S]*?to service_role/i)
+  assert.doesNotMatch(boundary, /grant execute on function public\.persist_chat_turn_server[\s\S]*?to authenticated/i)
 })
