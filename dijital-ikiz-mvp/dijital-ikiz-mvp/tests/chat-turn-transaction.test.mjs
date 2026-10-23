@@ -26,7 +26,8 @@ test('chat route uses verified auth identity and server-only atomic persistence'
   assert.doesNotMatch(route, /\.from\('messages'\)\s*\.insert/)
   assert.match(route, /if \(!user\)[\s\S]*?status: 401/)
   assert.match(route, /persistMemories\(user\.id,\s*userMessageId,\s*message\)/)
-  assert.match(route, /messageId:\s*assistantMessageId/)
+  assert.match(route, /return NextResponse\.json\(cachedResponse/)
+  assert.match(route, /p_response_payload:\s*\{[\s\S]*?reply,[\s\S]*?variant/)
 })
 
 test('atomic chat-turn SQL is included in both the consolidated schema and migration', async () => {
