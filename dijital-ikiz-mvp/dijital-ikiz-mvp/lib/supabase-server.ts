@@ -5,7 +5,7 @@ import { isValidSupabaseUrl } from './supabase-url'
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  if (!isValidSupabaseUrl(supabaseUrl) || !publishableKey?.trim()) {
+  if (typeof supabaseUrl !== 'string' || !isValidSupabaseUrl(supabaseUrl) || typeof publishableKey !== 'string' || !publishableKey.trim()) {
     throw new Error('Supabase public client configuration is invalid.')
   }
 
