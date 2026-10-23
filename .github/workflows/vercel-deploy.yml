@@ -5,7 +5,7 @@ permissions:
 
 concurrency:
   group: vercel-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
@@ -151,7 +151,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --yes --scope "help-70c6")"
+          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --skip-domain --yes --scope "help-70c6")"
           deployment_url="$(printf '%s\n' "$deployment_output" | node tests/helpers/extract-vercel-deployment-url.mjs)"
 
           if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app$ ]]; then
@@ -161,10 +161,10 @@ jobs:
 
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
           {
-            echo "## Production deployment created"
+            echo "## Staged production deployment created"
             echo ""
-            echo "- Deployment URL: $deployment_url"
-            echo "- Next step: verify /api/health and required configuration."
+            echo "- Staged deployment URL: $deployment_url"
+            echo "- Production domains have not been assigned; health and upstream checks must pass before promotion."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify production health and chat configuration
@@ -261,4 +261,19 @@ jobs:
             echo "- Supabase Auth HTTP probe passed."
             echo "- Hugging Face token identity probe passed (model inference is not billed/tested by this probe)."
             echo "- Upstash Redis PING passed."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Promote only after all smoke tests pass
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx --yes vercel@63.1.2 promote "$DEPLOYMENT_URL" --yes --scope "help-70c6"
+          {
+            echo ""
+            echo "## Production promotion completed"
+            echo ""
+            echo "- The staged deployment passed configuration and upstream connectivity probes before promotion."
+            echo "- Production domain assignment was performed only after these checks succeeded."
           } >> "$GITHUB_STEP_SUMMARY"
