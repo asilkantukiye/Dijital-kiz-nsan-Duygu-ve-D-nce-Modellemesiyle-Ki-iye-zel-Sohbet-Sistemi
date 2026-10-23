@@ -16,7 +16,7 @@ declare
 begin
   -- Let RLS reject a mismatched owner after the trigger returns, but do not
   -- mutate any memory rows when an authenticated caller supplied a foreign ID.
-  if v_actor is not null and new.user_id is distinct from v_actor then
+  if v_actor is null or new.user_id is distinct from v_actor then
     return new;
   end if;
 
