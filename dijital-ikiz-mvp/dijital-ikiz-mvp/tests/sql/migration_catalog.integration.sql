@@ -125,10 +125,10 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'memory_items'
-      AND column_name = 'preference_key'
+    SELECT 1 FROM information_schema.columns AS column_catalog
+    WHERE column_catalog.table_schema = 'public'
+      AND column_catalog.table_name = 'memory_items'
+      AND column_catalog.column_name = 'preference_key'
   ) THEN
     RAISE EXCEPTION 'memory_items.preference_key column is missing';
   END IF;
