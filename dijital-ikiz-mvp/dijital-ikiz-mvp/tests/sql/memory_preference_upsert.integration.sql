@@ -72,12 +72,13 @@ DECLARE
   first_id uuid;
   second_id uuid;
   inserted_foreign_id uuid;
+  generic_id uuid;
   foreign_source_id uuid := current_setting('test.preference_foreign_source_message_id')::uuid;
   rejected boolean := false;
   key_count integer;
 BEGIN
   first_id := public.upsert_my_memory_preference(
-    'sugar::coffee',
+    'sugar::kahve',
     NULL,
     ARRAY[]::uuid[],
     'Kullanıcı tercihi: şekersiz kahve',
@@ -89,7 +90,7 @@ BEGIN
   -- A concurrent/duplicate request with the same semantic key must update the
   -- already keyed row even when its stale caller supplied no keep ID.
   second_id := public.upsert_my_memory_preference(
-    'sugar::coffee',
+    'sugar::kahve',
     NULL,
     ARRAY[]::uuid[],
     'Kullanıcı tercihi: şekerli kahve',
@@ -106,7 +107,7 @@ BEGIN
   FROM public.memory_items
   WHERE user_id = actor
     AND memory_type = 'preference'
-    AND preference_key = 'sugar::coffee';
+    AND preference_key = 'sugar::kahve';
 
   IF key_count <> 1 THEN
     RAISE EXCEPTION 'same preference key is not unique for the user';
@@ -119,6 +120,39 @@ BEGIN
       AND content = 'Kullanıcı tercihi: şekerli kahve'
   ) THEN
     RAISE EXCEPTION 'second preference upsert did not update the original row';
+  END IF;
+
+  -- A generic preference and its dimensioned form refer to one semantic
+  -- topic. The lock-time database query must resolve the conflict even if this
+  -- caller's pre-lock query was stale and p_keep_id is NULL.
+  generic_id := public.upsert_my_memory_preference(
+    'general::kahve',
+    NULL,
+    ARRAY[]::uuid[],
+    'Kullanıcı tercihi: kahve',
+    0.65,
+    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384),
+    source_id
+  );
+
+  IF generic_id IS DISTINCT FROM first_id THEN
+    RAISE EXCEPTION 'generic-vs-dimension conflict created a second memory row';
+  END IF;
+
+  SELECT count(*) INTO key_count
+  FROM public.memory_items
+  WHERE user_id = actor
+    AND memory_type = 'preference'
+    AND preference_key IN ('sugar::kahve', 'general::kahve');
+
+  IF key_count <> 1 OR NOT EXISTS (
+    SELECT 1 FROM public.memory_items
+    WHERE user_id = actor
+      AND id = first_id
+      AND preference_key = 'general::kahve'
+      AND content = 'Kullanıcı tercihi: kahve'
+  ) THEN
+    RAISE EXCEPTION 'generic-vs-dimension preference was not collapsed atomically';
   END IF;
 
   -- Passing another user's keep/duplicate IDs must not update or delete those
@@ -211,7 +245,7 @@ WHERE user_id IN (
   '33333333-3333-4333-8333-333333333333'
 )
 AND (
-  preference_key IN ('test::foreign-user-preference', 'sugar::coffee', 'test::my-own-preference')
+  preference_key IN ('test::foreign-user-preference', 'sugar::kahve', 'general::kahve', 'test::my-own-preference')
   OR content IN ('foreign-user preference fixture', 'Kullanıcı tercihi: şekerli kahve', 'Kullanıcı tercihi: benim tercihim')
 );
 
