@@ -106,7 +106,7 @@ test('whitespace-only environment values count as missing', () => {
     supabase: false,
     huggingface: false,
     rateLimit: false,
-  serverWriteBoundary: false
+    serverWriteBoundary: false
   })
 })
 
