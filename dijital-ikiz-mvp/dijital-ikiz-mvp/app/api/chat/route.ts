@@ -12,6 +12,7 @@ import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/me
 import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
 import { readJsonBodyLimited } from '@/lib/request-body'
 import { enforceChatRateLimit } from '@/lib/distributed-rate-limit'
+import { claimChatRequestWithWait, createChatRequestOwnerToken, hashChatRequest } from '@/lib/chat-idempotency'
 
 const MAX_MESSAGE_LENGTH = MAX_CHAT_MESSAGE_LENGTH
 const MAX_HISTORY = 8
@@ -61,6 +62,14 @@ function boundHistory(
 export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
+  let releaseOwnedClaim: (() => Promise<void>) | null = null
+  const releaseClaim = async () => {
+    const release = releaseOwnedClaim
+    releaseOwnedClaim = null
+    if (!release) return
+    try { await release() } catch {}
+  }
+
   try {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
@@ -111,9 +120,58 @@ export async function POST(req: Request) {
       )
     }
 
+    // The SHA-256 fingerprint scopes an identical prompt+variant to this verified user.
+    // PostgreSQL owns the cross-instance lock; no in-memory mutex is trusted here.
+    const requestHash = hashChatRequest(variant, message)
+    const ownerToken = createChatRequestOwnerToken()
+    const claimResult = await claimChatRequestWithWait(async () => {
+      const { data: claimData, error: claimError } = await adminSupabase.rpc('claim_chat_request_server', {
+        p_user_id: user.id,
+        p_request_hash: requestHash,
+        p_owner_token: ownerToken
+      })
+      if (claimError) throw claimError
+
+      const claimRow = Array.isArray(claimData) ? claimData[0] : claimData
+      if (!claimRow || !['claimed', 'replay', 'in_progress'].includes(claimRow.disposition)) {
+        throw new Error('Sohbet isteği sahiplenilemedi.')
+      }
+
+      return {
+        disposition: claimRow.disposition,
+        response: claimRow.response ?? undefined
+      }
+    }, { waitMs: 1800, pollIntervalMs: 150 })
+
+    if (claimResult.disposition === 'replay') {
+      if (!claimResult.response || typeof claimResult.response !== 'object' || Array.isArray(claimResult.response)) {
+        throw new Error('Önbelleğe alınan sohbet yanıtı geçersiz.')
+      }
+      return NextResponse.json(claimResult.response, {
+        headers: { 'Cache-Control': 'no-store' }
+      })
+    }
+
+    if (claimResult.disposition === 'in_progress') {
+      return NextResponse.json(
+        { status: 'processing', error: 'Bu mesaj zaten işleniyor; aynı mesajın yanıtı otomatik olarak yeniden kontrol edilecek.' },
+        { status: 202, headers: { 'Cache-Control': 'no-store', 'Retry-After': '1' } }
+      )
+    }
+
+    releaseOwnedClaim = async () => {
+      const { error } = await adminSupabase.rpc('release_chat_request_server', {
+        p_user_id: user.id,
+        p_request_hash: requestHash,
+        p_owner_token: ownerToken
+      })
+      if (error) throw error
+    }
+
     const rateLimitDecision = await enforceChatRateLimit(user.id)
 
     if (!rateLimitDecision.allowed) {
+      await releaseClaim()
       const status = rateLimitDecision.unavailable ? 503 : 429
       const error = rateLimitDecision.unavailable
         ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
@@ -236,16 +294,23 @@ export async function POST(req: Request) {
     const assistantMessageCreatedAt = new Date(assistantTimestamp).toISOString()
     const profileSnapshot = variant === 'personalized' ? profile : null
 
-    // The RPC writes the profile and both messages in one database transaction.
-    // If any write fails, PostgreSQL rolls back the complete chat turn.
-    const { data: savedTurns, error: persistError } = await adminSupabase.rpc('persist_chat_turn_server', {
+    // The server RPC atomically writes the profile, paired messages, and replayable response.
+    // If any database write fails, all chat rows and the completion cache roll back together.
+    const { data: savedTurns, error: persistError } = await adminSupabase.rpc('persist_chat_turn_idempotent_server', {
       p_user_id: user.id,
+      p_request_hash: requestHash,
+      p_owner_token: ownerToken,
       p_variant: variant,
       p_user_content: message,
       p_assistant_content: reply,
       p_user_created_at: userMessageCreatedAt,
       p_assistant_created_at: assistantMessageCreatedAt,
-      p_profile_snapshot: profileSnapshot
+      p_profile_snapshot: profileSnapshot,
+      p_response_payload: {
+        reply,
+        profile: variant === 'personalized' ? profile : null,
+        variant
+      }
     })
 
     if (persistError) throw persistError
@@ -253,12 +318,24 @@ export async function POST(req: Request) {
     const savedTurn = Array.isArray(savedTurns) ? savedTurns[0] : null
     const userMessageId = savedTurn?.user_message_id
     const assistantMessageId = savedTurn?.assistant_message_id
+    const cachedResponse = savedTurn?.response
+    const persistenceDisposition = savedTurn?.disposition
 
-    if (typeof userMessageId !== 'string' || typeof assistantMessageId !== 'string') {
-      throw new Error('Sohbet turu kaydedilemedi.')
+    if (
+      typeof userMessageId !== 'string' ||
+      typeof assistantMessageId !== 'string' ||
+      !cachedResponse ||
+      typeof cachedResponse !== 'object' ||
+      Array.isArray(cachedResponse) ||
+      (persistenceDisposition !== 'completed' && persistenceDisposition !== 'replay')
+    ) {
+      throw new Error('Sohbet turu veya yanıt önbelleği kaydedilemedi.')
     }
 
-    if (variant === 'personalized' && userMessageId) {
+    // The database transaction has committed, so do not release this completed claim.
+    releaseOwnedClaim = null
+
+    if (persistenceDisposition === 'completed' && variant === 'personalized') {
       try {
         await persistMemories(user.id, userMessageId, message)
       } catch {
@@ -267,20 +344,11 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json(
-      {
-        reply,
-        profile: variant === 'personalized' ? profile : null,
-        variant,
-        messageId: assistantMessageId
-      },
-      {
-        headers: {
-          'Cache-Control': 'no-store'
-        }
-      }
-    )
+    return NextResponse.json(cachedResponse, {
+      headers: { 'Cache-Control': 'no-store' }
+    })
   } catch (error: unknown) {
+    await releaseClaim()
     console.error('Chat API request failed; diagnostic details omitted.')
     return NextResponse.json(
       { error: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' },
