@@ -32,6 +32,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 11. 20261023210000_aud_03_concurrent_profile_updates.sql
 12. 20261023220000_aud_04_memory_ownership_validation.sql
 13. 20261023230000_aud_05_embedding_validation.sql
+14. 20261023231000_aud_06_chat_deduplication_window.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -43,7 +44,7 @@ Migration sonrası `tests/sql/chat_write_boundary.integration.sql` eşdeğeri ko
 
 ## AUD-02: aynı sohbet isteğini tekilleştirme
 
-`20261023200000_aud_02_chat_deduplication.sql`, doğrulanmış kullanıcı, varyant ve normalize edilmiş mesaj için SHA-256 parmak izi kullanır; ham mesaj metni idempotency tablosuna kopyalanmaz. `claim_chat_request_server` PostgreSQL tarafında atomik sahiplik alır. Tamamlanmış yanıt 10 saniye boyunca tekrar kullanılabilir; etkin istek için ikinci istek yeni model çağrısı başlatmaz ve `202` / `Retry-After` ile yeniden kontrol eder. Profil güncellemesi, kullanıcı/asistan mesaj çifti ve yanıt önbelleği `persist_chat_turn_idempotent_server` içinde tek bir transaction'da tamamlanır. `chat_request_deduplication` tablosu ve claim/release/writer RPC'leri yalnızca `service_role` içindir. Başarısız istek sahipliği `release_chat_request_server` ile bırakılır; claim işlemi eski önbellek kayıtlarını sınırlı sayıda temizler.
+`20261023200000_aud_02_chat_deduplication.sql` ve `20261023231000_aud_06_chat_deduplication_window.sql`, doğrulanmış kullanıcı, varyant ve normalize edilmiş mesaj için SHA-256 parmak izi kullanır; ham mesaj metni idempotency tablosuna kopyalanmaz. `claim_chat_request_server` PostgreSQL tarafında atomik sahiplik alır. Tamamlanmış yanıt 10 saniye boyunca tekrar kullanılabilir; aktif isteğin lease'i beş dakika kalır; etkin istek için ikinci istek yeni model çağrısı başlatmaz ve `202` / `Retry-After` ile yeniden kontrol eder. Profil güncellemesi, kullanıcı/asistan mesaj çifti ve yanıt önbelleği `persist_chat_turn_idempotent_server` içinde tek bir transaction'da tamamlanır. `chat_request_deduplication` tablosu ve claim/release/writer RPC'leri yalnızca `service_role` içindir. Başarısız istek sahipliği `release_chat_request_server` ile bırakılır; claim işlemi eski önbellek kayıtlarını sınırlı sayıda temizler.
 
 Migration sonrası `tests/sql/chat_idempotency.integration.sql` eşdeğeri kontrollerde ilk claim'in `claimed`, eşzamanlı tekrarın `in_progress`, tamamlanmış tekrarın `replay` döndürdüğünü; yanıt önbelleği ile mesaj çiftinin tek işlemde kaydedildiğini doğrula. CI başarısı canlı Supabase migration'ının uygulandığını kanıtlamaz.
 
@@ -168,3 +169,8 @@ CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A
 `20261023230000_aud_05_embedding_validation.sql` adds and validates a database CHECK constraint requiring `vector(384)`, a positive vector norm, and a finite norm. `lib/embedding-validation.ts` rejects empty, wrong-dimension, non-numeric, null, NaN, infinite, zero and overflow-norm arrays before any pgvector RPC or write; token-level pooling no longer fabricates missing dimensions as zero. CI runs `tests/sql/memory_embedding_integrity.integration.sql` to prove the database rejects a zero vector.
 
 `lib/memory.ts` now handles stale and over-cap cleanup in deterministic batches. Each request deletes at most four batches per category, reapplies stale predicates on DELETE to protect a concurrently used row, and leaves additional cleanup for later memory operations instead of running unbounded DELETE loops.
+
+
+## AUD-06: completed chat deduplication replay window
+
+`20261023231000_aud_06_chat_deduplication_window.sql` sets the completed-response replay window to 10 seconds. A database trigger applies the TTL atomically when a claim transitions to `completed`, and already-completed rows are shortened based on their original `updated_at`. The five-minute processing lease is deliberately unchanged: identical requests that arrive while inference is active remain `in_progress` and do not start a second model call. The PostgreSQL idempotency integration test asserts the completed cache expiry is positive and no more than 10 seconds.

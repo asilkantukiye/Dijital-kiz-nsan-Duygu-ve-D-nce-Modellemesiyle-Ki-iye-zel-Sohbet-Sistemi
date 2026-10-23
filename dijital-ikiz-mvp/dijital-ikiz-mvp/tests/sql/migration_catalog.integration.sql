@@ -166,6 +166,15 @@ BEGIN
     RAISE EXCEPTION 'anon unexpectedly has USAGE on extensions schema';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger t
+    WHERE t.tgrelid = 'public.chat_request_deduplication'::regclass
+      AND t.tgname = 'chat_request_dedupe_window_10s'
+      AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'AUD-06 completed-request 10-second dedupe trigger is missing';
+  END IF;
+
   IF to_regclass('public.messages_user_variant_created_idx') IS NULL THEN
     RAISE EXCEPTION 'variant-scoped message history index is missing';
   END IF;

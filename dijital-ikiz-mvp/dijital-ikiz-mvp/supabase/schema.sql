@@ -1133,3 +1133,33 @@ ALTER TABLE public.memory_items
   ) NOT VALID;
 ALTER TABLE public.memory_items
   VALIDATE CONSTRAINT memory_items_embedding_integrity_check;
+
+-- AUD-06: completed chat responses are replay-cached for 10 seconds only.
+-- The active processing lease remains five minutes to avoid duplicate concurrent
+-- model inference while an original request is still running.
+CREATE OR REPLACE FUNCTION public.set_chat_request_dedupe_window_10s()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW.status = 'completed' AND OLD.status IS DISTINCT FROM 'completed' THEN
+    NEW.dedupe_expires_at := clock_timestamp() + interval '10 seconds';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.set_chat_request_dedupe_window_10s() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_chat_request_dedupe_window_10s() TO service_role;
+
+UPDATE public.chat_request_deduplication
+SET dedupe_expires_at = LEAST(dedupe_expires_at, updated_at + interval '10 seconds')
+WHERE status = 'completed';
+
+DROP TRIGGER IF EXISTS chat_request_dedupe_window_10s ON public.chat_request_deduplication;
+CREATE TRIGGER chat_request_dedupe_window_10s
+BEFORE UPDATE OF status ON public.chat_request_deduplication
+FOR EACH ROW
+EXECUTE FUNCTION public.set_chat_request_dedupe_window_10s();
