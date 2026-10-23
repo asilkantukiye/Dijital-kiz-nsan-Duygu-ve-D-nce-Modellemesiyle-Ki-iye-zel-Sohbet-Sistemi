@@ -27,8 +27,15 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 6. 20261020200000_atomic_chat_turn_persistence.sql
 7. 20261021210000_stage5_memory_extensions_usage.sql
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
+9. 20261023196000_aud_01_chat_write_boundary.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
+
+## AUD-01: sohbet/profil yazma sınırı
+
+`20261023196000_aud_01_chat_write_boundary.sql`, `authenticated` rolünden `messages` ve `twin_profiles` INSERT/UPDATE izinlerini kaldırır ve eski `persist_chat_turn` RPC'sini authenticated için kapatır. Yeni `persist_chat_turn_server` yalnızca `service_role` ile çağrılır. `/api/chat` önce `auth.getUser()` ile oturumu doğrular, kullanıcı kimliğini doğrulanmış oturumdan alır; istek gövdesindeki `user_id`/`session_id` reddedilir. Bu tasarım için `SUPABASE_SERVICE_ROLE_KEY` yalnızca Next.js sunucu ortamında tanımlanmalıdır. Bu değer kesinlikle `NEXT_PUBLIC_` ile başlamamalı veya tarayıcı bundle'ına eklenmemelidir.
+
+Migration sonrası `tests/sql/chat_write_boundary.integration.sql` eşdeğeri kontrollerde authenticated rolünün `messages` ve `twin_profiles` INSERT/UPDATE yetkilerinin ve iki chat-writer RPC'si için EXECUTE yetkisinin bulunmadığını doğrula. Kendi mesajlarını okuma ve veri silme akışını ayrıca test et.
 
 ## Migration geçmişini kontrol et
 
@@ -89,15 +96,16 @@ select p.proname,
        pg_get_function_identity_arguments(p.oid) as arguments,
        p.prosecdef as security_definer,
        has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute,
+       has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_can_execute,
        has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'replace_my_memory_preference')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'persist_chat_turn_server', 'replace_my_memory_preference')
 order by p.proname;
 ~~~
 
-Uygulama fonksiyonları SECURITY INVOKER olarak tasarlanmıştır; bu yüzden security_definer = false, authenticated_can_execute = true ve anon_can_execute = false beklenir. `anon_can_execute = false` aynı zamanda PUBLIC üzerinden yanlışlıkla verilmiş execute iznini de yakalamaya yardımcı olur.
+Uygulama fonksiyonları SECURITY INVOKER olarak tasarlanmıştır. `match_memory_items`, `delete_my_chat_data` ve `replace_my_memory_preference` için authenticated EXECUTE beklenir; eski `persist_chat_turn` için authenticated EXECUTE **false** olmalı; yeni `persist_chat_turn_server` için authenticated ve anon EXECUTE **false**, service_role EXECUTE **true** olmalıdır. Service-role anahtarını SQL çıktılarına veya CI loglarına yazma. `anon_can_execute = false` aynı zamanda PUBLIC üzerinden yanlışlıkla verilmiş execute iznini de yakalamaya yardımcı olur.
 
 ### pgvector extension ve schema izni
 
