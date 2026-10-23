@@ -30,7 +30,7 @@ test('profile persistence merges observations against the locked latest row', as
 
 test('CI runs the concurrent PostgreSQL profile-update stress test after migrations', async () => {
   const workflow = await readFile(
-    path.join(project, '..', '..', '..', '.github/workflows/ci.yml'),
+    path.join(project, '..', '..', '.github/workflows/ci.yml'),
     'utf8'
   )
   const migrationPosition = workflow.indexOf('--file supabase/migrations/20261023210000_aud_03_concurrent_profile_updates.sql')
