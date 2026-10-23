@@ -16,6 +16,15 @@ const MEMORY_RETENTION_MS = MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>
 
+async function assertMemoryUserContext(supabase: ServerSupabaseClient, userId: string) {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error) throw error
+  if (!user || user.id !== userId) {
+    throw new Error('Memory ownership context does not match the authenticated user.')
+  }
+  return user.id
+}
+
 async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: string) {
   const cutoff = new Date(Date.now() - MEMORY_RETENTION_MS).toISOString()
 
@@ -68,6 +77,7 @@ async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: stri
 
 export async function retrieveMemories(userId: string, queryText: string) {
   const supabase = await createClient()
+  await assertMemoryUserContext(supabase, userId)
   await pruneMemoryLifecycle(supabase, userId)
 
   // Avoid an external embedding call while the user has no stored memories.
@@ -112,10 +122,27 @@ export async function persistMemories(
   sourceMessageId: string,
   sourceText: string
 ) {
+  const supabase = await createClient()
+  const authenticatedUserId = await assertMemoryUserContext(supabase, userId)
+
   const extracted = extractMemories(sourceText)
   if (extracted.length === 0) return 0
 
-  const supabase = await createClient()
+  // Fail before embedding/provider work if the supplied source ID is not this
+  // authenticated user's own user-message row. The composite SQL FK remains the
+  // authoritative protection against races and crafted database writes.
+  const { data: sourceMessage, error: sourceMessageError } = await supabase
+    .from('messages')
+    .select('id, role')
+    .eq('id', sourceMessageId)
+    .eq('user_id', authenticatedUserId)
+    .maybeSingle()
+
+  if (sourceMessageError) throw sourceMessageError
+  if (!sourceMessage || sourceMessage.role !== 'user') {
+    throw new Error('Memory source message is not an owned user message.')
+  }
+
   const embedder = new HuggingFaceEmbeddingProvider()
   const candidates = extracted.slice(0, 4)
 
