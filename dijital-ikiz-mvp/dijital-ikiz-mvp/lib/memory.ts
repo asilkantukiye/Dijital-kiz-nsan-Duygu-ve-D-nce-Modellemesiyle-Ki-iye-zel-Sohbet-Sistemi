@@ -14,6 +14,7 @@ const MAX_MEMORY_ITEMS_PER_USER = 50
 const MEMORY_RETENTION_DAYS = 180
 const MEMORY_PRUNE_BATCH_SIZE = 250
 const MAX_PRUNE_BATCHES_PER_PASS = 4
+const MAX_PRUNE_FILTER_CLAUSES = 64
 const MEMORY_RETENTION_MS = MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>
@@ -55,13 +56,22 @@ async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: stri
   await pruneNeverUsedMemories(supabase, userId, cutoff)
   await pruneInactiveMemories(supabase, userId, cutoff)
   for (let batch = 0; batch < MAX_PRUNE_BATCHES_PER_PASS; batch += 1) {
-    const { data, error } = await supabase.from('memory_items').select('id').eq('user_id', userId).order('updated_at', { ascending: false }).order('id', { ascending: true }).range(MAX_MEMORY_ITEMS_PER_USER, MAX_MEMORY_ITEMS_PER_USER + MEMORY_PRUNE_BATCH_SIZE - 1)
+    const { data, error } = await supabase.from('memory_items').select('id,updated_at').eq('user_id', userId).order('updated_at', { ascending: false }).order('id', { ascending: true }).range(MAX_MEMORY_ITEMS_PER_USER, MAX_MEMORY_ITEMS_PER_USER + MEMORY_PRUNE_BATCH_SIZE - 1)
     if (error) throw error
-    const ids = (data ?? []).map((item) => item.id).filter((id): id is string => typeof id === 'string')
-    if (ids.length === 0) break
-    const { error: deleteError } = await supabase.from('memory_items').delete().eq('user_id', userId).in('id', ids)
-    if (deleteError) throw deleteError
-    if (ids.length < MEMORY_PRUNE_BATCH_SIZE) break
+    const rows = (data ?? []).filter((item): item is { id: string; updated_at: string } => typeof item.id === 'string' && typeof item.updated_at === 'string')
+    if (rows.length === 0) break
+
+    // Delete only the exact versions selected. If a concurrent write refreshes a
+    // memory's updated_at between SELECT and DELETE, that row must survive.
+    for (let offset = 0; offset < rows.length; offset += MAX_PRUNE_FILTER_CLAUSES) {
+      const chunk = rows.slice(offset, offset + MAX_PRUNE_FILTER_CLAUSES)
+      const ids = chunk.map((row) => row.id)
+      const updatedSnapshotFilter = chunk.map((row) => `and(id.eq.${row.id},updated_at.eq.${row.updated_at})`).join(',')
+      const { error: deleteError } = await supabase.from('memory_items').delete().eq('user_id', userId).in('id', ids).or(updatedSnapshotFilter)
+      if (deleteError) throw deleteError
+    }
+
+    if (rows.length < MEMORY_PRUNE_BATCH_SIZE) break
   }
 }
 
