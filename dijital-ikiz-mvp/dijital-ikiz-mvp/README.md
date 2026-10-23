@@ -50,6 +50,7 @@ Copy-Item .env.local.example .env.local
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
 HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
@@ -58,7 +59,7 @@ UPSTASH_REDIS_REST_TOKEN=
 RATE_LIMIT_KEY_SALT=
 ```
 
-**Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
+`SUPABASE_SERVICE_ROLE_KEY`, Supabase proje ayarlarındaki service-role/secret server key'dir. Yalnızca server environment (`.env.local` veya Vercel Environment Variables) içinde tutulmalıdır; adının başına `NEXT_PUBLIC_` eklemeyin. **Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
 
 ## 3. Supabase kurulumu
 
@@ -71,7 +72,8 @@ Bu SQL:
 - `message_feedback` tablosunu oluşturur.
 - RLS'yi etkinleştirir.
 - Kullanıcıların yalnızca kendi kayıtlarına erişmesini sınırlar.
-- API için `authenticated` rolüne gerekli tablo izinlerini verir.
+- Oturum açmış kullanıcıların kendi kayıtlarını okumasına/silmesine izin verir; sohbet mesajı ve profil INSERT/UPDATE işlemlerini authenticated rolünden kaldırır.
+- `persist_chat_turn_server` RPC'sini yalnız `service_role` için açar. `/api/chat` kullanıcının Supabase oturumunu `auth.getUser()` ile doğrular, `user.id` değerini sunucu tarafında alır ve bu RPC'yi server-only anahtarla çağırır.
 
 Supabase Data API ayarlarında otomatik tablo gösterimi kapalıysa, kullanılan tabloları Dashboard'daki **Data API** bölümünden açıkça expose etmeniz gerekir.
 
@@ -129,6 +131,7 @@ Vercel Environment Variables:
 ```text
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SERVICE_ROLE_KEY
 HF_TOKEN
 HF_MODEL
 HF_EMBEDDING_MODEL
