@@ -11,7 +11,7 @@ DECLARE
 BEGIN
   SELECT * INTO first_claim
   FROM public.claim_chat_request_server(
-    '11111111-1111-4111-8111-111111111111'::uuid,
+    '44444444-4444-4444-8444-444444444444'::uuid,
     repeat('a', 64),
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid
   );
@@ -22,7 +22,7 @@ BEGIN
 
   SELECT * INTO second_claim
   FROM public.claim_chat_request_server(
-    '11111111-1111-4111-8111-111111111111'::uuid,
+    '44444444-4444-4444-8444-444444444444'::uuid,
     repeat('a', 64),
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid
   );
@@ -63,7 +63,7 @@ DECLARE
 BEGIN
   SELECT * INTO stored
   FROM public.persist_chat_turn_idempotent_server(
-    '11111111-1111-4111-8111-111111111111'::uuid,
+    '44444444-4444-4444-8444-444444444444'::uuid,
     repeat('a', 64),
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
     'baseline',
@@ -83,13 +83,13 @@ BEGIN
     RAISE EXCEPTION 'cached response messageId does not match the persisted assistant row';
   END IF;
 
-  IF (SELECT count(*) FROM public.messages WHERE user_id = '11111111-1111-4111-8111-111111111111') <> 2 THEN
+  IF (SELECT count(*) FROM public.messages WHERE user_id = '44444444-4444-4444-8444-444444444444') <> 2 THEN
     RAISE EXCEPTION 'one successful chat turn must persist exactly two message rows';
   END IF;
 
   SELECT * INTO replay
   FROM public.claim_chat_request_server(
-    '11111111-1111-4111-8111-111111111111'::uuid,
+    '44444444-4444-4444-8444-444444444444'::uuid,
     repeat('a', 64),
     'dddddddd-dddd-4ddd-8ddd-dddddddddddd'::uuid
   );
@@ -102,7 +102,7 @@ BEGIN
     RAISE EXCEPTION 'retry response does not match the original response';
   END IF;
 
-  IF (SELECT count(*) FROM public.messages WHERE user_id = '11111111-1111-4111-8111-111111111111') <> 2 THEN
+  IF (SELECT count(*) FROM public.messages WHERE user_id = '44444444-4444-4444-8444-444444444444') <> 2 THEN
     RAISE EXCEPTION 'replay inserted a duplicate user/assistant message pair';
   END IF;
 END
