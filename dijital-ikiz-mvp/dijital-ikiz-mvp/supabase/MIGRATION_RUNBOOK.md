@@ -28,10 +28,13 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 7. 20261021210000_stage5_memory_extensions_usage.sql
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
 9. 20261023193000_stage5_1_memory_retention_cron.sql
+10. 20261023194000_stage5_1_atomic_preference_upsert.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
 **Yeni retention migration'ı `pg_cron` uzantısını kurar ve 15 dakikada bir en fazla 1.000 bayat `memory_items` kaydını silen bir iş planlar.** Hosted Supabase üzerinde `pg_cron` desteklenmeli ve migration'ı çalıştıran rol `cron` şemasında iş planlama yetkisine sahip olmalıdır. Uzantı oluşturulamıyorsa migration başarısız kalmalıdır; 180 günlük saklama şartı sessizce devre dışı bırakılmış sayılmamalıdır. Bu iş yalnızca bellek kayıtlarını temizler; sohbet mesajları ve profil verileri için ayrı bir saklama/silme politikası gerekir.
+
+Yeni `upsert_my_memory_preference` RPC'si kullanıcı başına transaction-scoped advisory lock alır ve tercihin `preference_key` değerini kilit altında yeniden sorgulayarak ekleme/güncelleme yarışını kapatır. Eski, anahtarsız kayıtlar ilk eşleşen yazmada yerinde anahtarlanır. Tüm uygulama instance'larının yeni kodla çalıştığı doğrulanana kadar eski sürümün yazdığı satırlar nedeniyle geçici eski-yeni kod eşzamanlılığı riski kalabilir; rollout sonrası aynı tercih için birden fazla kayıt kontrol edilmelidir.
 
 ## Migration geçmişini kontrol et
 
@@ -96,7 +99,7 @@ select p.proname,
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'replace_my_memory_preference')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'replace_my_memory_preference', 'upsert_my_memory_preference')
 order by p.proname;
 ~~~
 
