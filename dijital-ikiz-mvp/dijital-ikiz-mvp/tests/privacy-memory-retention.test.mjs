@@ -10,7 +10,7 @@ const readmePath = path.join(projectDirectory, 'README.md')
 const privacyPath = path.join(projectDirectory, 'app', 'privacy', 'page.tsx')
 const memoryPath = path.join(projectDirectory, 'lib', 'memory.ts')
 
-test('README distinguishes pending scheduled cleanup from current production behavior', async () => {
+test('README documents the pending migration and privacy notice documents the scheduled policy', async () => {
   const [readme, privacy] = await Promise.all([
     readFile(readmePath, 'utf8'),
     readFile(privacyPath, 'utf8')
@@ -18,13 +18,14 @@ test('README distinguishes pending scheduled cleanup from current production beh
 
   assert.match(readme, /20261023193000_stage5_1_memory_retention_cron\.sql/)
   assert.match(readme, /Migration uygulanana kadar mevcut üretim davranışı/i)
-  assert.match(readme, /hiç geri dönmezse/i)
+  assert.match(readme, /mevcut canlı sürümde/i)
   assert.match(readme, /otomatik silinmez/i)
 
-  // The privacy page describes the actually deployed app, not a draft branch.
-  assert.match(privacy, /arka planda zamanlanmış bir iş değildir/i)
-  assert.match(privacy, /hiç geri dönmezse/i)
-  assert.match(privacy, /otomatik silinmez/i)
+  assert.match(privacy, /180 günlük etkin olmama hedefi/i)
+  assert.match(privacy, /zamanlanmış veritabanı temizliği/i)
+  assert.match(privacy, /1\.000 kayıtlık partilerle/i)
+  assert.match(privacy, /mutlak oluşturulma tarihinden itibaren azami saklama süresi değildir/i)
+  assert.match(privacy, /harici sağlayıcıların logları için ayrı saklama kuralları/i)
 })
 
 test('memory lifecycle pruning is triggered in authenticated-user memory flows', async () => {
