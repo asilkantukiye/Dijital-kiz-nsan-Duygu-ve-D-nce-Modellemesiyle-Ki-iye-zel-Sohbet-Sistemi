@@ -27,8 +27,11 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 6. 20261020200000_atomic_chat_turn_persistence.sql
 7. 20261021210000_stage5_memory_extensions_usage.sql
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
+9. 20261023193000_stage5_1_memory_retention_cron.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
+
+**Yeni retention migration'ı `pg_cron` uzantısını kurar ve 15 dakikada bir en fazla 1.000 bayat `memory_items` kaydını silen bir iş planlar.** Hosted Supabase üzerinde `pg_cron` desteklenmeli ve migration'ı çalıştıran rol `cron` şemasında iş planlama yetkisine sahip olmalıdır. Uzantı oluşturulamıyorsa migration başarısız kalmalıdır; 180 günlük saklama şartı sessizce devre dışı bırakılmış sayılmamalıdır. Bu iş yalnızca bellek kayıtlarını temizler; sohbet mesajları ve profil verileri için ayrı bir saklama/silme politikası gerekir.
 
 ## Migration geçmişini kontrol et
 
@@ -116,6 +119,26 @@ select has_schema_privilege('authenticated', 'extensions', 'USAGE')
 ~~~
 
 Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'yi devre dışı bırakmaz.
+
+### Otomatik retention işi
+
+~~~sql
+select jobid, jobname, schedule, username, command
+from cron.job
+where jobname = 'stage5-memory-retention-cleanup';
+
+select status, start_time, end_time, return_message
+from cron.job_run_details
+where jobid = (
+  select jobid from cron.job
+  where jobname = 'stage5-memory-retention-cleanup'
+  order by jobid desc limit 1
+)
+order by start_time desc
+limit 20;
+~~~
+
+Job tanımı görünmeli, `schedule` değeri `*/15 * * * *` olmalı ve en az bir tamamlanmış çalışmanın `status = 'succeeded'` olduğu doğrulanmalıdır. Migration'ın applied görünmesi tek başına scheduler'ın etkin olduğunu kanıtlamaz. pg_cron işlerinin her biri veritabanı bağlantısı tükettiğinden job sayısını ve `cron.job_run_details` hatalarını gözlemle.
 
 ## Migration sonrası doğrulama
 
