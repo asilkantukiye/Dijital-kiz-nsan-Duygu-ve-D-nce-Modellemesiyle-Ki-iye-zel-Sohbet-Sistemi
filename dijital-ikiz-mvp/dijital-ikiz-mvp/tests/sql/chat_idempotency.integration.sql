@@ -128,8 +128,8 @@ BEGIN
       'simulate-second-write-failure',
       '2026-10-23 20:01:00+00'::timestamptz,
       '2026-10-23 20:01:00.001+00'::timestamptz,
-      '{"tone":"temporary"}'::jsonb,
-      jsonb_build_object('reply', 'simulate-second-write-failure', 'profile', '{"tone":"temporary"}'::jsonb, 'variant', 'personalized')
+      '{"valence":0.5,"arousal":0.5,"dominance":0.5,"openness":0.5,"conscientiousness":0.5,"extraversion":0.5,"agreeableness":0.5,"neuroticism":0.5,"informality":0.5,"emoji_frequency":0.5,"humor":0.5,"slang":0.5,"avg_sentence_length":0.5}'::jsonb,
+      jsonb_build_object('reply', 'simulate-second-write-failure', 'profile', '{"valence":0.5,"arousal":0.5,"dominance":0.5,"openness":0.5,"conscientiousness":0.5,"extraversion":0.5,"agreeableness":0.5,"neuroticism":0.5,"informality":0.5,"emoji_frequency":0.5,"humor":0.5,"slang":0.5,"avg_sentence_length":0.5}'::jsonb, 'variant', 'personalized')
     );
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'simulated assistant insert failure' THEN RAISE; END IF;
