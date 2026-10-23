@@ -168,7 +168,7 @@ BEGIN
   );
 
   IF inserted_foreign_id = foreign_memory_id THEN
-    RAISE EXCEPTION 'RPC reused a foreign user's memory ID';
+    RAISE EXCEPTION 'RPC reused a foreign user''s memory ID';
   END IF;
 
   -- A foreign message cannot be used as provenance. The function's exception
