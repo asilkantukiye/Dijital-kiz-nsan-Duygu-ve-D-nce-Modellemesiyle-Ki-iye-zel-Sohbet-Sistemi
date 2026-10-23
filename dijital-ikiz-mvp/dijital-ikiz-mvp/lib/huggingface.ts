@@ -1,6 +1,6 @@
 import { InferenceClient } from '@huggingface/inference'
 import { withAbortTimeout } from './abort-timeout.js'
-import { MEMORY_EMBEDDING_DIMENSION, validateEmbeddingVector } from './embedding-validation'
+import { MEMORY_EMBEDDING_DIMENSION, validateEmbeddingVector } from './embedding-validation.ts'
 
 const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
 const EMBEDDING_TIMEOUT_MS = 15_000

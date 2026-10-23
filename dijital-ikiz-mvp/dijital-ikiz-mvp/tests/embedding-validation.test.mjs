@@ -33,9 +33,7 @@ test('rejects nulls, strings, NaN, infinity, and overflowing norms without coerc
     source[0] = invalid
     assert.throws(() => validateEmbeddingVector(source))
   }
-  const overflowing = Array(MEMORY_EMBEDDING_DIMENSION).fill(0)
-  overflowing[0] = 1e308
-  overflowing[1] = 1e308
+  const overflowing = Array(MEMORY_EMBEDDING_DIMENSION).fill(1e308)
   assert.throws(() => validateEmbeddingVector(overflowing))
 })
 
