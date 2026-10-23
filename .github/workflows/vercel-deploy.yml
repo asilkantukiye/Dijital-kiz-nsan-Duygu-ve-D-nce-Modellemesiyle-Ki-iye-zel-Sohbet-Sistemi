@@ -23,8 +23,12 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
+          GITHUB_REF: ${{ github.ref }}
         run: |
           missing=()
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            missing+=("deployment must be dispatched from main (current ref: $GITHUB_REF)")
+          fi
           if [[ -z "$VERCEL_TOKEN" ]]; then
             missing+=("VERCEL_TOKEN (GitHub Actions secret)")
           fi
@@ -119,11 +123,12 @@ jobs:
       - name: Build
         run: npm run build
 
-  deploy:
+  stage:
     needs: [preflight, validate]
     if: ${{ needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
     runs-on: ubuntu-latest
-    environment: production
+    outputs:
+      url: ${{ steps.deployment.outputs.url }}
     defaults:
       run:
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
@@ -262,10 +267,30 @@ jobs:
             echo "- Hugging Face token identity probe passed (model inference is not billed/tested by this probe)."
             echo "- Upstash Redis PING passed."
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Promote only after all smoke tests pass
+
+  promote:
+    needs: [preflight, validate, stage]
+    if: ${{ needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' && needs.stage.result == 'success' }}
+    runs-on: ubuntu-latest
+    # Configure required reviewers in GitHub Settings → Environments → production.
+    # This approval occurs after staged health probes passed, not before deployment.
+    environment: production
+    defaults:
+      run:
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
+      - name: Promote verified deployment
         shell: bash
         env:
-          DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          DEPLOYMENT_URL: ${{ needs.stage.outputs.url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
@@ -274,6 +299,6 @@ jobs:
             echo ""
             echo "## Production promotion completed"
             echo ""
-            echo "- The staged deployment passed configuration and upstream connectivity probes before promotion."
-            echo "- Production domain assignment was performed only after these checks succeeded."
+            echo "- Staged configuration and upstream health gates passed."
+            echo "- The production Environment approval gate was reached only after health validation."
           } >> "$GITHUB_STEP_SUMMARY"
