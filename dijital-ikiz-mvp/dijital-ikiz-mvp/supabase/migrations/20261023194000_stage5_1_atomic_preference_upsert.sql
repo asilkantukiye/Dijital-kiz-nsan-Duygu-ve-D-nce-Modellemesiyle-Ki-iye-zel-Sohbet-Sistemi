@@ -114,6 +114,7 @@ begin
      and id <> v_target_id
      and (
        preference_key = p_preference_key
+       or id = p_keep_id
        or id = any(coalesce(p_duplicate_ids, array[]::uuid[]))
      );
 
