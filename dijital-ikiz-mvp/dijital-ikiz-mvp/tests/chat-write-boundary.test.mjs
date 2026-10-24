@@ -48,7 +48,7 @@ test('server persistence derives the user id from auth and calls only the server
     'utf8'
   )
 
-  assert.match(route, /adminSupabase\.rpc\('persist_chat_turn_server'/)
+  assert.match(route, /adminSupabase\.rpc\('persist_chat_turn_idempotent_server'/)
   assert.match(route, /p_user_id:\s*user\.id/)
   assert.doesNotMatch(route, /bodyResult\.value\.(?:user_id|userId|session_id|sessionId)/)
   assert.match(adminClient, /import 'server-only'/)
