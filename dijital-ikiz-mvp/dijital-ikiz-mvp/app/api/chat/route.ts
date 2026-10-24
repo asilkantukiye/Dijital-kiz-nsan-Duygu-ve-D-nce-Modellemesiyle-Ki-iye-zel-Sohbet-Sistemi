@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { rejectCrossOrigin } from '@/lib/api-security'
 import {
   analyzeMessage,
@@ -64,6 +65,16 @@ export async function POST(req: Request) {
     const originError = rejectCrossOrigin(req)
     if (originError) return originError
 
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Oturum bulunamadı.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
+
     const bodyResult = await readJsonBodyLimited(req, 16 * 1024)
     if (!bodyResult.ok) {
       return NextResponse.json(
@@ -88,13 +99,15 @@ export async function POST(req: Request) {
 
     const { message, variant } = validation.value
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
+    // The publishable/session client is used for auth and user-scoped reads.
+    // Only this server-side privileged client may persist assistant/profile writes.
+    let adminSupabase: ReturnType<typeof createAdminClient>
+    try {
+      adminSupabase = createAdminClient()
+    } catch {
       return NextResponse.json(
-        { error: 'Oturum bulunamadı.' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+        { error: 'Sohbet kayıt servisi yapılandırılmamış.' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } }
       )
     }
 
@@ -225,7 +238,8 @@ export async function POST(req: Request) {
 
     // The RPC writes the profile and both messages in one database transaction.
     // If any write fails, PostgreSQL rolls back the complete chat turn.
-    const { data: savedTurns, error: persistError } = await supabase.rpc('persist_chat_turn', {
+    const { data: savedTurns, error: persistError } = await adminSupabase.rpc('persist_chat_turn_server', {
+      p_user_id: user.id,
       p_variant: variant,
       p_user_content: message,
       p_assistant_content: reply,
