@@ -36,13 +36,20 @@ test('InfinityFree deployment workflow uses the current checkout action and FTPS
   assert.doesNotMatch(workflow, /actions\/checkout@v[1-6]/)
 })
 
-test('Kaggle workflow uses Node 24-compatible checkout, Python setup, and artifact actions', async () => {
-  const workflow = await readWorkflow('kaggle-sentiment-pilot.yml')
+test('Kaggle preparation and result workflows use current first-party Actions', async () => {
+  const [prepare, download] = await Promise.all([
+    readWorkflow('kaggle-sentiment-pilot.yml'),
+    readWorkflow('download-kaggle-sentiment-pilot.yml')
+  ])
 
-  assert.match(workflow, /actions\/checkout@v7/)
-  assert.match(workflow, /actions\/setup-python@v7/)
-  assert.match(workflow, /actions\/upload-artifact@v7/)
-  assert.doesNotMatch(workflow, /actions\/(?:checkout@v[1-6]|setup-python@v[1-6]|upload-artifact@v[1-6])/)
+  assert.match(prepare, /actions\\/checkout@v7/)
+  assert.match(prepare, /actions\\/setup-python@v7/)
+  assert.match(download, /actions\\/setup-python@v7/)
+  assert.match(download, /actions\\/upload-artifact@v7/)
+  assert.doesNotMatch(
+    `${prepare}\n${download}`,
+    /actions\\/(?:checkout@v[1-6]|setup-python@v[1-6]|upload-artifact@v[1-6])/
+  )
 })
 
 
