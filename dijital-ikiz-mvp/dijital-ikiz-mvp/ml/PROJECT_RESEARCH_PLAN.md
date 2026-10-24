@@ -11,7 +11,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 | Rapor basamağı | Depodaki karşılık | Mevcut durum |
 |---|---|---|
 | Veri toplama, ön işleme, etiketleme | `ml/data/`, `DATA_ANNOTATION_GUIDE.md`, `DATASET_SOURCE_AUDIT.md` | Doğrulama ve boş şablonlar hazır; VAD/Big Five için uygun gerçek etiketli veri henüz eklenmedi. |
-| Duygu ve kişilik modelleri | `ml/kaggle/dijital_ikiz_training.ipynb`, `ml/train_regressor.py` | Tek Kaggle notebook'u polarite modelini eğitir. VAD/BF yalnızca kendi hedef etiketleri olan doğrulanmış CSV eklenirse eğitilir. |
+| Duygu ve kişilik modelleri | `ml/kaggle/dijital_ikiz_training.ipynb`, `ml/train_regressor.py` | Tek Kaggle notebook'u Türkçe polarite modelini ve Qwen3-4B QLoRA talimat pilotunu eğitir. VAD/BF yalnızca kendi hedef etiketleri olan doğrulanmış CSV eklenirse eğitilir. |
 | Üslup modellemesi | `lib/twin.ts`, `ml/data/style_template.csv` | Uygulamada heuristic başlangıç; öğrenilmiş/kalibre edilmiş model değil. |
 | Kişiye özel sohbet motoru | `app/api/chat/route.ts`, `lib/huggingface.ts`, `lib/twin.ts` | Qwen sohbet motoru var; profil özellikleri henüz deneysel baseline. |
 | Test ve değerlendirme | `ml/tests/`, `tests/`, `ml/analyze_feedback.py`, kör değerlendirme araçları | Otomatik testler var; gerçek eğitim metrikleri ve kullanıcı değerlendirmesi henüz elde edilmedi. |
@@ -19,7 +19,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 ## Aşama 1 — çalışan ve ölçülebilir altyapı
 
 - Giriş ekranı kaldırılır; istemci anonim Supabase oturumu oluşturur. API kullanıcı kimliğini sunucu tarafından doğrulamaya devam eder ve RLS koruması korunur.
-- Tek Kaggle notebook'u kullanılır: Türkçe polarite varsayılan eğitim; VAD ve Big Five ayrı hedefler olarak yalnızca uygun etiketli CSV sağlanırsa çalışır.
+- Tek Kaggle notebook'u kullanılır: Türkçe polarite + Qwen3-4B QLoRA talimat ince ayarı; VAD ve Big Five ayrı hedefler olarak yalnızca uygun etiketli CSV sağlanırsa çalışır.
 - Train/validation/test ayrımı katılımcı ve normalize edilmiş metin sızıntısını engeller.
 - Her görev kendi metriklerini, veri sürümünü/hash'ini, ortam bilgilerini ve bilimsel sınırlılıklarını ayrı `metrics.json` ile raporlar.
 - GitHub Actions, eğitim notebook'unu Kaggle'a yükler; Kaggle ayarlarında Internet açılıp Run All çalıştırıldıktan sonra aynı hesabın tamamlanmış model paketini indirir.
@@ -29,6 +29,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 ## Aşama 2 — gerçek bilimsel veri ve model doğrulama
 
 1. Polarite pilotu için kaynak/lisans şartları ve birleşik verinin alt kaynakları gözden geçirilir; test doğruluğu, macro-F1, weighted-F1 ve çoğunluk sınıfı baseline'ı raporlanır.
+2. Qwen3-4B QLoRA pilotu, Apache-2.0 olarak işaretlenen Türkçe talimat veri kümesinde aynı bağımsız test bölümüyle temel modelin yanıt-token kaybına karşı değerlendirilir; veri kaynağı ve lisans beyanı ayrıca denetlenir.
 2. VAD için her örneği açık yönergeyle puanlayan yeterli ve izinli Türkçe veri oluşturulur; mümkünse iki bağımsız değerlendirici ve uyum analizi eklenir.
 3. Big Five için metinden kişilik etiketi tahmin edilmez; gerekli katılımcı onamı ve Türkçe geçerliği/kullanım şartı doğrulanmış ölçek skorları kullanılır.
 4. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
