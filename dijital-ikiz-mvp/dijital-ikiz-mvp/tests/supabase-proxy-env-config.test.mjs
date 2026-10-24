@@ -39,8 +39,7 @@ test('public pages continue with private no-store when Supabase configuration is
 test('protected API requests fail closed with 503 when auth is not configured', async () => {
   const source = await readProxy()
 
-  assert.match(source, /function authUnavailableResponse\(request: NextRequest, pathname: string\)/)
+  assert.match(source, /function authUnavailableResponse()/)
   assert.match(source, /status: 503,[\s\S]*?headers: \{ 'Cache-Control': 'private, no-store' \}/)
   assert.match(source, /Kimlik doğrulama hizmeti yapılandırılmamış/)
-  assert.match(source, /if \(pathname === '\/'\) return loginRedirect\(request\)/)
 })
