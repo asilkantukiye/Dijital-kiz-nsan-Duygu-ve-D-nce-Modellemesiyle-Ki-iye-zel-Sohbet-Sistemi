@@ -1,6 +1,11 @@
 name: Prepare Kaggle Model Training
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/kaggle-sentiment-pilot.yml"
+      - "dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/dijital_ikiz_training.ipynb"
   workflow_dispatch:
     inputs:
       accelerator:
@@ -16,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kaggle-sentiment-pilot
+  group: kaggle-model-training
   cancel-in-progress: false
 
 jobs:
