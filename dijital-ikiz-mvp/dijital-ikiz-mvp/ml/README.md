@@ -124,7 +124,7 @@ Bu komutların ürettiği `metrics.json`, deney günlüğüne eklenmelidir. Sonu
 
 ## Türkçe duygu polaritesi pilotu
 
-Notebook: `ml/kaggle/sentiment_baseline.ipynb`.
+Tek eğitim notebook'u: `ml/kaggle/dijital_ikiz_training.ipynb` (polarite zorunlu pilotu; uygun veri varsa VAD ve Big Five).
 
 Bu ayrı pilot, Hugging Face üzerinde CC BY-SA 4.0 olarak sunulan [winvoker Türkçe duygu analizi veri kümesini](https://huggingface.co/datasets/winvoker/turkish-sentiment-analysis-dataset) kullanır. Veri kümesinde olumlu, nötr ve olumsuz etiketler vardır. Model BERTurk tabanlı üç sınıflı sınıflandırıcıdır ve test accuracy, macro-F1, weighted-F1, sınıf bazlı precision/recall/F1 ile confusion matrix üretir.
 
