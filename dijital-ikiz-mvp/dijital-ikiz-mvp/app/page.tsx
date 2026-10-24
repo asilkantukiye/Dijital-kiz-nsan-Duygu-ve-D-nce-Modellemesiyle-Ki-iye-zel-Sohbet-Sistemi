@@ -370,7 +370,7 @@ export default function Home() {
     return (
       <div className="page">
         <main className="shell">
-          <div className="card login">
+          <div className="card">
             <div className="eyebrow">DİJİTAL İKİZ İNSAN</div>
             <h1 className="title">Yükleniyor…</h1>
           </div>
@@ -426,9 +426,9 @@ export default function Home() {
         <header className="hero">
           <div>
             <div className="eyebrow">DİJİTAL İKİZ İNSAN • MVP v0.2</div>
-            <h1 className="title">Seni öğrenen sohbet motoru.</h1>
+            <h1 className="title">Dijital ikiz sohbet araştırması.</h1>
             <p className="sub">
-              Konuşma geçmişi + deneysel duygu + Big Five + üslup profili + Supabase hafızası.
+              Konuşma geçmişi, deneysel duygu ve üslup göstergeleriyle genel ve kişiselleştirilmiş sohbeti karşılaştır.
             </p>
             <p className="small user-email">Anonim araştırma oturumu · <a href="/about" style={{ color: "#8cc8ff" }}>Proje bilgisi</a></p>
           </div>
