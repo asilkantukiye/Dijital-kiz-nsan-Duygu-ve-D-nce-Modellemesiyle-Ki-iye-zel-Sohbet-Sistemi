@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import tempfile
 import unittest
@@ -10,12 +9,16 @@ from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = PROJECT_DIR.parents[1]
-NOTEBOOK_PATH = PROJECT_DIR / "ml" / "kaggle" / "sentiment_baseline.ipynb"
+NOTEBOOK_PATH = PROJECT_DIR / "ml" / "kaggle" / "dijital_ikiz_training.ipynb"
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "download-kaggle-sentiment-pilot.yml"
 
 
 class KaggleArtifactContractTests(unittest.TestCase):
-    def test_notebook_archive_path_matches_workflow_metrics_path(self):
+    def test_repository_uses_one_kaggle_notebook(self):
+        notebooks = sorted((PROJECT_DIR / "ml" / "kaggle").glob("*.ipynb"))
+        self.assertEqual(notebooks, [NOTEBOOK_PATH])
+
+    def test_single_notebook_packs_all_model_tasks(self):
         notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
         code = "\n".join(
             "".join(cell.get("source", []))
@@ -24,37 +27,32 @@ class KaggleArtifactContractTests(unittest.TestCase):
         )
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("root_dir='/kaggle/working/artifacts'", code)
-        output_dir_match = re.search(
-            r"output_dir\s*=\s*Path\(['\"](/kaggle/working/artifacts/[^'\"]+)['\"]\)",
-            code,
-        )
-        self.assertIsNotNone(output_dir_match, "Notebook output_dir sabit yolu bulunamadı.")
-        output_dir = Path(output_dir_match.group(1))
-        expected_metric_path = (output_dir / "metrics.json").relative_to(
-            Path("/kaggle/working/artifacts")
-        ).as_posix()
+        self.assertIn("/artifacts/sentiment", code)
+        self.assertIn("dijital-ikiz-model-artifacts", code)
+        self.assertIn("vad", code)
+        self.assertIn("big-five", code)
+        self.assertIn("dijital-ikiz-model-artifacts.zip", workflow)
+        self.assertIn("rglob(\"metrics.json\")", workflow)
+        self.assertIn("metrics-summary.json", workflow)
 
-        unzip_match = re.search(
-            r"unzip -p \"\$zip_path\" '([^']+)'",
-            workflow,
-        )
-        self.assertIsNotNone(unzip_match, "Workflow metrics.json arşiv yolunu çıkarmıyor.")
-        self.assertEqual(unzip_match.group(1), expected_metric_path)
-
-    def test_archive_root_keeps_sentiment_folder(self):
+    def test_archive_keeps_each_task_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "artifacts"
-            sentiment = root / "sentiment"
-            sentiment.mkdir(parents=True)
-            (sentiment / "metrics.json").write_text('{"accuracy": 0.5}', encoding="utf-8")
+            for task in ("sentiment", "vad", "big-five"):
+                directory = root / task
+                directory.mkdir(parents=True)
+                (directory / "metrics.json").write_text(
+                    json.dumps({"task": task}), encoding="utf-8"
+                )
             archive = shutil.make_archive(
                 str(Path(temporary) / "test-artifact"),
                 "zip",
                 root_dir=str(root),
             )
             with zipfile.ZipFile(archive) as zipped:
-                self.assertIn("sentiment/metrics.json", zipped.namelist())
+                names = zipped.namelist()
+                for task in ("sentiment", "vad", "big-five"):
+                    self.assertIn(f"{task}/metrics.json", names)
 
 
 if __name__ == "__main__":

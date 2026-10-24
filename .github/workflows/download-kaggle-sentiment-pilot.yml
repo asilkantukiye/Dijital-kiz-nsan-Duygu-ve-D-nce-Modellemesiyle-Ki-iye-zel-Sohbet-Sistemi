@@ -1,4 +1,4 @@
-name: Download Kaggle sentiment pilot results
+name: Download Kaggle Model Artifacts
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   download:
-    name: Fetch completed Kaggle model and metrics
+    name: Fetch completed digital twin models and metrics
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -45,7 +45,7 @@ jobs:
             echo "::error::Set KAGGLE_API_TOKEN or KAGGLE_KULLANABILEGIN_TOKEN; legacy auth requires KAGGLE_USERNAME and KAGGLE_KEY."
             exit 1
           fi
-          echo "KAGGLE_KERNEL_ID=${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot" >> "$GITHUB_ENV"
+          echo "KAGGLE_KERNEL_ID=${KAGGLE_USERNAME}/dijital-ikiz-training" >> "$GITHUB_ENV"
 
       - name: Check Kaggle notebook completion
         shell: bash
@@ -65,38 +65,56 @@ jobs:
             exit 1
           fi
 
-      - name: Download model and metrics
+      - name: Download model package and collect metrics
         shell: bash
         run: |
           set -euo pipefail
-          OUT_DIR="$RUNNER_TEMP/kaggle-sentiment-output"
-          ARTIFACT_DIR="$RUNNER_TEMP/kaggle-sentiment-artifact"
+          OUT_DIR="$RUNNER_TEMP/kaggle-model-output"
+          ARTIFACT_DIR="$RUNNER_TEMP/kaggle-model-artifact"
           mkdir -p "$OUT_DIR" "$ARTIFACT_DIR"
           kaggle kernels output "$KAGGLE_KERNEL_ID" --path "$OUT_DIR" --force
 
-          zip_path="$(find "$OUT_DIR" -type f -name 'dijital-ikiz-sentiment-pilot.zip' -print -quit)"
+          zip_path="$(find "$OUT_DIR" -type f -name 'dijital-ikiz-model-artifacts.zip' -print -quit)"
           if [[ -z "$zip_path" ]]; then
-            echo "::error::The Kaggle run completed but did not return dijital-ikiz-sentiment-pilot.zip."
+            echo "::error::Kaggle output does not contain dijital-ikiz-model-artifacts.zip."
             find "$OUT_DIR" -maxdepth 3 -type f -print
             exit 1
           fi
-          cp "$zip_path" "$ARTIFACT_DIR/dijital-ikiz-sentiment-pilot.zip"
-          unzip -p "$zip_path" 'sentiment/metrics.json' > "$ARTIFACT_DIR/metrics.json"
+          cp "$zip_path" "$ARTIFACT_DIR/dijital-ikiz-model-artifacts.zip"
+          mkdir -p "$OUT_DIR/extracted"
+          unzip -q "$zip_path" -d "$OUT_DIR/extracted"
+          python - "$OUT_DIR/extracted" "$ARTIFACT_DIR/metrics-summary.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          records = {}
+          for path in sorted(root.rglob("metrics.json")):
+              records[path.relative_to(root).as_posix()] = json.loads(path.read_text(encoding="utf-8"))
+          if not records:
+              raise SystemExit("The archive contains no metrics.json files.")
+          Path(sys.argv[2]).write_text(
+              json.dumps(records, ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+          print(json.dumps({key: value.get("task", "metrics") for key, value in records.items()}, ensure_ascii=False))
+          PY
 
           {
-            echo "## Turkish sentiment pilot results"
+            echo "## Kaggle model training results"
             echo
-            echo "Metrics below were read from the output of a completed Kaggle notebook run."
+            echo "Metrics are read from the completed Kaggle notebook output; each task is reported separately."
             echo
-            cat "$ARTIFACT_DIR/metrics.json"
+            cat "$ARTIFACT_DIR/metrics-summary.json"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload trained model and metrics
         uses: actions/upload-artifact@v7
         with:
-          name: kaggle-sentiment-pilot-results
+          name: kaggle-model-artifacts
           path: |
-            ${{ runner.temp }}/kaggle-sentiment-artifact/dijital-ikiz-sentiment-pilot.zip
-            ${{ runner.temp }}/kaggle-sentiment-artifact/metrics.json
+            ${{ runner.temp }}/kaggle-model-artifact/dijital-ikiz-model-artifacts.zip
+            ${{ runner.temp }}/kaggle-model-artifact/metrics-summary.json
           if-no-files-found: error
           retention-days: 14

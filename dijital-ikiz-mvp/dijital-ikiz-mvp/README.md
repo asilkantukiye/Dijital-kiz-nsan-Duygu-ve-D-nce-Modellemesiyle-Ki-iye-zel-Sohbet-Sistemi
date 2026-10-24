@@ -10,7 +10,7 @@ TÜBİTAK projesi için geliştirilen ilk çalışan prototiptir. Proje, kullan�
 - **Qwen:** ilk MVP üretici model
 - **GitHub:** kaynak kodu ve sürüm kontrolü
 - **Vercel:** üretim dağıtımı
-- **Kaggle:** sonraki Ar-Ge aşamasında veri hazırlama/model eğitimi ve deneyler
+- **Kaggle:** tek notebook'ta Türkçe polarite eğitimi; uygun etiketli veri eklenirse VAD ve Big Five regresyonu
 
 Akış:
 
@@ -78,6 +78,10 @@ Bu SQL:
 Supabase Data API ayarlarında otomatik tablo gösterimi kapalıysa, kullanılan tabloları Dashboard'daki **Data API** bölümünden açıkça expose etmeniz gerekir.
 
 Supabase projesi daha önce kullanıldıysa tam şemayı tekrar uygulamadan önce migration geçmişini kontrol edin. Repodaki timestamp'li migration'ların sırası, salt-okunur doğrulama sorguları, RLS kontrolü ve proje geri yükleme güvenliği için [Supabase migration runbook](supabase/MIGRATION_RUNBOOK.md) belgesini izleyin. GitHub CI sonucu, canlı veritabanında migration uygulanmış olduğunu kanıtlamaz.
+
+### Hesap açmadan kullanım
+
+Arayüz otomatik Supabase anonim oturumu oluşturur; e-posta/şifre ekranı gösterilmez. Supabase Dashboard → **Authentication → Sign In / Providers → Anonymous Sign-Ins** ayarı açık olmalıdır. Anonim oturumdaki sohbet ve profil verileri yalnızca o tarayıcı oturumuna bağlıdır; tarayıcı verileri silinirse anonim kullanıcı hesabı kurtarılamayabilir. Sohbet API'leri ve RLS kullanıcıya özel kalır; ayar kapalıysa uygulama oturum hatası gösterir ve sohbet uçları kapalı kalır.
 
 ## 4. Hugging Face
 
@@ -171,7 +175,7 @@ Bellekler için hedef saklama kuralı 180 günlük etkin olmama süresi ve hesap
 
 Mevcut sürüm:
 
-- kullanıcı kayıt/giriş akışı,
+- hesap açma ekranı olmadan anonim oturum; sohbet API'lerinde doğrulanmış Supabase kullanıcı kimliği,
 - kalıcı sohbet geçmişi,
 - kullanıcıya ait dijital ikiz profil kaydı,
 - VAD için deneysel baseline göstergeleri,
@@ -193,15 +197,15 @@ sağlar.
 
 Bu MVP'deki duygu, kişilik ve üslup çıkarımı **heuristic/baseline** yaklaşımıdır. Bu nedenle henüz rapordaki %75 doğruluk hedefinin sağlandığı iddia edilmemelidir.
 
-TÜBİTAK'ın Ar-Ge aşaması için sonraki adımlar:
+Kaggle eğitim hattı artık tek notebook'ta Türkçe duygu polaritesi sınıflandırmasını çalıştırır. VAD ve Big Five görevleri yalnızca hedeflerine uygun etiketli CSV'ler eklenirse çalışır. Hub üzerindeki polarite etiketleri VAD veya kişilik puanı olarak kullanılmaz.
 
-1. etik ve izinleri belirlenmiş Türkçe veri kümesi oluşturma,
-2. veri ön işleme ve etiketleme,
-3. gerçek duygu modeli eğitimi ve F1/accuracy/precision/recall ölçümü,
-4. Big Five kişilik modelinin etiketli veride eğitilmesi,
-5. üslup özelliklerinin ve embedding tabanlı temsilin karşılaştırılması,
-6. kişiselleştirme katmanının kontrollü deneylerle değerlendirilmesi,
-7. kullanıcı değerlendirmesi ve A/B testi.
+TÜBİTAK Ar-Ge için kalan işler:
+
+1. VAD için doğrulanmış 0–1 etiketli Türkçe örnekler ve etiketleyiciler arası uyum.
+2. Big Five için katılımcı onamı ve doğrulanmış kişilik ölçeği skorları.
+3. Eğitilmiş modelleri gerçek uygulama akışına bağlama ve baseline ile karşılaştırma.
+4. Kişiselleştirilmiş/genel sohbet için kör insan değerlendirmesi ve önceden belirlenmiş A/B protokolü.
+5. Üretilen gerçek test metriklerini, sınırlılıkları ve veri izinlerini proje raporuna ekleme.
 
 Deney yapılmadan sonuçlar bilimsel başarı olarak raporlanmamalıdır.
 
@@ -222,6 +226,8 @@ PDF'deki üç ana modülün MVP karşılığı:
 - **Giriş Verisi Analiz Modülü:** `lib/twin.ts`
 - **Dijital İkiz profili/veritabanı:** `supabase/schema.sql` ve `/api/chat`
 - **Dijital İkiz sohbet motoru:** `lib/huggingface.ts` ve `/api/chat`
+
+TÜBİTAK raporundaki beş basamağın mevcut kod karşılıkları, araştırma eksikleri ve kabul ölçütleri için [Ar-Ge yol haritasına](ml/PROJECT_RESEARCH_PLAN.md) bakın.
 
 MVP, rapordaki beş basamağın tamamlanmış bilimsel versiyonu değil; uygulama mimarisini ve ilk çalışan sohbet döngüsünü doğrulayan başlangıç sürümüdür.
 

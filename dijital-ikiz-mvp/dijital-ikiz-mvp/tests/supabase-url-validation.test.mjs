@@ -41,10 +41,8 @@ test('invalid Supabase URLs are rejected before SDK construction without opening
 
   assert.ok(validationIndex >= 0, 'proxy must validate the Supabase URL')
   assert.ok(clientIndex > validationIndex, 'URL validation must run before SDK client construction')
-  assert.match(
-    source,
-    /if \(!isValidSupabaseUrl\(supabaseUrl\)\)\s*\{\s*if \(protectedRoute\)\s*\{\s*return authUnavailableResponse\(request, pathname\)/
-  )
+  assert.ok(source.includes("if (!isValidSupabaseUrl(supabaseUrl))"))
+  assert.ok(source.includes("if (protectedRoute) {\n      return authUnavailableResponse()"))
   assert.match(
     source,
     /if \(!isValidSupabaseUrl\(supabaseUrl\)\)[\s\S]*?response\.headers\.set\('Cache-Control', 'private, no-store'\)\s*return response/

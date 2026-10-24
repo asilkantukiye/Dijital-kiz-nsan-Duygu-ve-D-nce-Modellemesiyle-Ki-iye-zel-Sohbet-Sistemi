@@ -36,7 +36,7 @@ test('InfinityFree deployment workflow uses the current checkout action and FTPS
   assert.doesNotMatch(workflow, /actions\/checkout@v[1-6]/)
 })
 
-test('Kaggle preparation and result workflows use current first-party Actions', async () => {
+test('Kaggle preparation and model-result workflows use current first-party Actions', async () => {
   const [prepare, download] = await Promise.all([
     readWorkflow('kaggle-sentiment-pilot.yml'),
     readWorkflow('download-kaggle-sentiment-pilot.yml')

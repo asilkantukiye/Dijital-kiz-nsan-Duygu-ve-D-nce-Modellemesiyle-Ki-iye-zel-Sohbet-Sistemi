@@ -11,10 +11,10 @@ async function loadPage() {
   return readFile(pagePath, 'utf8')
 }
 
-test('session lookup failure releases the loading screen and shows a safe error', async () => {
+test('anonymous session failure releases the loading screen and shows a safe error', async () => {
   const source = await loadPage()
-
-  assert.match(source, /supabase\.auth\.getSession\(\)[\s\S]*?\.catch\(\(\) => \{[\s\S]*?setError\('Oturum doğrulanamadı/)
+  assert.match(source, /supabase\.auth\.getSession\(\)[\s\S]*?signInAnonymously\(\)/)
+  assert.ok(source.includes('Anonim oturum açılamadı'))
   assert.match(source, /setLoadingSession\(false\)/)
   assert.match(source, /\{error && <p className="small" role="alert">\{error\}<\/p>\}/)
 })
@@ -38,7 +38,6 @@ test('variant switching and destructive toolbar actions are disabled during requ
 
   assert.match(source, /disabled=\{loading \|\| loadingData\}[\s\S]*?setVariant\(variant === 'personalized'/)
   assert.match(source, /disabled=\{loading \|\| loadingData\} onClick=\{clearData\}/)
-  assert.match(source, /disabled=\{loading \|\| loadingData\} onClick=\{signOut\}/)
   assert.match(source, /disabled=\{loading \|\| loadingData\}\s+onChange=\{\(event\) => setText/)
   assert.match(source, /disabled=\{loading \|\| loadingData \|\| !text\.trim\(\)\} onClick=\{send\}/)
 })

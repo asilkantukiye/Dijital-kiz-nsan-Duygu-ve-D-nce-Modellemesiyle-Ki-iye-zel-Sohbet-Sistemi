@@ -1,5 +1,7 @@
 # Ar-Ge Modelleme Hattı
 
+TÜBİTAK raporu ile kod eşleştirmesi ve kabul ölçütleri: [Proje araştırma yol haritası](PROJECT_RESEARCH_PLAN.md).
+
 Bu klasör, MVP'deki heuristic profilden gerçek ölçülebilir makine öğrenmesi modellerine geçiş için ayrılmıştır.
 
 ## Veri şeması
@@ -124,7 +126,7 @@ Bu komutların ürettiği `metrics.json`, deney günlüğüne eklenmelidir. Sonu
 
 ## Türkçe duygu polaritesi pilotu
 
-Notebook: `ml/kaggle/sentiment_baseline.ipynb`.
+Tek eğitim notebook'u: `ml/kaggle/dijital_ikiz_training.ipynb` (polarite zorunlu pilotu; uygun veri varsa VAD ve Big Five).
 
 Bu ayrı pilot, Hugging Face üzerinde CC BY-SA 4.0 olarak sunulan [winvoker Türkçe duygu analizi veri kümesini](https://huggingface.co/datasets/winvoker/turkish-sentiment-analysis-dataset) kullanır. Veri kümesinde olumlu, nötr ve olumsuz etiketler vardır. Model BERTurk tabanlı üç sınıflı sınıflandırıcıdır ve test accuracy, macro-F1, weighted-F1, sınıf bazlı precision/recall/F1 ile confusion matrix üretir.
 
@@ -172,7 +174,7 @@ python ml/data/validate_dataset.py ml/data/style.csv --task style
 
 Hiçbir görev seçilmezse varsayılan `all` seçeneği bütün hedef kolonlarını ister. Her görev ortak kimlik, metin, kaynak ve lisans/rıza açıklaması kolonlarını yine zorunlu tutar. Bu alanları doldurmak, kaynağın kullanım şartlarının ayrıca doğrulanması gereğini ortadan kaldırmaz.
 
-`sentiment_baseline.ipynb` sonuç paketini `artifacts/sentiment/` klasörünü koruyarak oluşturur; Kaggle Actions aynı ZIP içindeki `sentiment/metrics.json` yolunu doğrular. Bu iki yol arasındaki uyum otomatik testle kontrol edilir.
+`dijital_ikiz_training.ipynb` sonuç paketini `artifacts/sentiment/` klasörünü koruyarak oluşturur; Kaggle Actions aynı ZIP içindeki `sentiment/metrics.json` yolunu doğrular. Bu iki yol arasındaki uyum otomatik testle kontrol edilir.
 
 
 ## Regresyon ölçümleri ve basit referans modeli

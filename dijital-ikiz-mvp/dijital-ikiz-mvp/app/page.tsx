@@ -89,24 +89,40 @@ export default function Home() {
       }
     }
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return
-      setSession(nextSession)
-      setLoadingSession(false)
+      if (nextSession) {
+        setSession(nextSession)
+        setLoadingSession(false)
+        setError('')
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null)
+        setError('Anonim oturum sona erdi. Sayfayı yenileyerek yeni oturum oluştur.')
+        setLoadingSession(false)
+      }
     })
 
     supabase.auth.getSession()
-      .then(({ data: sessionData, error: sessionError }) => {
+      .then(async ({ data: sessionData, error: sessionError }) => {
         if (sessionError) throw sessionError
         if (!mounted) return
-        setSession(sessionData.session)
+
+        let nextSession = sessionData.session
+        if (!nextSession) {
+          const { data: guestData, error: guestError } = await supabase.auth.signInAnonymously()
+          if (guestError || !guestData.session) throw guestError ?? new Error('Anonymous session unavailable')
+          nextSession = guestData.session
+        }
+
+        if (!mounted) return
+        setSession(nextSession)
         setLoadingSession(false)
         setError('')
       })
       .catch(() => {
         if (!mounted) return
         setSession(null)
-        setError('Oturum doğrulanamadı. İnternet bağlantını ve Supabase hizmetinin durumunu kontrol edip tekrar dene.')
+        setError('Anonim oturum açılamadı. Supabase Dashboard → Authentication → Sign In / Providers bölümünde Anonymous Sign-Ins ayarını etkinleştir ve bağlantıyı kontrol et.')
         setLoadingSession(false)
       })
 
@@ -350,18 +366,6 @@ export default function Home() {
     }
   }
 
-  async function signOut() {
-    setError('')
-
-    try {
-      const supabase = createClient()
-      const { error: signOutError } = await supabase.auth.signOut()
-      if (signOutError) throw signOutError
-    } catch {
-      setError('Çıkış yapılamadı. Lütfen bağlantınızı kontrol edip tekrar deneyin.')
-    }
-  }
-
   if (loadingSession) {
     return (
       <div className="page">
@@ -386,9 +390,7 @@ export default function Home() {
               Konuşma örneklerinden deneysel duygu, kişilik ve üslup göstergeleri çıkaran kişiselleştirilmiş sohbet prototipi.
             </p>
             {error && <p className="small" role="alert">{error}</p>}
-            <a className="btn" style={{ display: 'inline-block', textDecoration: 'none' }} href="/login">
-              Giriş / Kayıt
-            </a>
+            <p className="small">Bu prototip kullanıcı hesabı açmadan anonim bir araştırma oturumu oluşturur. Oturum açılamıyorsa yukarıdaki bağlantı mesajını kontrol et.</p>
             <p className="small privacy-note">
               Araştırma prototipidir; psikolojik tanı veya profesyonel terapi hizmeti sunmaz.
               {' '}<a href="/privacy">Gizlilik ve veri işleme</a>
@@ -428,7 +430,6 @@ export default function Home() {
               Test: {variant === 'personalized' ? 'Kişiselleştirilmiş' : 'Genel'}
             </button>
             <button className="btn secondary" disabled={loading || loadingData} onClick={clearData}>Verilerimi sil</button>
-            <button className="btn" disabled={loading || loadingData} onClick={signOut}>Çıkış</button>
           </div>
         </header>
 
