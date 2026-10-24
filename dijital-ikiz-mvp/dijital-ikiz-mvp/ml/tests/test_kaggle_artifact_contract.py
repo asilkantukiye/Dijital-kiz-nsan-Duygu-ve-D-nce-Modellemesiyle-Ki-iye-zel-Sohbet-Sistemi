@@ -11,7 +11,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = PROJECT_DIR.parents[1]
 NOTEBOOK_PATH = PROJECT_DIR / "ml" / "kaggle" / "sentiment_baseline.ipynb"
-WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "kaggle-sentiment-pilot.yml"
+WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "download-kaggle-sentiment-pilot.yml"
 
 
 class KaggleArtifactContractTests(unittest.TestCase):

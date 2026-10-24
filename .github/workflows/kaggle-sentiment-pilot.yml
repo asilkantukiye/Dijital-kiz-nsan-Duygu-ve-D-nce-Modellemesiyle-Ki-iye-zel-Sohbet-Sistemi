@@ -1,11 +1,6 @@
 name: Run Kaggle sentiment pilot
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/kaggle-sentiment-pilot.yml"
-      - "dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/sentiment_baseline.ipynb"
   workflow_dispatch:
     inputs:
       accelerator:
@@ -109,75 +104,21 @@ jobs:
           echo "KAGGLE_RUN_DIR=$RUN_DIR" >> "$GITHUB_ENV"
           echo "Kaggle notebook metadata prepared for selected accelerator."
 
-      - name: Submit notebook to Kaggle
-        run: kaggle kernels push -p "$KAGGLE_RUN_DIR" --timeout 2400 --accelerator "$INPUT_ACCELERATOR"
+      - name: Upload notebook without executing it
+        run: kaggle kernels push -p "$KAGGLE_RUN_DIR" --no-run
 
-      - name: Wait for Kaggle training
+      - name: Explain Kaggle UI internet requirement
         shell: bash
         run: |
-          set -euo pipefail
-          deadline=$((SECONDS + 2550))
-          completed=0
-          while (( SECONDS < deadline )); do
-            status="$(kaggle kernels status "$KAGGLE_KERNEL_ID" 2>&1 || true)"
-            printf '%s\n' "$status"
-            lower_status="$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')"
-
-            if grep -Eqi '(^|[^[:alpha:]])(failed|error)([^[:alpha:]]|$)' <<< "$lower_status"; then
-              echo "::error::Kaggle training reported an error. Open the Kaggle notebook logs to inspect the failure."
-              kaggle kernels logs "$KAGGLE_KERNEL_ID" 2>&1 | tail -n 250 || true
-              exit 1
-            fi
-
-            if grep -Eqi '(^|[^[:alpha:]])(complete|completed|success|succeeded)([^[:alpha:]]|$)' <<< "$lower_status"; then
-              completed=1
-              break
-            fi
-
-            sleep 30
-          done
-
-          if [[ "$completed" != "1" ]]; then
-            echo "::error::Kaggle training did not finish within the workflow wait window. Check the Kaggle notebook status and logs."
-            kaggle kernels logs "$KAGGLE_KERNEL_ID" || true
-            exit 1
-          fi
-
-      - name: Download model and metrics from Kaggle
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT_DIR="$RUNNER_TEMP/kaggle-sentiment-output"
-          ARTIFACT_DIR="$RUNNER_TEMP/kaggle-sentiment-artifact"
-          mkdir -p "$OUT_DIR" "$ARTIFACT_DIR"
-          kaggle kernels output "$KAGGLE_KERNEL_ID" --path "$OUT_DIR" --force
-
-          zip_path="$(find "$OUT_DIR" -type f -name 'dijital-ikiz-sentiment-pilot.zip' -print -quit)"
-          if [[ -z "$zip_path" ]]; then
-            echo "::error::Expected model ZIP was not returned by Kaggle. The notebook may have failed before artifact creation."
-            find "$OUT_DIR" -maxdepth 3 -type f -print
-            exit 1
-          fi
-
-          cp "$zip_path" "$ARTIFACT_DIR/dijital-ikiz-sentiment-pilot.zip"
-          unzip -p "$zip_path" 'sentiment/metrics.json' > "$ARTIFACT_DIR/metrics.json"
-          echo "Kaggle model archive and test metrics downloaded."
-
           {
-            echo "## Turkish sentiment pilot result"
+            echo "## Kaggle notebook prepared"
             echo
-            echo "This artifact was created by a real Kaggle run. Read the limitations in metrics.json; this sentiment-polarity experiment is not a VAD or Big Five validation."
+            echo "The notebook has been uploaded but was not executed from the API. Kaggle API-submitted runs may ignore the metadata internet flag; the observed run could not resolve pypi.org."
             echo
-            echo "### Test metrics"
-            cat "$ARTIFACT_DIR/metrics.json"
+            echo "1. Open the notebook in Kaggle: https://www.kaggle.com/code/${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot"
+            echo "2. In the right-side Settings/Notebook panel, open Session options and switch Internet on."
+            echo "3. Save the setting, then use Run All and wait for the notebook to finish."
+            echo "4. After the notebook completes, run the **Download Kaggle sentiment pilot results** workflow to fetch the model ZIP and metrics as a GitHub Actions artifact."
+            echo
+            echo "No trained model or metrics are claimed by this preparation workflow."
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload trained model and metrics
-        uses: actions/upload-artifact@v7
-        with:
-          name: kaggle-sentiment-pilot-results
-          path: |
-            ${{ runner.temp }}/kaggle-sentiment-artifact/dijital-ikiz-sentiment-pilot.zip
-            ${{ runner.temp }}/kaggle-sentiment-artifact/metrics.json
-          if-no-files-found: error
-          retention-days: 14
