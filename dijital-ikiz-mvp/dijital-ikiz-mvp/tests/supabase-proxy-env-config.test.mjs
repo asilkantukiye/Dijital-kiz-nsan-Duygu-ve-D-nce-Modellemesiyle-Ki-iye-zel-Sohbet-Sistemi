@@ -11,35 +11,25 @@ async function readProxy() {
   return readFile(proxyPath, 'utf8')
 }
 
-test('missing Supabase configuration is checked before creating the SSR client', async () => {
+test('missing Supabase configuration is checked before SSR client creation', async () => {
   const source = await readProxy()
-
   assert.match(source, /const supabaseUrl = process\.env\.NEXT_PUBLIC_SUPABASE_URL/)
   assert.match(source, /const supabasePublishableKey = process\.env\.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/)
-  assert.match(
-    source,
-    /if \(!supabaseUrl \|\| !supabasePublishableKey\)\s*\{[\s\S]*?if \(protectedRoute\)\s*\{\s*return authUnavailableResponse()/
-  )
-  assert.ok(
-    source.indexOf('if (!supabaseUrl || !supabasePublishableKey)') <
-      source.indexOf('const supabase = createServerClient('),
-    'environment validation must run before Supabase client construction'
-  )
+  assert.match(source, /if \(!supabaseUrl \|\| !supabasePublishableKey\)[\s\S]*?if \(protectedRoute\)\s*\{\s*return authUnavailableResponse\(\)/)
+  assert.ok(source.indexOf('if (!supabaseUrl || !supabasePublishableKey)') < source.indexOf('const supabase = createServerClient('))
 })
 
-test('public pages continue with private no-store when Supabase configuration is missing', async () => {
+test('public app shell stays available with private no-store headers when Supabase is missing', async () => {
   const source = await readProxy()
-
-  assert.match(
-    source,
-    /if \(!supabaseUrl \|\| !supabasePublishableKey\)[\s\S]*?response\.headers\.set\('Cache-Control', 'private, no-store'\)\s*return response/
-  )
+  assert.match(source, /if \(!supabaseUrl \|\| !supabasePublishableKey\)[\s\S]*?response\.headers\.set\('Cache-Control', 'private, no-store'\)\s*return response/)
 })
 
-test('protected API requests fail closed with 503 when auth is not configured', async () => {
+test('API routes stay protected and fail closed without Supabase config', async () => {
   const source = await readProxy()
-
-  assert.match(source, /function authUnavailableResponse()/)
-  assert.match(source, /status: 503,[\s\S]*?headers: \{ 'Cache-Control': 'private, no-store' \}/)
-  assert.match(source, /Kimlik doğrulama hizmeti yapılandırılmamış/)
+  assert.match(source, /pathname\.startsWith\('\/api\/chat'\)/)
+  assert.match(source, /pathname\.startsWith\('\/api\/feedback'\)/)
+  assert.match(source, /pathname\.startsWith\('\/api\/data'\)/)
+  assert.doesNotMatch(source, /pathname === '\/'/)
+  assert.match(source, /function authUnavailableResponse\(\)/)
+  assert.match(source, /status: 503,[\s\S]*?Cache-Control: 'private, no-store'/)
 })
