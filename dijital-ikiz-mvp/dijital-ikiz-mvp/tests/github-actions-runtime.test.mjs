@@ -42,13 +42,13 @@ test('Kaggle preparation and result workflows use current first-party Actions', 
     readWorkflow('download-kaggle-sentiment-pilot.yml')
   ])
 
-  assert.match(prepare, /actions\\/checkout@v7/)
-  assert.match(prepare, /actions\\/setup-python@v7/)
-  assert.match(download, /actions\\/setup-python@v7/)
-  assert.match(download, /actions\\/upload-artifact@v7/)
+  assert.match(prepare, /actions\/checkout@v7/)
+  assert.match(prepare, /actions\/setup-python@v7/)
+  assert.match(download, /actions\/setup-python@v7/)
+  assert.match(download, /actions\/upload-artifact@v7/)
   assert.doesNotMatch(
     `${prepare}\n${download}`,
-    /actions\\/(?:checkout@v[1-6]|setup-python@v[1-6]|upload-artifact@v[1-6])/
+    /actions\/(?:checkout@v[1-6]|setup-python@v[1-6]|upload-artifact@v[1-6])/
   )
 })
 
