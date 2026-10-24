@@ -65,6 +65,7 @@ BEGIN
     'claim_chat_request_server',
     'release_chat_request_server',
     'persist_chat_turn_idempotent_server',
+    'merge_twin_profile_observation',
     'replace_my_memory_preference'
   ]
   LOOP
@@ -90,11 +91,11 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server') THEN
+    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation') THEN
       IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
       END IF;
-      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server')
+      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation')
          AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'service_role is missing EXECUTE on server-only chat RPC %', function_name;
       END IF;

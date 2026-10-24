@@ -29,6 +29,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 8. 20261021211000_stage5_atomic_memory_preference_update.sql
 9. 20261023196000_aud_01_chat_write_boundary.sql
 10. 20261023200000_aud_02_chat_deduplication.sql
+11. 20261023210000_aud_03_concurrent_profile_updates.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -108,7 +109,7 @@ select p.proname,
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'replace_my_memory_preference')
+  and p.proname in ('match_memory_items', 'delete_my_chat_data', 'persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'replace_my_memory_preference')
 order by p.proname;
 ~~~
 
@@ -140,3 +141,12 @@ Sorgu `true` döndürmelidir; bu izin tek başına tablo erişimi vermez ve RLS'
 4. Oturum açma, iki kullanıcı arasında veri izolasyonu, sohbet kaydetme/okuma, geri bildirim yetkilendirmesi ve veri silme işlemini iki ayrı test hesabıyla dene. Bu E2E testleri yalnızca proje etkin ve migration'lar doğrulandıktan sonra yapılabilir.
 5. Test hesabında veri silmenin chat belleğini, profili, mesajları ve bağlı geri bildirimi temizlediğini kontrol et. Bu işlem Supabase Auth hesabını silmez.
 6. Yukarıdaki doğrulamaların tümü doğru projede tamamlandıktan sonra GitHub repository **Settings → Secrets and variables → Actions → Variables** bölümünde `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` değişkenini tam olarak `true` yap. Yalnızca son chat-turn migration'ının uygulanması yeterli değildir; temel şema, listedeki bütün gerekli migration'lar, RLS politikaları ve tüm kritik RPC fonksiyonları/izinleri doğrulanmış olmalıdır. Proje INACTIVE ise veya bu kontrollerden biri belirsizse değişkeni oluşturma ya da `true` yapma.
+
+
+## AUD-03: eşzamanlı dijital ikiz profil güncellemeleri
+
+`20261023210000_aud_03_concurrent_profile_updates.sql`, chat route'un eski profil üzerinden hesapladığı tam JSON görüntüsünü doğrudan yazmasını engeller. Route, yalnızca gelen mesajdan türetilen 13 sayısal profil gözlemini gönderir. `persist_chat_turn_idempotent_server` önce istek sahipliğini `FOR UPDATE` ile doğrular; ardından `twin_profiles(user_id)` üzerindeki benzersiz anahtarlı UPSERT ve `merge_twin_profile_observation` fonksiyonu, çakışan satır kilidi altında gözlemi en güncel kayda uygular. Böylece farklı mesajların eşzamanlı güncellemeleri eski snapshot ile birbirini ezmez.
+
+Aynı PostgreSQL transaction'ında kanonik birleştirilmiş profil mesajların `profile_snapshot` alanına ve idempotency yanıtının `profile` alanına yazılır. Payload 13 bilinen alanı içermeli; tüm değerler sayısal ve 0–1 aralığında olmalıdır. Herhangi bir mesaj yazımı veya validasyon başarısız olursa profil, mesajlar ve cache birlikte rollback olur. `merge_twin_profile_observation` yalnızca `service_role` için çalıştırılabilir.
+
+CI ayrıca `tests/profile-update-concurrency.integration.mjs` ile 13 farklı profil özelliğini aynı kullanıcı için paralel isteklerle günceller; her özelliğin son değerde temsil edildiğini, 13 mesaj çiftinin ve tamamlanmış istek kaydının bulunduğunu, profil snapshot'larının geçerli olduğunu ve 20 saniyelik işlem sınırında deadlock olmadığını kontrol eder. Bu entegrasyon testi canlı Supabase verisine dokunmaz; CI'nin kendi PostgreSQL 17 test veritabanını kullanır.

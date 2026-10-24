@@ -292,7 +292,9 @@ export async function POST(req: Request) {
       new Date(userMessageCreatedAt).getTime() + 1
     )
     const assistantMessageCreatedAt = new Date(assistantTimestamp).toISOString()
-    const profileSnapshot = variant === 'personalized' ? profile : null
+    // Persist an observation, not the potentially stale profile snapshot used for this model call.
+    // The database merges this observation against the latest locked row inside the write transaction.
+    const profileObservation = variant === 'personalized' ? analyzeMessage(message, null) : null
 
     // The server RPC atomically writes the profile, paired messages, and replayable response.
     // If any database write fails, all chat rows and the completion cache roll back together.
@@ -305,7 +307,7 @@ export async function POST(req: Request) {
       p_assistant_content: reply,
       p_user_created_at: userMessageCreatedAt,
       p_assistant_created_at: assistantMessageCreatedAt,
-      p_profile_snapshot: profileSnapshot,
+      p_profile_snapshot: profileObservation,
       p_response_payload: {
         reply,
         profile: variant === 'personalized' ? profile : null,
