@@ -17,15 +17,15 @@ test('a thrown claims/network error does not crash public routes', async () => {
   assert.match(source, /try\s*\{\s*await supabase\.auth\.getClaims\(\)\s*\}\s*catch/)
   assert.match(
     source,
-    /catch\s*\{\s*if \(protectedRoute\) \{\s*return unauthenticatedResponse\(request, pathname\)\s*\}\s*response\.headers\.set\('Cache-Control', 'private, no-store'\)\s*return response/
+    /catch\s*\{\s*if \(protectedRoute\) \{\s*return unauthenticatedResponse\(\)\s*\}\s*response\.headers\.set\('Cache-Control', 'private, no-store'\)\s*return response/
   )
 })
 
 test('a thrown getUser/network error fails closed for protected routes', async () => {
   const source = await readProxy()
 
-  assert.match(source, /try\s*\{[\s\S]*?await supabase\.auth\.getUser\(\)[\s\S]*?\}\s*catch\s*\{[\s\S]*?return unauthenticatedResponse\(request, pathname\)/)
-  assert.match(source, /if \(!hasAuthenticatedUser\)\s*\{\s*return unauthenticatedResponse\(request, pathname\)/)
+  assert.match(source, /try\s*\{[\s\S]*?await supabase\.auth\.getUser\(\)[\s\S]*?\}\s*catch\s*\{[\s\S]*?return unauthenticatedResponse\(\)/)
+  assert.match(source, /if \(!hasAuthenticatedUser\)\s*\{\s*return unauthenticatedResponse\(\)/)
 })
 
 test('anonymous app shell stays public while API denials are non-cacheable', async () => {
