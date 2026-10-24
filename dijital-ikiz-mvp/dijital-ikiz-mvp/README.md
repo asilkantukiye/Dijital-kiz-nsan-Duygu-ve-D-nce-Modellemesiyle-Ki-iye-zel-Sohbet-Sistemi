@@ -10,7 +10,7 @@ TÜBİTAK projesi için geliştirilen ilk çalışan prototiptir. Proje, kullan�
 - **Qwen:** ilk MVP üretici model
 - **GitHub:** kaynak kodu ve sürüm kontrolü
 - **Vercel:** üretim dağıtımı
-- **Kaggle:** sonraki Ar-Ge aşamasında veri hazırlama/model eğitimi ve deneyler
+- **Kaggle:** tek notebook'ta Türkçe polarite eğitimi; uygun etiketli veri eklenirse VAD ve Big Five regresyonu
 
 Akış:
 
@@ -171,7 +171,7 @@ Bellekler için hedef saklama kuralı 180 günlük etkin olmama süresi ve hesap
 
 Mevcut sürüm:
 
-- kullanıcı kayıt/giriş akışı,
+- hesap açma ekranı olmadan anonim oturum; sohbet API'lerinde doğrulanmış Supabase kullanıcı kimliği,
 - kalıcı sohbet geçmişi,
 - kullanıcıya ait dijital ikiz profil kaydı,
 - VAD için deneysel baseline göstergeleri,
@@ -193,15 +193,15 @@ sağlar.
 
 Bu MVP'deki duygu, kişilik ve üslup çıkarımı **heuristic/baseline** yaklaşımıdır. Bu nedenle henüz rapordaki %75 doğruluk hedefinin sağlandığı iddia edilmemelidir.
 
-TÜBİTAK'ın Ar-Ge aşaması için sonraki adımlar:
+Kaggle eğitim hattı artık tek notebook'ta Türkçe duygu polaritesi sınıflandırmasını çalıştırır. VAD ve Big Five görevleri yalnızca hedeflerine uygun etiketli CSV'ler eklenirse çalışır. Hub üzerindeki polarite etiketleri VAD veya kişilik puanı olarak kullanılmaz.
 
-1. etik ve izinleri belirlenmiş Türkçe veri kümesi oluşturma,
-2. veri ön işleme ve etiketleme,
-3. gerçek duygu modeli eğitimi ve F1/accuracy/precision/recall ölçümü,
-4. Big Five kişilik modelinin etiketli veride eğitilmesi,
-5. üslup özelliklerinin ve embedding tabanlı temsilin karşılaştırılması,
-6. kişiselleştirme katmanının kontrollü deneylerle değerlendirilmesi,
-7. kullanıcı değerlendirmesi ve A/B testi.
+TÜBİTAK Ar-Ge için kalan işler:
+
+1. VAD için doğrulanmış 0–1 etiketli Türkçe örnekler ve etiketleyiciler arası uyum.
+2. Big Five için katılımcı onamı ve doğrulanmış kişilik ölçeği skorları.
+3. Eğitilmiş modelleri gerçek uygulama akışına bağlama ve baseline ile karşılaştırma.
+4. Kişiselleştirilmiş/genel sohbet için kör insan değerlendirmesi ve önceden belirlenmiş A/B protokolü.
+5. Üretilen gerçek test metriklerini, sınırlılıkları ve veri izinlerini proje raporuna ekleme.
 
 Deney yapılmadan sonuçlar bilimsel başarı olarak raporlanmamalıdır.
 
