@@ -1,0 +1,102 @@
+name: Download Kaggle sentiment pilot results
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    name: Fetch completed Kaggle model and metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_KULLANABILEGIN_TOKEN || secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install current Kaggle CLI
+        run: python -m pip install --upgrade "kaggle>=2.2.4,<3" "kagglehub>=0.3.12,<1"
+
+      - name: Resolve Kaggle account username
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${KAGGLE_API_TOKEN:-}" ]]; then
+            username="$(python - <<'PY'
+          import contextlib
+          import io
+          from kagglehub.auth import whoami
+          with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+              identity = whoami(verbose=False)
+          print(identity["username"])
+          PY
+          )"
+            echo "Kaggle account identity verified."
+            echo "KAGGLE_USERNAME=$username" >> "$GITHUB_ENV"
+          elif [[ -z "${KAGGLE_USERNAME:-}" || -z "${KAGGLE_KEY:-}" ]]; then
+            echo "::error::Set KAGGLE_API_TOKEN or KAGGLE_KULLANABILEGIN_TOKEN; legacy auth requires KAGGLE_USERNAME and KAGGLE_KEY."
+            exit 1
+          fi
+          echo "KAGGLE_KERNEL_ID=${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot" >> "$GITHUB_ENV"
+
+      - name: Check Kaggle notebook completion
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(kaggle kernels status "$KAGGLE_KERNEL_ID" 2>&1 || true)"
+          printf '%s\n' "$status"
+          lower_status="$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')"
+          if grep -Eqi '(^|[^[:alpha:]])(failed|error)([^[:alpha:]]|$)' <<< "$lower_status"; then
+            echo "Kaggle reports an error. Recent notebook logs:"
+            kaggle kernels logs "$KAGGLE_KERNEL_ID" 2>&1 | tail -n 250 || true
+            echo "::error::The Kaggle notebook did not complete successfully. Fix the notebook error before downloading artifacts."
+            exit 1
+          fi
+          if ! grep -Eqi '(^|[^[:alpha:]])(complete|completed|success|succeeded)([^[:alpha:]]|$)' <<< "$lower_status"; then
+            echo "::error::The Kaggle notebook has not completed yet. Open it in Kaggle, enable Internet, click Run All, then retry this workflow."
+            exit 1
+          fi
+
+      - name: Download model and metrics
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/kaggle-sentiment-output"
+          ARTIFACT_DIR="$RUNNER_TEMP/kaggle-sentiment-artifact"
+          mkdir -p "$OUT_DIR" "$ARTIFACT_DIR"
+          kaggle kernels output "$KAGGLE_KERNEL_ID" --path "$OUT_DIR" --force
+
+          zip_path="$(find "$OUT_DIR" -type f -name 'dijital-ikiz-sentiment-pilot.zip' -print -quit)"
+          if [[ -z "$zip_path" ]]; then
+            echo "::error::The Kaggle run completed but did not return dijital-ikiz-sentiment-pilot.zip."
+            find "$OUT_DIR" -maxdepth 3 -type f -print
+            exit 1
+          fi
+          cp "$zip_path" "$ARTIFACT_DIR/dijital-ikiz-sentiment-pilot.zip"
+          unzip -p "$zip_path" 'sentiment/metrics.json' > "$ARTIFACT_DIR/metrics.json"
+
+          {
+            echo "## Turkish sentiment pilot results"
+            echo
+            echo "Metrics below were read from the output of a completed Kaggle notebook run."
+            echo
+            cat "$ARTIFACT_DIR/metrics.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload trained model and metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: kaggle-sentiment-pilot-results
+          path: |
+            ${{ runner.temp }}/kaggle-sentiment-artifact/dijital-ikiz-sentiment-pilot.zip
+            ${{ runner.temp }}/kaggle-sentiment-artifact/metrics.json
+          if-no-files-found: error
+          retention-days: 14
