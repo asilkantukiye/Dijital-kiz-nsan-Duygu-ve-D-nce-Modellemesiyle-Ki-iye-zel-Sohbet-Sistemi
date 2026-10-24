@@ -7,19 +7,8 @@ import test from 'node:test'
 const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const pagePath = path.resolve(testDirectory, '../app/login/page.tsx')
 
-test('login and signup show a user-friendly message when the auth request throws', async () => {
+test('legacy login route redirects to anonymous app and renders no credential form', async () => {
   const source = await readFile(pagePath, 'utf8')
-
-  assert.match(source, /catch\s*\{[\s\S]*?setMsg\([\s\S]*?Sunucuya ulaşılamadı/)
-  assert.match(source, /finally\s*\{\s*setLoading\(false\)/)
-  assert.doesNotMatch(source, /setMsg\(error\.message\)/)
-})
-
-test('login mode switch cannot be changed while an auth request is in flight', async () => {
-  const source = await readFile(pagePath, 'utf8')
-
-  assert.match(
-    source,
-    /disabled=\{loading\}\s+onClick=\{\(\) => \{\s*setMode/
-  )
+  assert.match(source, /redirect\('\/'\)/)
+  assert.doesNotMatch(source, /signInWithPassword|signUp\(|type=["']password["']/)
 })
