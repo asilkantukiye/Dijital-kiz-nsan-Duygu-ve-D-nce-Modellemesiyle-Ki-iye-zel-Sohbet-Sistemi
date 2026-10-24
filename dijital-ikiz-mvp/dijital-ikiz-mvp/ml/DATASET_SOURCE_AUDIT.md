@@ -1,4 +1,4 @@
-# Veri kaynağı denetimi — 18 Ekim 2026
+# Veri kaynağı denetimi — 24 Ekim 2026
 
 Bu belge, bulunan veri adaylarını görev uyumu ve şu an doğrulanabilen lisans/erişim bilgilerine göre sınıflandırır. Bir platformdaki lisans etiketi, birleşik veri kümesinin tüm alt kaynaklarının kullanımını kendiliğinden yetkilendirmez. Eğitim öncesi veri kartı, orijinal yayın, alt kaynaklar ve yeniden kullanım koşulları tekrar doğrulanmalıdır.
 
@@ -7,6 +7,7 @@ Bu belge, bulunan veri adaylarını görev uyumu ve şu an doğrulanabilen lisan
 | Kaynak | Bildirilen etiketler/ölçek | Lisans ve erişim bulgusu | Karar |
 |---|---|---|---|
 | [winvoker Türkçe duygu analizi](https://huggingface.co/datasets/winvoker/turkish-sentiment-analysis-dataset) | Olumlu/nötr/olumsuz; kartta yaklaşık 492.782 etiketli örnek bildiriliyor | Hugging Face kartı CC BY-SA 4.0 bildiriyor; farklı kaynaklar listelenmiş. Pilot notebook sürümü `ef87c7a2a7199a8b721c99425933316d35f9af2f` kullanıyor. | **Yalnızca polarite pilotu için**; atıf, paylaşım koşulları ve alt kaynak şartları korunmalı. VAD veya Big Five etiketi değildir. |
+| [TFLai Türkçe Alpaca](https://huggingface.co/datasets/TFLai/Turkish-Alpaca) | Yaklaşık 51.914 `instruction/input/output` satırı; genel talimat takibi | Hugging Face metadata'sı Apache-2.0 bildiriyor; veri eski ve örneklerde doğruluk/çeviri hatası riski var. Eğitim revizyonu `90f9589` olarak sabitlendi. | **Sınırlı Qwen QLoRA pilotu**; yalnızca genel talimat başlangıç çizgisi. Örnek kalite denetimi ve kaynak şartları gerekli; kişisel dijital ikiz, VAD veya Big Five etiketi değildir. |
 | [nihalenc Türkçe 8-sınıflı duygu](https://huggingface.co/datasets/nihalenc/turkish-8class-emotion-dataset) | 8 kategori: iğrenme, korku, minnet, pişmanlık, mutluluk, öfke, şaşkınlık, üzüntü | Hub sayfasında lisans metadatası görünmüyor. Dosya görüntüleyici CSV ayrıştırma hatası bildiriyor. | **Beklemede:** lisans/izin ve veri bütünlüğü doğrulanmadan kullanma. Kategorik duygu, sürekli VAD değildir. |
 | [anilguven Türkçe tweet duygu](https://huggingface.co/datasets/anilguven/turkish_tweet_emotion_dataset) | Yaklaşık 4.000 tweet, duygu sınıfları | Hugging Face lisansı unknown olarak gösteriyor; örneklerde hakaret/küfür olabilir. | **Beklemede:** yazılı lisans/izin ve gizlilik/zararlı içerik denetimi olmadan kullanma. |
 | [log101 emotion-turkish](https://huggingface.co/datasets/log101/emotion-turkish) | Çok küçük Türkçe duygu sınıflandırma örnekleri | MIT etiketi görünüyor; train/test/validation dosyaları yaklaşık 135 bayt. | **Eğitim için uygun değil**; yalnızca çok küçük şema denemesi. |
