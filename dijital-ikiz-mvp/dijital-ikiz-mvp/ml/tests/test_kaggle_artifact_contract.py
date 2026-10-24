@@ -23,7 +23,7 @@ class KaggleArtifactContractTests(unittest.TestCase):
         )
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("sentiment/metrics.json", code)
+        self.assertIn("/artifacts/sentiment", code)
         self.assertIn("dijital-ikiz-model-artifacts", code)
         self.assertIn("vad", code)
         self.assertIn("big-five", code)
