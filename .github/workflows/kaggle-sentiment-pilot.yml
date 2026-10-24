@@ -1,6 +1,11 @@
 name: Run Kaggle sentiment pilot
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/kaggle-sentiment-pilot.yml"
+      - "dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/sentiment_baseline.ipynb"
   workflow_dispatch:
     inputs:
       accelerator:
@@ -25,10 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_KULLANABILEGIN_TOKEN || secrets.KAGGLE_API_TOKEN }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-      INPUT_ACCELERATOR: ${{ inputs.accelerator }}
+      INPUT_ACCELERATOR: ${{ inputs.accelerator || 'NvidiaTeslaT4' }}
 
     steps:
       - name: Checkout repository
@@ -42,18 +47,31 @@ jobs:
       - name: Check Kaggle credentials
         shell: bash
         run: |
-          if [[ -z "${KAGGLE_USERNAME:-}" ]]; then
-            echo "::error::KAGGLE_USERNAME is required because it identifies the owner of the private notebook. Never put credentials in code or logs."
+          if [[ -z "${KAGGLE_API_TOKEN:-}" && ( -z "${KAGGLE_KEY:-}" || -z "${KAGGLE_USERNAME:-}" ) ]]; then
+            echo "::error::Add KAGGLE_API_TOKEN or KAGGLE_KULLANABILEGIN_TOKEN. For legacy KAGGLE_KEY auth, KAGGLE_USERNAME is also required. Never put credentials in code or logs."
             exit 1
           fi
-          if [[ -z "${KAGGLE_API_TOKEN:-}" && -z "${KAGGLE_KEY:-}" ]]; then
-            echo "::error::Add KAGGLE_API_TOKEN (preferred) or legacy KAGGLE_KEY in repository Actions secrets."
-            exit 1
-          fi
-          echo "Kaggle owner and at least one supported credential source are configured (values are not printed)."
+          echo "A supported Kaggle credential source is configured; secret values are not printed."
 
-      - name: Install Kaggle CLI
-        run: python -m pip install "kaggle>=1.8.2,<2"
+      - name: Install Kaggle CLI and account lookup
+        run: python -m pip install "kaggle>=1.8.2,<2" "kagglehub>=0.3.12,<1"
+
+      - name: Resolve Kaggle account username
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${KAGGLE_API_TOKEN:-}" ]]; then
+            username="$(python -c 'from kagglehub.auth import whoami; print(whoami()["username"])')"
+            if [[ -z "$username" ]]; then
+              echo "::error::Kaggle token authentication succeeded without returning an account username."
+              exit 1
+            fi
+            echo "Kaggle account identity verified (username is not printed)."
+            echo "KAGGLE_USERNAME=$username" >> "$GITHUB_ENV"
+          elif [[ -z "${KAGGLE_USERNAME:-}" ]]; then
+            echo "::error::KAGGLE_USERNAME is required for legacy KAGGLE_KEY auth."
+            exit 1
+          fi
 
       - name: Prepare private Kaggle notebook
         shell: bash
@@ -97,13 +115,13 @@ jobs:
             printf '%s\n' "$status"
             lower_status="$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')"
 
-            if grep -Eqi 'status[^[:alpha:]]*(error|failed)|failed|error' <<< "$lower_status"; then
+            if grep -Eqi '(^|[^[:alpha:]])(failed|error)([^[:alpha:]]|$)' <<< "$lower_status"; then
               echo "::error::Kaggle training reported an error. Open the Kaggle notebook logs to inspect the failure."
               kaggle kernels logs "$KAGGLE_KERNEL_ID" || true
               exit 1
             fi
 
-            if grep -Eqi 'status[^[:alpha:]]*(complete|completed|success)|complete|success' <<< "$lower_status"; then
+            if grep -Eqi '(^|[^[:alpha:]])(complete|completed|success|succeeded)([^[:alpha:]]|$)' <<< "$lower_status"; then
               completed=1
               break
             fi
