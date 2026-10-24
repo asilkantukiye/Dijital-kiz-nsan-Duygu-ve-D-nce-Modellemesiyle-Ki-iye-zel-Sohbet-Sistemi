@@ -172,7 +172,7 @@ python ml/data/validate_dataset.py ml/data/style.csv --task style
 
 Hiçbir görev seçilmezse varsayılan `all` seçeneği bütün hedef kolonlarını ister. Her görev ortak kimlik, metin, kaynak ve lisans/rıza açıklaması kolonlarını yine zorunlu tutar. Bu alanları doldurmak, kaynağın kullanım şartlarının ayrıca doğrulanması gereğini ortadan kaldırmaz.
 
-`sentiment_baseline.ipynb` sonuç paketini `artifacts/sentiment/` klasörünü koruyarak oluşturur; Kaggle Actions aynı ZIP içindeki `sentiment/metrics.json` yolunu doğrular. Bu iki yol arasındaki uyum otomatik testle kontrol edilir.
+`dijital_ikiz_training.ipynb` sonuç paketini `artifacts/sentiment/` klasörünü koruyarak oluşturur; Kaggle Actions aynı ZIP içindeki `sentiment/metrics.json` yolunu doğrular. Bu iki yol arasındaki uyum otomatik testle kontrol edilir.
 
 
 ## Regresyon ölçümleri ve basit referans modeli
