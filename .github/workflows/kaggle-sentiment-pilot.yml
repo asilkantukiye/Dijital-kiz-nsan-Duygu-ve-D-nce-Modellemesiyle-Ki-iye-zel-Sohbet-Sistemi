@@ -1,4 +1,4 @@
-name: Run Kaggle sentiment pilot
+name: Prepare Kaggle Model Training
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   train:
-    name: Train Turkish sentiment baseline on Kaggle
+    name: Prepare Turkish digital twin training on Kaggle
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -82,11 +82,11 @@ jobs:
           set -euo pipefail
           RUN_DIR="$RUNNER_TEMP/kaggle-sentiment-pilot"
           mkdir -p "$RUN_DIR"
-          cp dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/sentiment_baseline.ipynb "$RUN_DIR/sentiment_baseline.ipynb"
+          cp dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/dijital_ikiz_training.ipynb "$RUN_DIR/dijital_ikiz_training.ipynb"
           cat > "$RUN_DIR/kernel-metadata.json" <<EOF
           {
-            "id": "${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot",
-            "title": "Dijital Ikiz Sentiment Pilot",
+            "id": "${KAGGLE_USERNAME}/dijital-ikiz-training",
+            "title": "Dijital Ikiz Model Training",
             "code_file": "sentiment_baseline.ipynb",
             "language": "python",
             "kernel_type": "notebook",
@@ -113,12 +113,12 @@ jobs:
           {
             echo "## Kaggle notebook prepared"
             echo
-            echo "The notebook has been uploaded but was not executed from the API. Kaggle API-submitted runs may ignore the metadata internet flag; the observed run could not resolve pypi.org."
+            echo "The notebook has been uploaded without execution. Enable Internet in Kaggle Notebook Settings before running training."
             echo
             echo "1. Open the notebook in Kaggle: https://www.kaggle.com/code/${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot"
             echo "2. In the right-side Settings/Notebook panel, open Session options and switch Internet on."
             echo "3. Save the setting, then use Run All and wait for the notebook to finish."
-            echo "4. After the notebook completes, run the **Download Kaggle sentiment pilot results** workflow to fetch the model ZIP and metrics as a GitHub Actions artifact."
+            echo "4. After training completes, run the **Download Kaggle Model Artifacts** workflow."
             echo
             echo "No trained model or metrics are claimed by this preparation workflow."
           } >> "$GITHUB_STEP_SUMMARY"
