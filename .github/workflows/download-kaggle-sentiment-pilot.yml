@@ -90,10 +90,10 @@ jobs:
 
           root = Path(sys.argv[1])
           records = {}
-          for path in sorted(root.rglob("metrics-summary.json")):
+          for path in sorted(root.rglob("metrics.json")):
               records[path.relative_to(root).as_posix()] = json.loads(path.read_text(encoding="utf-8"))
           if not records:
-              raise SystemExit("The archive contains no metrics-summary.json files.")
+              raise SystemExit("The archive contains no metrics.json files.")
           Path(sys.argv[2]).write_text(
               json.dumps(records, ensure_ascii=False, indent=2),
               encoding="utf-8",
