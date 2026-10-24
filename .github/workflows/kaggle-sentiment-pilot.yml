@@ -61,7 +61,15 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "${KAGGLE_API_TOKEN:-}" ]]; then
-            username="$(python -c 'from kagglehub.auth import whoami; print(whoami()["username"])')"
+            username="$(python - <<'PY'
+          import contextlib
+          import io
+          from kagglehub.auth import whoami
+          with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+              identity = whoami(verbose=False)
+          print(identity["username"])
+          PY
+          )"
             if [[ -z "$username" ]]; then
               echo "::error::Kaggle token authentication succeeded without returning an account username."
               exit 1
