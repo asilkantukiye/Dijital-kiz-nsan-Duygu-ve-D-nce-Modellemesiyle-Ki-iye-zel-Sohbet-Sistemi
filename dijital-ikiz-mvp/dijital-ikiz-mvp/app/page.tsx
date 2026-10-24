@@ -216,11 +216,30 @@ export default function Home() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, variant: requestVariant })
-      })
+      let response: Response | null = null
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userText, variant: requestVariant })
+        })
+
+        if (response.status !== 202) break
+
+        // A duplicate request does not run another model call. Retry the same
+        // prompt so the database-backed claim can return the original cached reply.
+        await response.json().catch(() => ({}))
+        const retryAfter = Number(response.headers.get('Retry-After'))
+        const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(1000, retryAfter * 1000)
+          : 500
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+
+      if (!response) throw new Error('Sohbet isteği gönderilemedi.')
+      if (response.status === 202) {
+        throw new Error('Mesaj hâlâ işleniyor. Birkaç saniye sonra aynı mesajı tekrar deneyebilirsin.')
+      }
 
       const data = await response.json().catch(() => ({}))
 

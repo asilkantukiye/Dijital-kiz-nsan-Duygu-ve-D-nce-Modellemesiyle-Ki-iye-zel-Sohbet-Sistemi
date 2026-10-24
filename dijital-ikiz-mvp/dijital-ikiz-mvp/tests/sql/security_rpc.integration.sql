@@ -28,13 +28,13 @@ INSERT INTO public.memory_items (user_id, memory_type, content, embedding) VALUE
     '11111111-1111-4111-8111-111111111111',
     'preference',
     'private memory for user one',
-    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+    ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384)
   ),
   (
     '22222222-2222-4222-8222-222222222222',
     'preference',
     'private memory for user two',
-    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384)
+    ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384)
   );
 
 INSERT INTO public.message_feedback (message_id, user_id, rating, variant)

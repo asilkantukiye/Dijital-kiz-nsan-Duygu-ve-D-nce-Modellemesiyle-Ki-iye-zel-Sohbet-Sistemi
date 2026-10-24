@@ -14,14 +14,14 @@ export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!isValidSupabaseUrl(url)) {
+  if (typeof url !== 'string' || !isValidSupabaseUrl(url)) {
     throw new Error('Supabase URL configuration is invalid.')
   }
-  if (!serviceRoleKey?.trim()) {
+  if (typeof serviceRoleKey !== 'string' || !serviceRoleKey.trim()) {
     throw new Error('Supabase server write key is not configured.')
   }
 
-  return createSupabaseClient(url!, serviceRoleKey, {
+  return createSupabaseClient(url.trim(), serviceRoleKey.trim(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

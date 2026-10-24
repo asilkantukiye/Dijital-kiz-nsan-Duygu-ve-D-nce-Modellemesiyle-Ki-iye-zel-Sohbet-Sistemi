@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { analyzeMessage, normalizeProfile, profileToSystemPrompt } from '../lib/twin.ts'
+import { analyzeMessage, normalizeProfile, profileToSystemPrompt, TWIN_HEURISTIC_CONFIG, TWIN_MODEL_CALIBRATION_NOTE } from '../lib/twin.ts'
 
 test('normalizes missing, invalid, and out-of-range profile values', () => {
   assert.deepEqual(normalizeProfile(null), normalizeProfile({}))
@@ -65,4 +65,19 @@ test('profile output is deterministic for the same message and previous state', 
     analyzeMessage('Kanka bu çok harika 😂', previous),
     analyzeMessage('Kanka bu çok harika 😂', previous)
   )
+})
+
+
+test('heuristic baselines and weights are named, bounded, and explicitly uncalibrated', () => {
+  assert.match(TWIN_MODEL_CALIBRATION_NOTE, /uncalibrated/i)
+  assert.match(TWIN_MODEL_CALIBRATION_NOTE, /external validation/i)
+  assert.equal(TWIN_HEURISTIC_CONFIG.smoothingAlpha, 0.25)
+  for (const value of Object.values(TWIN_HEURISTIC_CONFIG.baseline)) {
+    assert.ok(Number.isFinite(value))
+    assert.ok(value >= 0 && value <= 1)
+  }
+  for (const value of Object.values(TWIN_HEURISTIC_CONFIG.weights)) {
+    assert.ok(Number.isFinite(value))
+    assert.ok(value >= 0 && value <= 25)
+  }
 })
