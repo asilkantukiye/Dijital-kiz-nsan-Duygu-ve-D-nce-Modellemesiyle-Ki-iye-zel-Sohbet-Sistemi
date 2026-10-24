@@ -68,18 +68,17 @@ VAD/Big Five regresyon notebook'undan bağımsız ilk sınıflandırma deneyi `m
 Bu yalnızca olumlu/nötr/olumsuz metin sınıflandırma pilotudur. Sürekli VAD (özellikle dominance) ve Big Five için ayrı uygun etiketli veri ve ayrı değerlendirme gerekir. Notebook gerçek eğitimden önce sentetik başarı sonucu üretmez ve %75 hedefi iddia etmez.
 
 
-## Tek tıklamayla Kaggle eğitimini başlatma
+## GitHub Actions üzerinden Kaggle eğitimi
 
-GitHub deposunda **Settings → Secrets and variables → Actions** bölümünde şu repository secret'larının olması gerekir:
+Eğitim iş akışı `.github/workflows/kaggle-sentiment-pilot.yml` dosyasındadır. GitHub deposunda **Settings → Secrets and variables → Actions → New repository secret** bölümünde Kaggle API token'ını şu adlardan biriyle kaydet:
 
-- `KAGGLE_USERNAME`: Kaggle kullanıcı adın (kernel sahipliği için zorunlu)
-- `KAGGLE_API_TOKEN`: Kaggle API ayarlarından alınan güncel token (**tercih edilen yöntem**)
-- `KAGGLE_KEY`: yalnızca eski/legacy API anahtarı kullanıyorsan gereken alternatif
+- `KAGGLE_API_TOKEN` (**önerilen**) veya
+- `KAGGLE_KULLANABILEGIN_TOKEN` (Türkçe karakter kullanmadan yazılmış alternatif ad).
 
-`KAGGLE_USERNAME` ile birlikte `KAGGLE_API_TOKEN` **veya** `KAGGLE_KEY` tanımlı olmalıdır. İki kimlik doğrulama yönteminin de değerlerini aynı secret dosyasına koyma; doğru olanı Actions Secrets olarak kaydet. Token/anahtar değerlerini sohbet, kaynak kodu veya loglara yazma. Secret'lar zaten tanımlıysa ve çalışıyorsa sırf bu güncelleme için tekrar oluşturma.
+GitHub secret adları yalnızca İngilizce harfler, rakamlar ve alt çizgi kabul eder; `kaggle_kullanabileceğin_token` içindeki `ğ` nedeniyle bu isim geçerli değildir. Secret'ın **değeri** Kaggle hesabının API sayfasından alınan token olmalı; değeri sohbete, koda veya loglara yazma. Kaggle API token'ı ile akış kullanıcı adını token kimliğinden bulmaya çalışır. Legacy `KAGGLE_KEY` kullanılıyorsa `KAGGLE_USERNAME` da gerekir.
 
-Ardından GitHub deposunda **Actions → Run Kaggle sentiment pilot → Run workflow** yolunu izle. Varsayılan `NvidiaTeslaT4` seçeneğiyle başlat; erişim hatası olursa Kaggle hesabındaki kullanılabilir hızlandırıcıyı kontrol et. Akış yalnızca elle başlatıldığında Kaggle kernel'ini gönderir ve çalıştırır; her GitHub push'unda GPU başlatmaz.
+`KAGGLE_API_TOKEN` ya da `KAGGLE_KULLANABILEGIN_TOKEN` secret'ı varsa yeni token yolunu kullan. GitHub Actions akışı elle **Actions → Run Kaggle sentiment pilot → Run workflow** yoluyla başlatılabilir; ayrıca eğitim notebook'u veya iş akışı dosyası `main` dalına gönderildiğinde hedefli tetikleme yapılır. Varsayılan hızlandırıcı `NvidiaTeslaT4` seçeneğidir. GPU ve internet erişimi Kaggle hesabında etkin olmalıdır; hesap doğrulama kısıtlarını atlatmaya çalışma.
 
-Başarılı çalıştırma sonunda Actions run sayfasındaki `kaggle-sentiment-pilot-results` artifact'ini indir. İçinde gerçek test sonuçlarını içeren `metrics.json` ve model ZIP'i bulunur. Notebook gerçekten tamamlanmadıysa artifact üretilmez; Kaggle notebook loglarını incelemek gerekir.
+Başarılı çalıştırma sonunda Actions run sayfasındaki `kaggle-sentiment-pilot-results` artifact'ini indir. İçinde gerçek test sonuçlarını içeren `metrics.json` ve model ZIP'i bulunur. Notebook tamamlanmazsa artifact üretilmez; Kaggle notebook loglarını incelemek gerekir. Bu iş akışı **BERTurk tabanlı olumlu/nötr/olumsuz duygu polaritesi pilotunu** eğitir. VAD, Big Five veya Qwen üretici modelini eğitmiş sayılmaz; onlar için uygun etiketli veri ve ayrı deney gerekir.
 
 Resmî Kaggle CLI belgeleri: [kernel push/status/output](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md) ve [kernel metadata](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels_metadata.md).
