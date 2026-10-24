@@ -79,6 +79,10 @@ Supabase Data API ayarlarında otomatik tablo gösterimi kapalıysa, kullanılan
 
 Supabase projesi daha önce kullanıldıysa tam şemayı tekrar uygulamadan önce migration geçmişini kontrol edin. Repodaki timestamp'li migration'ların sırası, salt-okunur doğrulama sorguları, RLS kontrolü ve proje geri yükleme güvenliği için [Supabase migration runbook](supabase/MIGRATION_RUNBOOK.md) belgesini izleyin. GitHub CI sonucu, canlı veritabanında migration uygulanmış olduğunu kanıtlamaz.
 
+### Hesap açmadan kullanım
+
+Arayüz otomatik Supabase anonim oturumu oluşturur; e-posta/şifre ekranı gösterilmez. Supabase Dashboard → **Authentication → Sign In / Providers → Anonymous Sign-Ins** ayarı açık olmalıdır. Anonim oturumdaki sohbet ve profil verileri yalnızca o tarayıcı oturumuna bağlıdır; tarayıcı verileri silinirse anonim kullanıcı hesabı kurtarılamayabilir. Sohbet API'leri ve RLS kullanıcıya özel kalır; ayar kapalıysa uygulama oturum hatası gösterir ve sohbet uçları kapalı kalır.
+
 ## 4. Hugging Face
 
 Hugging Face'de Inference Providers erişimi olan bir fine-grained token oluşturun ve yalnızca sunucu ortamında `HF_TOKEN` olarak tanımlayın.
