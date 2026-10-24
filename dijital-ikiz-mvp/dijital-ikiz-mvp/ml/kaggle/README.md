@@ -1,91 +1,22 @@
-# Kaggle Eğitim — adım adım
+# Kaggle model eğitimi
 
-Bu notebook gerçek eğitim için hazırlanmış kod taslağıdır. **Henüz eğitimin çalıştığını veya belirli bir başarı oranı elde edildiğini göstermez.** Model ancak etiketli araştırma verisiyle Kaggle üzerinde çalıştırılıp `metrics.json` üretildiğinde deney sonucu alınmış olur.
+Tek notebook: `ml/kaggle/dijital_ikiz_training.ipynb`.
 
-Notebook dosyası: `ml/kaggle/dijital_ikiz_training.ipynb`
+## Akış
 
-## 1. Notebook'u Kaggle'a aç
+1. GitHub Actions → **Prepare Kaggle Model Training** → Run workflow.
+2. [Kaggle notebook'unu aç](https://www.kaggle.com/code/asilkantkiye/dijital-ikiz-training).
+3. Kaggle sağ panelinde **Settings → Internet = On**; erişimin varsa **Accelerator = GPU**.
+4. **Run All** çalıştır. Bu defterin interneti API metadata'sından garanti edilemiyor; önceki günlükte `pypi.org` DNS hatası görüldüğü için internet ayarı arayüzden açılmalıdır.
+5. Eğitim bitince GitHub Actions → **Download Kaggle Model Artifacts** → Run workflow.
+6. `kaggle-model-artifacts` artifact'ini indir. ZIP tüm görev modelleri ve `metrics.json` raporlarını; `metrics-summary.json` metriklerin özetini içerir.
 
-1. GitHub deposunda `dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/dijital_ikiz_training.ipynb` dosyasını aç.
-2. Notebook içeriğini Kaggle'a aktar. Kaggle arayüzünde GitHub bağlantısı bulunuyorsa **File → Link to GitHub** bölümünden depoya erişim izni ver; alternatif olarak GitHub'dan notebook dosyasını indirip Kaggle'daki notebook içe aktarma akışını kullan.
-3. Kaydedilen notebook'u kendi Kaggle hesabında aç. GitHub bağlantısı kurulmuş olsa bile notebook'un çalıştırılmasını ayrıca başlatmak gerekir.
+## Eğitilen görevler
 
-## 2. Donanım ve internet
+- **Türkçe polarite:** otomatik olarak sabit sürümlü `winvoker/turkish-sentiment-analysis-dataset` üzerinden. BERTurk, train/validation/test, accuracy, macro-F1, weighted-F1, sınıf bazlı F1 ve çoğunluk sınıfı baseline'ı raporlar. Kaynağın Hub lisansı CC BY-SA 4.0 olarak beyan edilmiştir; alt kaynak şartları ayrıca incelenmelidir.
+- **VAD:** `sample_id, participant_id, text, source, license_or_consent, valence, arousal, dominance` kolonları olan uygun CSV eklenirse çalışır.
+- **Big Five:** aynı ortak kolonlara ek olarak beş ölçek puanını içeren uygun CSV eklenirse çalışır. Kişilik skorları metinden tahmin edilerek etiket yapılmamalı; doğrulanmış ölçek ve gerekli onam kullanılmalıdır.
 
-1. Notebook sağ panelinden `Settings` bölümüne gir.
-2. `Accelerator` seçeneğinde erişimin varsa GPU seç.
-3. Model ağırlıklarının indirilmesi için `Internet` erişimini aç.
-4. Hesap doğrulama nedeniyle GPU seçeneği kapalıysa bu kısıtı atlatmaya çalışma; Kaggle'ın resmî hesap/telefon doğrulama akışını veya desteğini kullan.
+VAD/BF CSV'leri eklenmezse bu görevler atlanır; polarite pilotu yine çalışır. Aynı katılımcı ve normalize edilmiş yinelenen metinler farklı split'lere dağıtılmaz. Eksik/yer tutucu kaynak ve lisans alanları reddedilir.
 
-## 3. Veriyi ekle
-
-Sağ panelden **Add Data** ile lisansı/kullanım izni kontrol edilmiş araştırma verilerini ekle. Defter aşağıdaki şemayı ister:
-
-- Her örnek için benzersiz `sample_id`
-- Tekrarlanan örnekleri aynı kişiye bağlamak için `participant_id`
-- Metin: `text`
-- Veri kaynağı: `source`
-- Lisans veya rıza açıklaması: `license_or_consent`
-- VAD veri kümesi için: `valence`, `arousal`, `dominance`
-- Big Five veri kümesi için: `openness`, `conscientiousness`, `extraversion`, `agreeableness`, `neuroticism`
-
-Hedef skorlar 0–1 aralığında sayısal etiketler olmalıdır. `source` ve `license_or_consent` alanlarını doldurmak tek başına hukuki izni kanıtlamaz; veri kaynağının şartlarını araştırmacı ayrıca doğrulamalıdır. Kişisel konuşmaları uygun izin olmadan kullanma.
-
-## 4. Hücreleri sırayla çalıştır
-
-1. `Run All` yerine ilk aşamada üstten aşağı tek tek çalıştır.
-2. İlk kontrol hücresi `/kaggle/input` altındaki CSV dosyalarını ve kolonları listeler.
-3. Her hedef için yalnızca bir uygun CSV varsa defter onu seçer. Birden fazla dosya varsa hata mesajındaki dosya yollarına bakarak `VAD_DATASET_PATH` ve/veya `BIG5_DATASET_PATH` değişkenlerine doğru tam yolu yaz.
-4. Veri kontrolü ve katılımcı bazlı bölme başarılı olmadan eğitim hücrelerine geçme.
-5. Yalnızca uygun veri bulunan görevin eğitim hücresi çalışır; veri olmayan görev açıkça atlanır. Hata çıkarsa hata mesajını aynen paylaş; sırları, kişisel verileri veya özel token'ları paylaşma.
-
-## 5. Beklenen çıktılar
-
-Başarılı gerçek çalıştırmadan sonra Kaggle `/kaggle/working/` altında yalnızca gerçekten eğitilmiş görevlerin çıktıları bulunur. Örneğin VAD verisi varsa VAD çıktıları oluşur; Big Five verisi yoksa Big Five modeli/ metriği üretilmez:
-
-- `artifacts/vad/best_model.pt`
-- `artifacts/vad/metrics.json`
-- `artifacts/big-five/best_model.pt`
-- `artifacts/big-five/metrics.json`
-- `dijital-ikiz-model-artifacts.zip`
-
-Notebook sonunda ZIP paketini Kaggle'dan indir. Model ağırlıklarını ve sonuç metriklerini kontrol etmeden TÜBİTAK raporuna başarı yüzdesi yazma.
-
-## 6. Şu anki doğrulama sınırı
-
-GitHub Actions notebook'un JSON ve Python sözdizimini statik olarak kontrol eder. Bu kontrol Kaggle GPU eğitimini çalıştırmaz, veri etiketlerinin bilimsel kalitesini doğrulamaz ve model performansı iddiası oluşturmaz. Gerçek deney için Kaggle'da hücrelerin çalıştırılması ve üretilen test metriklerinin kaydedilmesi gerekir.
-
-
-## Türkçe duygu polaritesi pilotu
-
-VAD/Big Five regresyon notebook'undan bağımsız ilk sınıflandırma deneyi `ml/kaggle/sentiment_baseline.ipynb` dosyasındadır.
-
-1. GitHub'dan notebook'u indir ve Kaggle'a aktar.
-2. Kaggle ayarlarında Internet'i aç; GPU varsa seç.
-3. Hücreleri sırayla çalıştır. Notebook, lisans bilgisi Hugging Face'te CC BY-SA 4.0 olarak belirtilen veri kümesinin sabitlenmiş sürümünü indirir.
-4. En sonda `/kaggle/working/dijital-ikiz-sentiment-pilot.zip` dosyasını indir; içindeki `metrics.json` gerçek test sonuçlarını içerir.
-
-Bu yalnızca olumlu/nötr/olumsuz metin sınıflandırma pilotudur. Sürekli VAD (özellikle dominance) ve Big Five için ayrı uygun etiketli veri ve ayrı değerlendirme gerekir. Notebook gerçek eğitimden önce sentetik başarı sonucu üretmez ve %75 hedefi iddia etmez.
-
-
-## GitHub Actions ile Kaggle defterini hazırlama ve eğitim
-
-GitHub'daki `.github/workflows/kaggle-sentiment-pilot.yml` akışı Kaggle API token'ını kullanarak defteri hesabına yükler. Gizli anahtar şu secret adlarından biriyle tanımlı olmalı:
-
-- `KAGGLE_API_TOKEN` (önerilen), veya
-- `KAGGLE_KULLANABILEGIN_TOKEN` (ASCII karakterli alternatif ad).
-
-GitHub Secret adları `ğ` gibi Türkçe karakterleri kabul etmez. Token'ı sohbete, kaynak koda veya loglara yazma. Akış hesabı token üzerinden doğrular ve notebook'u **çalıştırmadan** yükler.
-
-**Önemli Kaggle sınırlaması:** Otomatik API gönderiminde metadata'da `enable_internet=true` olmasına rağmen bu defterin çalıştırma ortamı internete çıkamadı; `pypi.org` DNS sorgusu başarısız oldu ve eğitim başlamadan durdu. Kaggle'ın notebook belgeleri internet erişimini Notebook Editor içindeki Settings/Session options ayarından açmayı tarif eder. Bu nedenle şu tek seferlik adım gereklidir:
-
-1. [Kaggle eğitim notebook'unu aç](https://www.kaggle.com/code/asilkantkiye/dijital-ikiz-sentiment-pilot).
-2. Sağdaki **Settings / Notebook** panelinden **Session options → Internet** anahtarını **On** yap.
-3. **Run All** ile notebook'u çalıştır. İlk hücre paketleri kuracak, sonra Türkçe duygu sınıflandırma modelini eğitip test edecek.
-4. Notebook başarılı biçimde tamamlandığında GitHub'da **Actions → Download Kaggle sentiment pilot results → Run workflow** yoluyla sonucu al. İndirme akışı `dijital-ikiz-sentiment-pilot.zip` ve gerçek metrikleri taşıyan `metrics.json` dosyasını artifact olarak yükler.
-
-İnternet ayarı görünmüyorsa Kaggle hesap ayarlarında doğrulama gerekip gerekmediğini kontrol et. API anahtarıyla kimlik doğrulama çalışıyor; engel girişte değil, notebook'un internet ayarında.
-
-Deney, BERTurk tabanlı olumlu/nötr/olumsuz polarite sınıflandırmasıdır. Qwen sohbet modeli, VAD boyutları veya Big Five kişilik modeli bu deneyde eğitilmiyor; bunlar ayrı veri ve değerlendirme gerektirir.
-
-Resmî Kaggle CLI belgeleri: [kernel push/status/output](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md) ve [kernel metadata](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels_metadata.md).
+Bu defterin statik CI kontrolü gerçek eğitimi çalıştırmaz. Metrikler ancak Kaggle'da Run All başarıyla bittiğinde oluşur. Polarite doğruluğu VAD veya Big Five doğruluğu değildir; proje raporuna yalnızca gerçek sonuçları ekle.
