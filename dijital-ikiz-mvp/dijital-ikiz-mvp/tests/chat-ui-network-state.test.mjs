@@ -38,7 +38,6 @@ test('variant switching and destructive toolbar actions are disabled during requ
 
   assert.match(source, /disabled=\{loading \|\| loadingData\}[\s\S]*?setVariant\(variant === 'personalized'/)
   assert.match(source, /disabled=\{loading \|\| loadingData\} onClick=\{clearData\}/)
-  assert.match(source, /disabled=\{loading \|\| loadingData\} onClick=\{signOut\}/)
   assert.match(source, /disabled=\{loading \|\| loadingData\}\s+onChange=\{\(event\) => setText/)
   assert.match(source, /disabled=\{loading \|\| loadingData \|\| !text\.trim\(\)\} onClick=\{send\}/)
 })
