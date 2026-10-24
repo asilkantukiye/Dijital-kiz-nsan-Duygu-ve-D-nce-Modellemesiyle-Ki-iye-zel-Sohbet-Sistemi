@@ -28,10 +28,11 @@ test('a thrown getUser/network error fails closed for protected routes', async (
   assert.match(source, /if \(!hasAuthenticatedUser\)\s*\{\s*return unauthenticatedResponse\(request, pathname\)/)
 })
 
-test('unauthenticated page redirects and API denials are non-cacheable', async () => {
+test('anonymous app shell stays public while API denials are non-cacheable', async () => {
   const source = await readProxy()
 
-  assert.match(source, /function unauthenticatedResponse\(request: NextRequest, pathname: string\)/)
-  assert.match(source, /NextResponse\.redirect\(loginUrl\)[\s\S]*?Cache-Control', 'private, no-store'/)
+  assert.match(source, /function unauthenticatedResponse\(\)/)
+  assert.doesNotMatch(source, /loginRedirect|NextResponse\.redirect/)
+  assert.doesNotMatch(source, /pathname === '\/'/)
   assert.match(source, /status: 401,[\s\S]*?headers: \{ 'Cache-Control': 'private, no-store' \}/)
 })
