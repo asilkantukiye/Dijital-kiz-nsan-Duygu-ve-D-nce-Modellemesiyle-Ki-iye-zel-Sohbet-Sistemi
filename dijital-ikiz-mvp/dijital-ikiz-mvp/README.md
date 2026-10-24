@@ -227,6 +227,8 @@ PDF'deki üç ana modülün MVP karşılığı:
 - **Dijital İkiz profili/veritabanı:** `supabase/schema.sql` ve `/api/chat`
 - **Dijital İkiz sohbet motoru:** `lib/huggingface.ts` ve `/api/chat`
 
+TÜBİTAK raporundaki beş basamağın mevcut kod karşılıkları, araştırma eksikleri ve kabul ölçütleri için [Ar-Ge yol haritasına](ml/PROJECT_RESEARCH_PLAN.md) bakın.
+
 MVP, rapordaki beş basamağın tamamlanmış bilimsel versiyonu değil; uygulama mimarisini ve ilk çalışan sohbet döngüsünü doğrulayan başlangıç sürümüdür.
 
 ## Yayına Alma
