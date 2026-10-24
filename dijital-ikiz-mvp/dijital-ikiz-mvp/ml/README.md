@@ -1,5 +1,7 @@
 # Ar-Ge Modelleme Hattı
 
+TÜBİTAK raporu ile kod eşleştirmesi ve kabul ölçütleri: [Proje araştırma yol haritası](PROJECT_RESEARCH_PLAN.md).
+
 Bu klasör, MVP'deki heuristic profilden gerçek ölçülebilir makine öğrenmesi modellerine geçiş için ayrılmıştır.
 
 ## Veri şeması
