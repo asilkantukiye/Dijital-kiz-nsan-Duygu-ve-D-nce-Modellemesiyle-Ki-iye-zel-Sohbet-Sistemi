@@ -126,7 +126,17 @@ Bu komutların ürettiği `metrics.json`, deney günlüğüne eklenmelidir. Sonu
 
 ## Türkçe duygu polaritesi pilotu
 
-Tek eğitim notebook'u: `ml/kaggle/dijital_ikiz_training.ipynb` (polarite zorunlu pilotu; uygun veri varsa VAD ve Big Five).
+Tek eğitim notebook'u: `ml/kaggle/dijital_ikiz_training.ipynb`. Aynı çalıştırmada Türkçe polarite sınıflandırması ve Qwen3-4B QLoRA talimat ince ayarı yapılır; uygun, doğrulanmış etiketli CSV varsa VAD ve Big Five regresyonları da çalışır.
+
+### Qwen3-4B QLoRA pilotu
+
+- Temel model: `Qwen/Qwen3-4B-Instruct-2507`.
+- Veri: `TFLai/Turkish-Alpaca`, sabitlenen veri revizyonu `90f9589`; Hub lisans metadata'sı Apache-2.0 bildirir.
+- Yöntem: 4-bit NF4 + LoRA, 1.500'e kadar eğitim örneği ve ayrı doğrulama/test bölümleri.
+- Ölçüt: aynı test kümesinde temel model ve ince ayarlı model yanıt-token kaybı; en iyi doğrulama kaybındaki adapter saklanır.
+- Paket: `artifacts/qwen-lora/adapter` ve `artifacts/qwen-lora/metrics.json`.
+
+Bu pilot genel Türkçe talimat verisidir; kişiye özel veri, VAD veya Big Five etiketi değildir. Test kaybı sohbet kalitesini ya da rapordaki %75 hedefini kanıtlamaz. Veri kartı ve kaynak koşulları eğitim öncesinde tekrar kontrol edilmelidir.
 
 Bu ayrı pilot, Hugging Face üzerinde CC BY-SA 4.0 olarak sunulan [winvoker Türkçe duygu analizi veri kümesini](https://huggingface.co/datasets/winvoker/turkish-sentiment-analysis-dataset) kullanır. Veri kümesinde olumlu, nötr ve olumsuz etiketler vardır. Model BERTurk tabanlı üç sınıflı sınıflandırıcıdır ve test accuracy, macro-F1, weighted-F1, sınıf bazlı precision/recall/F1 ile confusion matrix üretir.
 
