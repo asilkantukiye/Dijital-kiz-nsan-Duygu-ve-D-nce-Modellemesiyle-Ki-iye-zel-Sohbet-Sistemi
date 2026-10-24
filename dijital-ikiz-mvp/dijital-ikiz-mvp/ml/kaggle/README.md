@@ -68,17 +68,24 @@ VAD/Big Five regresyon notebook'undan bağımsız ilk sınıflandırma deneyi `m
 Bu yalnızca olumlu/nötr/olumsuz metin sınıflandırma pilotudur. Sürekli VAD (özellikle dominance) ve Big Five için ayrı uygun etiketli veri ve ayrı değerlendirme gerekir. Notebook gerçek eğitimden önce sentetik başarı sonucu üretmez ve %75 hedefi iddia etmez.
 
 
-## GitHub Actions üzerinden Kaggle eğitimi
+## GitHub Actions ile Kaggle defterini hazırlama ve eğitim
 
-Eğitim iş akışı `.github/workflows/kaggle-sentiment-pilot.yml` dosyasındadır. GitHub deposunda **Settings → Secrets and variables → Actions → New repository secret** bölümünde Kaggle API token'ını şu adlardan biriyle kaydet:
+GitHub'daki `.github/workflows/kaggle-sentiment-pilot.yml` akışı Kaggle API token'ını kullanarak defteri hesabına yükler. Gizli anahtar şu secret adlarından biriyle tanımlı olmalı:
 
-- `KAGGLE_API_TOKEN` (**önerilen**) veya
-- `KAGGLE_KULLANABILEGIN_TOKEN` (Türkçe karakter kullanmadan yazılmış alternatif ad).
+- `KAGGLE_API_TOKEN` (önerilen), veya
+- `KAGGLE_KULLANABILEGIN_TOKEN` (ASCII karakterli alternatif ad).
 
-GitHub secret adları yalnızca İngilizce harfler, rakamlar ve alt çizgi kabul eder; `kaggle_kullanabileceğin_token` içindeki `ğ` nedeniyle bu isim geçerli değildir. Secret'ın **değeri** Kaggle hesabının API sayfasından alınan token olmalı; değeri sohbete, koda veya loglara yazma. Kaggle API token'ı ile akış kullanıcı adını token kimliğinden bulmaya çalışır. Legacy `KAGGLE_KEY` kullanılıyorsa `KAGGLE_USERNAME` da gerekir.
+GitHub Secret adları `ğ` gibi Türkçe karakterleri kabul etmez. Token'ı sohbete, kaynak koda veya loglara yazma. Akış hesabı token üzerinden doğrular ve notebook'u **çalıştırmadan** yükler.
 
-`KAGGLE_API_TOKEN` ya da `KAGGLE_KULLANABILEGIN_TOKEN` secret'ı varsa yeni token yolunu kullan. GitHub Actions akışı elle **Actions → Run Kaggle sentiment pilot → Run workflow** yoluyla başlatılabilir; ayrıca eğitim notebook'u veya iş akışı dosyası `main` dalına gönderildiğinde hedefli tetikleme yapılır. Varsayılan hızlandırıcı `NvidiaTeslaT4` seçeneğidir. GPU ve internet erişimi Kaggle hesabında etkin olmalıdır; hesap doğrulama kısıtlarını atlatmaya çalışma.
+**Önemli Kaggle sınırlaması:** Otomatik API gönderiminde metadata'da `enable_internet=true` olmasına rağmen bu defterin çalıştırma ortamı internete çıkamadı; `pypi.org` DNS sorgusu başarısız oldu ve eğitim başlamadan durdu. Kaggle'ın notebook belgeleri internet erişimini Notebook Editor içindeki Settings/Session options ayarından açmayı tarif eder. Bu nedenle şu tek seferlik adım gereklidir:
 
-Başarılı çalıştırma sonunda Actions run sayfasındaki `kaggle-sentiment-pilot-results` artifact'ini indir. İçinde gerçek test sonuçlarını içeren `metrics.json` ve model ZIP'i bulunur. Notebook tamamlanmazsa artifact üretilmez; Kaggle notebook loglarını incelemek gerekir. Bu iş akışı **BERTurk tabanlı olumlu/nötr/olumsuz duygu polaritesi pilotunu** eğitir. VAD, Big Five veya Qwen üretici modelini eğitmiş sayılmaz; onlar için uygun etiketli veri ve ayrı deney gerekir.
+1. [Kaggle eğitim notebook'unu aç](https://www.kaggle.com/code/asilkantkiye/dijital-ikiz-sentiment-pilot).
+2. Sağdaki **Settings / Notebook** panelinden **Session options → Internet** anahtarını **On** yap.
+3. **Run All** ile notebook'u çalıştır. İlk hücre paketleri kuracak, sonra Türkçe duygu sınıflandırma modelini eğitip test edecek.
+4. Notebook başarılı biçimde tamamlandığında GitHub'da **Actions → Download Kaggle sentiment pilot results → Run workflow** yoluyla sonucu al. İndirme akışı `dijital-ikiz-sentiment-pilot.zip` ve gerçek metrikleri taşıyan `metrics.json` dosyasını artifact olarak yükler.
+
+İnternet ayarı görünmüyorsa Kaggle hesap ayarlarında doğrulama gerekip gerekmediğini kontrol et. API anahtarıyla kimlik doğrulama çalışıyor; engel girişte değil, notebook'un internet ayarında.
+
+Deney, BERTurk tabanlı olumlu/nötr/olumsuz polarite sınıflandırmasıdır. Qwen sohbet modeli, VAD boyutları veya Big Five kişilik modeli bu deneyde eğitilmiyor; bunlar ayrı veri ve değerlendirme gerektirir.
 
 Resmî Kaggle CLI belgeleri: [kernel push/status/output](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md) ve [kernel metadata](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels_metadata.md).
