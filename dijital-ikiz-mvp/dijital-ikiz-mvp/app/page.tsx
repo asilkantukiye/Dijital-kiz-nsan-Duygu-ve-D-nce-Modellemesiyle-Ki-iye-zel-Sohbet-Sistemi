@@ -383,19 +383,38 @@ export default function Home() {
     return (
       <div className="page">
         <main className="shell">
-          <div className="card login">
-            <div className="eyebrow">TÜBİTAK AR-GE PROTOTİPİ</div>
-            <h1 className="title">Dijital İkiz İnsan</h1>
-            <p className="sub">
-              Konuşma örneklerinden deneysel duygu, kişilik ve üslup göstergeleri çıkaran kişiselleştirilmiş sohbet prototipi.
-            </p>
+          <section className="card" aria-labelledby="session-status">
+            <div className="eyebrow">DİJİTAL İKİZ İNSAN</div>
+            <h1 className="title" id="session-status">Sistem hazırlanıyor</h1>
+            <p className="sub">Hesap açmadan anonim araştırma oturumu başlatılıyor.</p>
             {error && <p className="small" role="alert">{error}</p>}
-            <p className="small">Bu prototip kullanıcı hesabı açmadan anonim bir araştırma oturumu oluşturur. Oturum açılamıyorsa yukarıdaki bağlantı mesajını kontrol et.</p>
+            <button
+              className="btn"
+              disabled={loadingSession}
+              onClick={async () => {
+                setLoadingSession(true)
+                setError('')
+                try {
+                  const supabase = createClient()
+                  const { data, error: sessionError } = await supabase.auth.signInAnonymously()
+                  if (sessionError || !data.session) {
+                    throw sessionError ?? new Error('Anonim oturum oluşturulamadı.')
+                  }
+                  setSession(data.session)
+                } catch {
+                  setError('Anonim oturum başlatılamadı. Supabase Anonymous Sign-Ins ayarını ve bağlantıyı kontrol et.')
+                } finally {
+                  setLoadingSession(false)
+                }
+              }}
+            >
+              {loadingSession ? 'Başlatılıyor…' : 'Yeniden dene'}
+            </button>
             <p className="small privacy-note">
-              Araştırma prototipidir; psikolojik tanı veya profesyonel terapi hizmeti sunmaz.
+              Araştırma prototipidir; psikolojik tanı veya terapi hizmeti sunmaz.
               {' '}<a href="/privacy">Gizlilik ve veri işleme</a>
             </p>
-          </div>
+          </section>
         </main>
       </div>
     )
@@ -411,7 +430,7 @@ export default function Home() {
             <p className="sub">
               Konuşma geçmişi + deneysel duygu + Big Five + üslup profili + Supabase hafızası.
             </p>
-            <p className="small user-email">{session.user.email} · <a href="/about" style={{ color: "#8cc8ff" }}>Proje bilgisi</a></p>
+            <p className="small user-email">Anonim araştırma oturumu · <a href="/about" style={{ color: "#8cc8ff" }}>Proje bilgisi</a></p>
           </div>
 
           <div className="toolbar">
@@ -444,7 +463,7 @@ export default function Home() {
 
               {!loadingData && messages.length === 0 && !loading && (
                 <div className="small">
-                  İlk mesajını yaz. Sistem mesajdan deneysel göstergeler çıkarıp yanıtı kişiselleştirecek ve hesabına kaydedecek.
+                  İlk mesajını yaz. Sistem mesajdan deneysel göstergeler çıkarıp yanıtı kişiselleştirerek anonim oturumuna kaydedecek.
                 </div>
               )}
 
