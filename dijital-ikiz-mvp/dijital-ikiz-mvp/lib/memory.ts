@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { HuggingFaceEmbeddingProvider } from '@/lib/huggingface'
+import { validateEmbeddingVector } from '@/lib/embedding-validation'
 
 import { extractMemories, MEMORY_DUPLICATE_SIMILARITY_THRESHOLD, planPreferenceReplacement, type MemoryItem } from '@/lib/memory-text'
 
@@ -11,7 +12,9 @@ const MIN_SIMILARITY = 0.72
 const MAX_MEMORY_RESULTS = 5
 const MAX_MEMORY_ITEMS_PER_USER = 50
 const MEMORY_RETENTION_DAYS = 180
-const MEMORY_PRUNE_BATCH_SIZE = 500
+const MEMORY_PRUNE_BATCH_SIZE = 250
+const MAX_PRUNE_BATCHES_PER_PASS = 4
+const MAX_PRUNE_FILTER_CLAUSES = 64
 const MEMORY_RETENTION_MS = MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>
@@ -25,53 +28,55 @@ async function assertMemoryUserContext(supabase: ServerSupabaseClient, userId: s
   return user.id
 }
 
-async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: string) {
-  const cutoff = new Date(Date.now() - MEMORY_RETENTION_MS).toISOString()
-
-  // A memory is stale only when both its last update and last use are old.
-  // Rows that have never been used use updated_at as their activity timestamp.
-  const { error: neverUsedError } = await supabase
-    .from('memory_items')
-    .delete()
-    .eq('user_id', userId)
-    .is('last_used_at', null)
-    .lt('updated_at', cutoff)
-
-  if (neverUsedError) throw neverUsedError
-
-  const { error: inactiveError } = await supabase
-    .from('memory_items')
-    .delete()
-    .eq('user_id', userId)
-    .not('last_used_at', 'is', null)
-    .lt('updated_at', cutoff)
-    .lt('last_used_at', cutoff)
-
-  if (inactiveError) throw inactiveError
-
-  // Keep only the newest records for this account. Delete in batches so users
-  // who already have an oversized memory table are brought back under the cap.
-  while (true) {
-    const { data, error } = await supabase
-      .from('memory_items')
-      .select('id')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(MAX_MEMORY_ITEMS_PER_USER, MAX_MEMORY_ITEMS_PER_USER + MEMORY_PRUNE_BATCH_SIZE - 1)
-
+async function pruneNeverUsedMemories(supabase: ServerSupabaseClient, userId: string, cutoff: string) {
+  for (let batch = 0; batch < MAX_PRUNE_BATCHES_PER_PASS; batch += 1) {
+    const { data, error } = await supabase.from('memory_items').select('id').eq('user_id', userId).is('last_used_at', null).lt('updated_at', cutoff).order('updated_at', { ascending: true }).order('id', { ascending: true }).limit(MEMORY_PRUNE_BATCH_SIZE)
     if (error) throw error
     const ids = (data ?? []).map((item) => item.id).filter((id): id is string => typeof id === 'string')
     if (ids.length === 0) break
-
-    const { error: deleteError } = await supabase
-      .from('memory_items')
-      .delete()
-      .eq('user_id', userId)
-      .in('id', ids)
-
+    const { error: deleteError } = await supabase.from('memory_items').delete().eq('user_id', userId).in('id', ids).is('last_used_at', null).lt('updated_at', cutoff)
     if (deleteError) throw deleteError
-    if (ids.length < MEMORY_PRUNE_BATCH_SIZE) break
+  }
+}
+
+async function pruneInactiveMemories(supabase: ServerSupabaseClient, userId: string, cutoff: string) {
+  for (let batch = 0; batch < MAX_PRUNE_BATCHES_PER_PASS; batch += 1) {
+    const { data, error } = await supabase.from('memory_items').select('id').eq('user_id', userId).not('last_used_at', 'is', null).lt('updated_at', cutoff).lt('last_used_at', cutoff).order('last_used_at', { ascending: true }).order('updated_at', { ascending: true }).order('id', { ascending: true }).limit(MEMORY_PRUNE_BATCH_SIZE)
+    if (error) throw error
+    const ids = (data ?? []).map((item) => item.id).filter((id): id is string => typeof id === 'string')
+    if (ids.length === 0) break
+    const { error: deleteError } = await supabase.from('memory_items').delete().eq('user_id', userId).in('id', ids).not('last_used_at', 'is', null).lt('updated_at', cutoff).lt('last_used_at', cutoff)
+    if (deleteError) throw deleteError
+  }
+}
+
+async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: string) {
+  const cutoff = new Date(Date.now() - MEMORY_RETENTION_MS).toISOString()
+  // Each pass is bounded. Remaining rows resume on the next memory operation.
+  await pruneNeverUsedMemories(supabase, userId, cutoff)
+  await pruneInactiveMemories(supabase, userId, cutoff)
+  for (let batch = 0; batch < MAX_PRUNE_BATCHES_PER_PASS; batch += 1) {
+    const { data, error } = await supabase.from('memory_items').select('id,updated_at,last_used_at').eq('user_id', userId).order('updated_at', { ascending: false }).order('id', { ascending: true }).range(MAX_MEMORY_ITEMS_PER_USER, MAX_MEMORY_ITEMS_PER_USER + MEMORY_PRUNE_BATCH_SIZE - 1)
+    if (error) throw error
+    const rows = (data ?? []).filter((item): item is { id: string; updated_at: string; last_used_at: string | null } => typeof item.id === 'string' && typeof item.updated_at === 'string' && (typeof item.last_used_at === 'string' || item.last_used_at === null))
+    if (rows.length === 0) break
+
+    // Delete only the exact versions selected. Concurrent content updates change
+    // updated_at; retrievals change last_used_at. Either change must protect the row.
+    for (let offset = 0; offset < rows.length; offset += MAX_PRUNE_FILTER_CLAUSES) {
+      const chunk = rows.slice(offset, offset + MAX_PRUNE_FILTER_CLAUSES)
+      const ids = chunk.map((row) => row.id)
+      const updatedSnapshotFilter = chunk.map((row) => {
+        const activityPredicate = row.last_used_at === null
+          ? 'last_used_at.is.null'
+          : `last_used_at.eq.${row.last_used_at}`
+        return `and(id.eq.${row.id},updated_at.eq.${row.updated_at},${activityPredicate})`
+      }).join(',')
+      const { error: deleteError } = await supabase.from('memory_items').delete().eq('user_id', userId).in('id', ids).or(updatedSnapshotFilter)
+      if (deleteError) throw deleteError
+    }
+
+    if (rows.length < MEMORY_PRUNE_BATCH_SIZE) break
   }
 }
 
@@ -91,7 +96,7 @@ export async function retrieveMemories(userId: string, queryText: string) {
   if (!existing || existing.length === 0) return []
 
   const embedder = new HuggingFaceEmbeddingProvider()
-  const embedding = await embedder.embed(queryText, 'query')
+  const embedding = validateEmbeddingVector(await embedder.embed(queryText, 'query'))
 
   const { data, error } = await supabase.rpc('match_memory_items', {
     query_embedding: embedding,
@@ -149,7 +154,7 @@ export async function persistMemories(
   const embedded = await Promise.all(
     candidates.map(async (memory) => ({
       memory,
-      embedding: await embedder.embed(memory.content, 'passage')
+      embedding: validateEmbeddingVector(await embedder.embed(memory.content, 'passage'))
     }))
   )
 

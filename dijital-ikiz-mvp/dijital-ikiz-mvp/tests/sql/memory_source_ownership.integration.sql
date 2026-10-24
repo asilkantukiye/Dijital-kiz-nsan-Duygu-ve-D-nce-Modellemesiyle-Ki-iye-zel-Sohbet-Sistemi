@@ -18,7 +18,7 @@ VALUES
     'preference',
     'aud04-valid-memory-owner-a',
     0.6,
-    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384),
+    ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384),
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01'
   ),
   (
@@ -27,7 +27,7 @@ VALUES
     'preference',
     'aud04-valid-memory-owner-b',
     0.6,
-    ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384),
+    ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384),
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02'
   );
 
@@ -44,7 +44,7 @@ BEGIN
       'preference',
       'aud04-cross-tenant-insert-must-fail',
       0.7,
-      ('[' || array_to_string(array_fill(0::real, ARRAY[384]), ',') || ']')::extensions.vector(384),
+      ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384),
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01'
     );
   EXCEPTION WHEN foreign_key_violation THEN

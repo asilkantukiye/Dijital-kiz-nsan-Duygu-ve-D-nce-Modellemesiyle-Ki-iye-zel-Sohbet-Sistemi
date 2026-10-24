@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- This runs after AUD-02 migration under PostgreSQL/pgvector CI.
+-- This runs after the complete migration chain under PostgreSQL/pgvector CI.
 RESET ROLE;
 SET ROLE service_role;
 
@@ -60,6 +60,7 @@ DO $idempotency_persist$
 DECLARE
   stored record;
   replay record;
+  dedupe_window interval;
 BEGIN
   SELECT * INTO stored
   FROM public.persist_chat_turn_idempotent_server(
@@ -77,6 +78,17 @@ BEGIN
 
   IF stored.disposition <> 'completed' THEN
     RAISE EXCEPTION 'first request did not complete persistence';
+  END IF;
+
+  SELECT dedupe_expires_at - clock_timestamp()
+    INTO dedupe_window
+  FROM public.chat_request_deduplication
+  WHERE user_id = '44444444-4444-4444-8444-444444444444'
+    AND request_hash = repeat('a', 64);
+
+  IF dedupe_window IS NULL OR dedupe_window <= interval '0 seconds'
+     OR dedupe_window > interval '10 seconds' THEN
+    RAISE EXCEPTION 'completed request replay window must be within 10 seconds, got %', dedupe_window;
   END IF;
 
   IF stored.response ->> 'messageId' IS DISTINCT FROM stored.assistant_message_id::text THEN

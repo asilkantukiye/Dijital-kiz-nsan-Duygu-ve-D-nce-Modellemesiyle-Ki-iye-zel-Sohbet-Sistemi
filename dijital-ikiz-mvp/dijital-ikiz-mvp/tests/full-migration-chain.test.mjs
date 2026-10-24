@@ -8,7 +8,7 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 
-test('CI applies all twelve Supabase migrations in timestamp order', async () => {
+test('CI applies all fifteen Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
@@ -27,7 +27,10 @@ test('CI applies all twelve Supabase migrations in timestamp order', async () =>
     '20261023196000_aud_01_chat_write_boundary.sql',
     '20261023200000_aud_02_chat_deduplication.sql',
     '20261023210000_aud_03_concurrent_profile_updates.sql',
-    '20261023220000_aud_04_memory_ownership_validation.sql'
+    '20261023220000_aud_04_memory_ownership_validation.sql',
+    '20261023230000_aud_05_embedding_validation.sql',
+    '20261023230500_aud_05_validate_embedding_integrity.sql',
+    '20261023231000_aud_06_chat_deduplication_window.sql'
   ]
 
   const positions = migrations.map((migration) => {
@@ -46,9 +49,11 @@ test('CI applies all twelve Supabase migrations in timestamp order', async () =>
     'tests/sql/memory_rls.integration.sql',
     'tests/sql/memory_preference_update.integration.sql',
     'tests/sql/security_rpc.integration.sql',
-    'tests/sql/memory_source_ownership.integration.sql'
+    'tests/sql/memory_source_ownership.integration.sql',
+    'tests/sql/memory_embedding_integrity.integration.sql'
   ]
   assert.match(workflow, /name: Test concurrent profile updates against PostgreSQL/)
+  assert.match(workflow, /name: Test embedding integrity against PostgreSQL/)
   assert.ok(workflow.includes('node tests/profile-update-concurrency.integration.mjs'))
 
   for (const check of postMigrationChecks) {

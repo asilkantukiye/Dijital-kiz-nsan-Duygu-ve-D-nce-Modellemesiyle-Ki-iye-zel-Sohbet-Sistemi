@@ -38,6 +38,16 @@ BEGIN
     RAISE EXCEPTION 'memory_items.embedding must be vector(384), got typmod %', embedding_typmod;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.memory_items'::regclass
+      AND conname = 'memory_items_embedding_integrity_check'
+      AND contype = 'c'
+      AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'AUD-05 embedding integrity constraint is missing or unvalidated';
+  END IF;
+
   SELECT attnum INTO memory_source_attnum
   FROM pg_attribute
   WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_id' AND NOT attisdropped;
@@ -154,6 +164,15 @@ BEGIN
 
   IF has_schema_privilege('anon', 'extensions', 'USAGE') THEN
     RAISE EXCEPTION 'anon unexpectedly has USAGE on extensions schema';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger t
+    WHERE t.tgrelid = 'public.chat_request_deduplication'::regclass
+      AND t.tgname = 'chat_request_dedupe_window_10s'
+      AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'AUD-06 completed-request 10-second dedupe trigger is missing';
   END IF;
 
   IF to_regclass('public.messages_user_variant_created_idx') IS NULL THEN
