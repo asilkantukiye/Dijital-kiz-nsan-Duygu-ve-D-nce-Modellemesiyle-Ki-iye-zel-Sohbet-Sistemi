@@ -167,9 +167,14 @@ Rapor; koşul başına puanlı katılımcı sayısını, katılımcı ortalamala
 
 ## Kaggle eğitiminin GitHub Actions üzerinden başlatılması
 
-`.github/workflows/kaggle-sentiment-pilot.yml` yalnızca `workflow_dispatch` ile çalışır. Repository secrets içinde `KAGGLE_USERNAME` ile birlikte `KAGGLE_API_TOKEN` (tercih edilen) veya legacy `KAGGLE_KEY` tanımlıysa seçilen Kaggle GPU ile notebook'u gönderir, tamamlanmasını bekler ve modeli/gerçek `metrics.json` çıktısını Actions artifact'ine yükler. GPU kotası harcamamak için push, PR veya normal CI tetikleyicileri bu workflow'u başlatmaz.
+Tek notebook `ml/kaggle/dijital_ikiz_training.ipynb`, Türkçe polarite modelini ve Qwen3-4B QLoRA pilotunu aynı Kaggle çalıştırmasında eğitir. VAD/Big Five yalnızca doğrulanmış, görev-uyumlu CSV eklenirse çalışır.
 
-Notebook çıktısı ancak gerçek Kaggle çalıştırması başarıyla biterse oluşur. Otomatik statik kontrollerin yeşil olması modelin eğitildiği anlamına gelmez.
+`.github/workflows/kaggle-sentiment-pilot.yml`, yalnızca `main` dalında bu workflow veya notebook değiştiğinde ve elle `workflow_dispatch` ile çalışır. GitHub Secret `KAGGLE_KULLANABILEGIN_TOKEN` veya `KAGGLE_API_TOKEN` (tercih edilen) ya da legacy `KAGGLE_USERNAME` + `KAGGLE_KEY` kullanılır. Workflow mevcut secret değerlerini değiştirmez ve token değerlerini yazdırmaz.
+
+Hazırlık workflow'u notebook'u Kaggle hesabına **çalıştırmadan** yükler. Kaggle Notebook Settings → Session options → Internet ayarını açıp GPU seç; ardından Kaggle'da **Run All** çalıştır. Eğitim tamamlanınca GitHub Actions içinden **Download Kaggle Model Artifacts** workflow'unu elle başlat. Bu workflow ZIP içindeki görev bazlı `metrics.json` dosyalarını doğrular ve modeli/ölçümleri Actions artifact'ine yükler.
+
+Notebook statik kontrolü veya GitHub CI'nin yeşil olması, modelin gerçekten eğitildiğini ya da %75 hedefinin sağlandığını kanıtlamaz. Gerçek metrikler yalnızca başarılı Kaggle çalıştırmasının çıktısından alınır.
+
 
 
 ## Görev bazlı veri doğrulama
