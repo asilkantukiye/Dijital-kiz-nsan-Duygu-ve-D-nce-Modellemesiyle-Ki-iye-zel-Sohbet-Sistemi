@@ -87,7 +87,7 @@ jobs:
           {
             "id": "${KAGGLE_USERNAME}/dijital-ikiz-training",
             "title": "Dijital Ikiz Model Training",
-            "code_file": "sentiment_baseline.ipynb",
+            "code_file": "dijital_ikiz_training.ipynb",
             "language": "python",
             "kernel_type": "notebook",
             "is_private": "true",
@@ -100,7 +100,7 @@ jobs:
             "model_sources": []
           }
           EOF
-          echo "KAGGLE_KERNEL_ID=${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot" >> "$GITHUB_ENV"
+          echo "KAGGLE_KERNEL_ID=${KAGGLE_USERNAME}/dijital-ikiz-training" >> "$GITHUB_ENV"
           echo "KAGGLE_RUN_DIR=$RUN_DIR" >> "$GITHUB_ENV"
           echo "Kaggle notebook metadata prepared for selected accelerator."
 
@@ -115,7 +115,7 @@ jobs:
             echo
             echo "The notebook has been uploaded without execution. Enable Internet in Kaggle Notebook Settings before running training."
             echo
-            echo "1. Open the notebook in Kaggle: https://www.kaggle.com/code/${KAGGLE_USERNAME}/dijital-ikiz-sentiment-pilot"
+            echo "1. Open the notebook in Kaggle: https://www.kaggle.com/code/${KAGGLE_USERNAME}/dijital-ikiz-training"
             echo "2. In the right-side Settings/Notebook panel, open Session options and switch Internet on."
             echo "3. Save the setting, then use Run All and wait for the notebook to finish."
             echo "4. After training completes, run the **Download Kaggle Model Artifacts** workflow."
