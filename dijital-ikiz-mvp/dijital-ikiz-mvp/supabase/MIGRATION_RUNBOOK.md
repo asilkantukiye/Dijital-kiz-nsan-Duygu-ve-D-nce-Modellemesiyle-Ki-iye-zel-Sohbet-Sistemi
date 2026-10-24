@@ -32,7 +32,8 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 11. 20261023210000_aud_03_concurrent_profile_updates.sql
 12. 20261023220000_aud_04_memory_ownership_validation.sql
 13. 20261023230000_aud_05_embedding_validation.sql
-14. 20261023231000_aud_06_chat_deduplication_window.sql
+14. 20261023230500_aud_05_validate_embedding_integrity.sql
+15. 20261023231000_aud_06_chat_deduplication_window.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir.
 
@@ -166,7 +167,7 @@ CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A
 
 ## AUD-05 / AUD-06: vector integrity and bounded memory garbage collection
 
-`20261023230000_aud_05_embedding_validation.sql` adds and validates a database CHECK constraint requiring `vector(384)`, a positive vector norm, and a finite norm. `lib/embedding-validation.ts` rejects empty, wrong-dimension, non-numeric, null, NaN, infinite, zero and overflow-norm arrays before any pgvector RPC or write; token-level pooling no longer fabricates missing dimensions as zero. CI runs `tests/sql/memory_embedding_integrity.integration.sql` to prove the database rejects a zero vector.
+`20261023230000_aud_05_embedding_validation.sql` adds a database CHECK constraint as `NOT VALID`, requiring `vector(384)`, a positive vector norm, and a finite norm. The follow-up `20261023230500_aud_05_validate_embedding_integrity.sql` validates historical rows in a separate migration transaction, releasing the initial DDL lock before the table scan. `lib/embedding-validation.ts` rejects empty, wrong-dimension, non-numeric, null, NaN, infinite, zero and overflow-norm arrays before any pgvector RPC or write; token-level pooling no longer fabricates missing dimensions as zero. CI runs `tests/sql/memory_embedding_integrity.integration.sql` to prove the database rejects a zero vector.
 
 `lib/memory.ts` now handles stale and over-cap cleanup in deterministic batches. Each request deletes at most four batches per category, reapplies stale predicates on DELETE to protect a concurrently used row, and leaves additional cleanup for later memory operations instead of running unbounded DELETE loops.
 
