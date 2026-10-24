@@ -54,7 +54,7 @@ jobs:
           echo "A supported Kaggle credential source is configured; secret values are not printed."
 
       - name: Install Kaggle CLI and account lookup
-        run: python -m pip install "kaggle>=1.8.2,<2" "kagglehub>=0.3.12,<1"
+        run: python -m pip install --upgrade "kaggle>=2.2.4,<3" "kagglehub>=0.3.12,<1"
 
       - name: Resolve Kaggle account username
         shell: bash
@@ -125,7 +125,7 @@ jobs:
 
             if grep -Eqi '(^|[^[:alpha:]])(failed|error)([^[:alpha:]]|$)' <<< "$lower_status"; then
               echo "::error::Kaggle training reported an error. Open the Kaggle notebook logs to inspect the failure."
-              kaggle kernels logs "$KAGGLE_KERNEL_ID" || true
+              kaggle kernels logs "$KAGGLE_KERNEL_ID" 2>&1 | tail -n 250 || true
               exit 1
             fi
 
