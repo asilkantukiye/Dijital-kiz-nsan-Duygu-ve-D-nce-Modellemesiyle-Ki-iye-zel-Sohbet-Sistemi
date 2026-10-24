@@ -81,6 +81,22 @@ jobs:
             exit 1
           fi
 
+      - name: Validate single training notebook
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle")
+          notebooks = sorted(root.glob("*.ipynb"))
+          if len(notebooks) != 1 or notebooks[0].name != "dijital_ikiz_training.ipynb":
+              raise SystemExit(f"Expected exactly one training notebook, found: {[p.name for p in notebooks]}")
+          notebook = json.loads(notebooks[0].read_text(encoding="utf-8"))
+          if notebook.get("nbformat") != 4 or not notebook.get("cells"):
+              raise SystemExit("Training notebook is not a valid non-empty Jupyter notebook.")
+          print(f"Validated one training notebook: {notebooks[0]}")
+          PY
+
       - name: Prepare private Kaggle notebook
         shell: bash
         run: |
