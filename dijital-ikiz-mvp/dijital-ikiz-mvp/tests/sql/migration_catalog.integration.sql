@@ -12,6 +12,10 @@ DECLARE
   function_name text;
   function_oid oid;
   is_security_definer boolean;
+  memory_source_attnum smallint;
+  memory_user_attnum smallint;
+  message_id_attnum smallint;
+  message_user_attnum smallint;
 BEGIN
   SELECT n.nspname
   INTO extension_schema
@@ -34,11 +38,53 @@ BEGIN
     RAISE EXCEPTION 'memory_items.embedding must be vector(384), got typmod %', embedding_typmod;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.memory_items'::regclass
+      AND conname = 'memory_items_embedding_integrity_check'
+      AND contype = 'c'
+      AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'AUD-05 embedding integrity constraint is missing or unvalidated';
+  END IF;
+
+  SELECT attnum INTO memory_source_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_id' AND NOT attisdropped;
+  SELECT attnum INTO memory_user_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.memory_items'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO message_id_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.messages'::regclass AND attname = 'id' AND NOT attisdropped;
+  SELECT attnum INTO message_user_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.messages'::regclass AND attname = 'user_id' AND NOT attisdropped;
+
+  IF to_regclass('public.messages_id_user_id_uidx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-04 composite messages(id,user_id) unique index is missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conrelid = 'public.memory_items'::regclass
+      AND c.confrelid = 'public.messages'::regclass
+      AND c.contype = 'f'
+      AND c.conkey = ARRAY[memory_source_attnum, memory_user_attnum]::smallint[]
+      AND c.confkey = ARRAY[message_id_attnum, message_user_attnum]::smallint[]
+      AND c.confdeltype = 'n'
+      AND c.confdelsetcols = ARRAY[memory_source_attnum]::smallint[]
+  ) THEN
+    RAISE EXCEPTION 'AUD-04 memory source composite owner foreign key is missing or malformed';
+  END IF;
+
   FOREACH table_name IN ARRAY ARRAY[
     'twin_profiles',
     'messages',
     'message_feedback',
-    'memory_items'
+    'memory_items',
+    'chat_request_deduplication'
   ]
   LOOP
     table_oid := to_regclass(format('public.%I', table_name));
@@ -61,6 +107,10 @@ BEGIN
     'delete_my_chat_data',
     'persist_chat_turn',
     'persist_chat_turn_server',
+    'claim_chat_request_server',
+    'release_chat_request_server',
+    'persist_chat_turn_idempotent_server',
+    'merge_twin_profile_observation',
     'replace_my_memory_preference'
   ]
   LOOP
@@ -86,13 +136,13 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server') THEN
+    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation') THEN
       IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
       END IF;
-      IF function_name = 'persist_chat_turn_server'
+      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation')
          AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
-        RAISE EXCEPTION 'service_role is missing EXECUTE on server chat writer';
+        RAISE EXCEPTION 'service_role is missing EXECUTE on server-only chat RPC %', function_name;
       END IF;
     ELSE
       IF NOT has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
@@ -114,6 +164,15 @@ BEGIN
 
   IF has_schema_privilege('anon', 'extensions', 'USAGE') THEN
     RAISE EXCEPTION 'anon unexpectedly has USAGE on extensions schema';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger t
+    WHERE t.tgrelid = 'public.chat_request_deduplication'::regclass
+      AND t.tgname = 'chat_request_dedupe_window_10s'
+      AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'AUD-06 completed-request 10-second dedupe trigger is missing';
   END IF;
 
   IF to_regclass('public.messages_user_variant_created_idx') IS NULL THEN
