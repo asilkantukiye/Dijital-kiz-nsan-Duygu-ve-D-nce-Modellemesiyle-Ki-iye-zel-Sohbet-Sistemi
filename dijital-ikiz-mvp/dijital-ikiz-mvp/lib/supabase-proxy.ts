@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
   // Keep public pages available and continue to deny protected routes.
   if (!isValidSupabaseUrl(supabaseUrl)) {
     if (protectedRoute) {
-      return authUnavailableResponse(request, pathname)
+      return authUnavailableResponse()
     }
 
     response.headers.set('Cache-Control', 'private, no-store')
@@ -81,11 +81,11 @@ export async function updateSession(request: NextRequest) {
       hasAuthenticatedUser = Boolean(user)
     } catch {
       // A network/auth provider exception must never bypass this guard.
-      return unauthenticatedResponse(request, pathname)
+      return unauthenticatedResponse()
     }
 
     if (!hasAuthenticatedUser) {
-      return unauthenticatedResponse(request, pathname)
+      return unauthenticatedResponse()
     }
   }
 
