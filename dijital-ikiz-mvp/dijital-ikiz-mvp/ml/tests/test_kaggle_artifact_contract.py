@@ -29,6 +29,10 @@ class KaggleArtifactContractTests(unittest.TestCase):
 
         self.assertIn("/artifacts/sentiment", code)
         self.assertIn("dijital-ikiz-model-artifacts", code)
+        self.assertIn("Qwen/Qwen3-4B-Instruct-2507", code)
+        self.assertIn("TFLai/Turkish-Alpaca", code)
+        self.assertIn("Qwen LoRA validation loss", code)
+        self.assertIn("qwen-lora", code)
         self.assertIn("vad", code)
         self.assertIn("big-five", code)
         self.assertIn("dijital-ikiz-model-artifacts.zip", workflow)
@@ -38,7 +42,7 @@ class KaggleArtifactContractTests(unittest.TestCase):
     def test_archive_keeps_each_task_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "artifacts"
-            for task in ("sentiment", "vad", "big-five"):
+            for task in ("sentiment", "vad", "big-five", "qwen-lora"):
                 directory = root / task
                 directory.mkdir(parents=True)
                 (directory / "metrics.json").write_text(
@@ -51,7 +55,7 @@ class KaggleArtifactContractTests(unittest.TestCase):
             )
             with zipfile.ZipFile(archive) as zipped:
                 names = zipped.namelist()
-                for task in ("sentiment", "vad", "big-five"):
+                for task in ("sentiment", "vad", "big-five", "qwen-lora"):
                     self.assertIn(f"{task}/metrics.json", names)
 
 

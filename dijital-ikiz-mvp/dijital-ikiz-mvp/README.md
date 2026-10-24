@@ -10,7 +10,7 @@ TÜBİTAK projesi için geliştirilen ilk çalışan prototiptir. Proje, kullan�
 - **Qwen:** ilk MVP üretici model
 - **GitHub:** kaynak kodu ve sürüm kontrolü
 - **Vercel:** üretim dağıtımı
-- **Kaggle:** tek notebook'ta Türkçe polarite eğitimi; uygun etiketli veri eklenirse VAD ve Big Five regresyonu
+- **Kaggle:** tek notebook'ta Türkçe polarite eğitimi + Qwen3-4B QLoRA; uygun etiketli veri eklenirse VAD ve Big Five regresyonu
 
 Akış:
 
@@ -197,7 +197,7 @@ sağlar.
 
 Bu MVP'deki duygu, kişilik ve üslup çıkarımı **heuristic/baseline** yaklaşımıdır. Bu nedenle henüz rapordaki %75 doğruluk hedefinin sağlandığı iddia edilmemelidir.
 
-Kaggle eğitim hattı artık tek notebook'ta Türkçe duygu polaritesi sınıflandırmasını çalıştırır. VAD ve Big Five görevleri yalnızca hedeflerine uygun etiketli CSV'ler eklenirse çalışır. Hub üzerindeki polarite etiketleri VAD veya kişilik puanı olarak kullanılmaz.
+Kaggle eğitim hattı tek notebook'ta Türkçe duygu polaritesi sınıflandırmasını ve Qwen3-4B QLoRA talimat ince ayarını çalıştırır. VAD ve Big Five görevleri yalnızca hedeflerine uygun etiketli CSV'ler eklenirse çalışır. Polarite etiketleri VAD veya kişilik puanı olarak kullanılmaz; genel talimat verisi de kişiye özel dijital ikiz etiketi değildir.
 
 TÜBİTAK Ar-Ge için kalan işler:
 
