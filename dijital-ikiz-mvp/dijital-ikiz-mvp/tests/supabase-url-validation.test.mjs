@@ -50,3 +50,36 @@ test('invalid Supabase URLs are rejected before SDK construction without opening
     /if \(!isValidSupabaseUrl\(supabaseUrl\)\)[\s\S]*?response\.headers\.set\('Cache-Control', 'private, no-store'\)\s*return response/
   )
 })
+
+
+test('server and browser Supabase clients validate public environment before SDK construction', async () => {
+  const [serverClient, browserClient] = await Promise.all([
+    readFile(path.resolve(testDirectory, '../lib/supabase-server.ts'), 'utf8'),
+    readFile(path.resolve(testDirectory, '../lib/supabase-browser.ts'), 'utf8')
+  ])
+
+  for (const source of [serverClient, browserClient]) {
+    const validationIndex = source.indexOf('if (typeof supabaseUrl !== \'string\' || !isValidSupabaseUrl(supabaseUrl) || typeof publishableKey !== \'string\' || !publishableKey.trim())')
+    const constructorIndex = source.indexOf('createServerClient(') >= 0
+      ? source.indexOf('createServerClient(')
+      : source.indexOf('createBrowserClient(')
+
+    assert.ok(validationIndex >= 0, 'Supabase clients must explicitly validate URL and publishable key')
+    assert.ok(constructorIndex > validationIndex, 'configuration validation must precede SDK construction')
+    assert.doesNotMatch(source, /NEXT_PUBLIC_[A-Z0-9_]+!/)
+  }
+})
+
+
+test('privileged Supabase client validates URL and server-only secret before SDK construction', async () => {
+  const source = await readFile(path.resolve(testDirectory, '../lib/supabase-admin.ts'), 'utf8')
+  const validationIndex = source.indexOf("if (typeof url !== 'string' || !isValidSupabaseUrl(url))")
+  const keyValidationIndex = source.indexOf("if (typeof serviceRoleKey !== 'string' || !serviceRoleKey.trim())")
+  const constructorIndex = source.indexOf('createSupabaseClient(')
+  assert.ok(validationIndex >= 0, 'admin client must validate its URL')
+  assert.ok(keyValidationIndex > validationIndex, 'admin client must validate a non-empty server-only key')
+  assert.ok(constructorIndex > keyValidationIndex, 'SDK construction must follow all configuration checks')
+  assert.match(source, /process\.env\.SUPABASE_SERVICE_ROLE_KEY/)
+  assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY\s*:\s*process\.env\.NEXT_PUBLIC_/)
+  assert.doesNotMatch(source, /createSupabaseClient\(url!,/)
+})
