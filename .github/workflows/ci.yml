@@ -9,9 +9,9 @@ concurrency:
 
 on:
   push:
-    branches: ["main", "fix/aud-03-concurrent-profile-updates"]
+    branches: ["main", "fix/aud-03-concurrent-profile-updates", "fix/aud-04-memory-ownership-validation"]
   pull_request:
-    branches: ["main", "fix/aud-01-security-hardening", "fix/aud-02-chat-deduplication"]
+    branches: ["main", "fix/aud-01-security-hardening", "fix/aud-02-chat-deduplication", "fix/aud-03-concurrent-profile-updates"]
 
 jobs:
   web:
@@ -84,13 +84,15 @@ jobs:
             --file supabase/migrations/20261023196000_aud_01_chat_write_boundary.sql \
             --file supabase/migrations/20261023200000_aud_02_chat_deduplication.sql \
             --file supabase/migrations/20261023210000_aud_03_concurrent_profile_updates.sql \
+            --file supabase/migrations/20261023220000_aud_04_memory_ownership_validation.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/chat_write_boundary.integration.sql \
             --file tests/sql/chat_idempotency.integration.sql \
             --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/memory_preference_update.integration.sql \
-            --file tests/sql/security_rpc.integration.sql
+            --file tests/sql/security_rpc.integration.sql \
+            --file tests/sql/memory_source_ownership.integration.sql
 
       - name: Test concurrent profile updates against PostgreSQL
         env:
