@@ -37,34 +37,33 @@ test('every memory-retention deletion and overflow cleanup is scoped to the curr
   const memory = await readFile(memoryPath, 'utf8')
 
   const neverUsedPrune = memory.match(
-    /const \{ error: neverUsedError \} = await supabase([\s\S]*?)if \(neverUsedError\) throw neverUsedError/
+    /async function pruneNeverUsedMemories\([\s\S]*?\n\}/
   )
-  assert.ok(neverUsedPrune, 'never-used retention query must remain explicit')
-  assert.match(neverUsedPrune[1], /\.eq\('user_id', userId\)/)
-  assert.match(neverUsedPrune[1], /\.is\('last_used_at', null\)/)
-  assert.match(neverUsedPrune[1], /\.lt\('updated_at', cutoff\)/)
+  assert.ok(neverUsedPrune, 'never-used retention helper must remain explicit and bounded')
+  assert.match(neverUsedPrune[0], /\.eq\('user_id', userId\)/)
+  assert.match(neverUsedPrune[0], /\.is\('last_used_at', null\)/)
+  assert.match(neverUsedPrune[0], /\.lt\('updated_at', cutoff\)/)
+  assert.match(neverUsedPrune[0], /\.order\('updated_at', \{ ascending: true \}\)/)
+  assert.match(neverUsedPrune[0], /\.limit\(MEMORY_PRUNE_BATCH_SIZE\)/)
 
   const inactivePrune = memory.match(
-    /const \{ error: inactiveError \} = await supabase([\s\S]*?)if \(inactiveError\) throw inactiveError/
+    /async function pruneInactiveMemories\([\s\S]*?\n\}/
   )
-  assert.ok(inactivePrune, 'inactive-memory retention query must remain explicit')
-  assert.match(inactivePrune[1], /\.eq\('user_id', userId\)/)
-  assert.match(inactivePrune[1], /\.not\('last_used_at', 'is', null\)/)
-  assert.match(inactivePrune[1], /\.lt\('updated_at', cutoff\)/)
-  assert.match(inactivePrune[1], /\.lt\('last_used_at', cutoff\)/)
+  assert.ok(inactivePrune, 'inactive-memory retention helper must remain explicit and bounded')
+  assert.match(inactivePrune[0], /\.eq\('user_id', userId\)/)
+  assert.match(inactivePrune[0], /\.not\('last_used_at', 'is', null\)/)
+  assert.match(inactivePrune[0], /\.lt\('updated_at', cutoff\)/)
+  assert.match(inactivePrune[0], /\.lt\('last_used_at', cutoff\)/)
+  assert.match(inactivePrune[0], /\.limit\(MEMORY_PRUNE_BATCH_SIZE\)/)
 
-  const overflowSelect = memory.match(
-    /while \(true\) \{([\s\S]*?)if \(error\) throw error/
+  const lifecyclePrune = memory.match(
+    /async function pruneMemoryLifecycle\([\s\S]*?\n\}/
   )
-  assert.ok(overflowSelect, 'memory-cap query must remain explicit')
-  assert.match(overflowSelect[1], /\.eq\('user_id', userId\)/)
-  assert.match(overflowSelect[1], /\.order\('updated_at', \{ ascending: false \}\)/)
-  assert.match(overflowSelect[1], /\.range\(MAX_MEMORY_ITEMS_PER_USER,/)
-
-  const overflowDelete = memory.match(
-    /const \{ error: deleteError \} = await supabase([\s\S]*?)if \(deleteError\) throw deleteError/
-  )
-  assert.ok(overflowDelete, 'overflow deletion query must remain explicit')
-  assert.match(overflowDelete[1], /\.eq\('user_id', userId\)/)
-  assert.match(overflowDelete[1], /\.in\('id', ids\)/)
+  assert.ok(lifecyclePrune, 'memory-cap cleanup must remain explicit')
+  assert.match(lifecyclePrune[0], /MAX_PRUNE_BATCHES_PER_PASS/)
+  assert.match(lifecyclePrune[0], /\.eq\('user_id', userId\)/)
+  assert.match(lifecyclePrune[0], /\.order\('updated_at', \{ ascending: false \}\)/)
+  assert.match(lifecyclePrune[0], /\.range\(MAX_MEMORY_ITEMS_PER_USER,/)
+  assert.match(lifecyclePrune[0], /\.in\('id', ids\)/)
+  assert.doesNotMatch(lifecyclePrune[0], /while\s*\(true\)/)
 })
