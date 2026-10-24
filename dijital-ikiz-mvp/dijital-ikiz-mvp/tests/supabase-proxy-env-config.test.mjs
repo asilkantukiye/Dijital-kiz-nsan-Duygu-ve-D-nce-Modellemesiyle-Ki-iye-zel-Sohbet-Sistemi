@@ -18,7 +18,7 @@ test('missing Supabase configuration is checked before creating the SSR client',
   assert.match(source, /const supabasePublishableKey = process\.env\.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/)
   assert.match(
     source,
-    /if \(!supabaseUrl \|\| !supabasePublishableKey\)\s*\{[\s\S]*?if \(protectedRoute\)\s*\{\s*return authUnavailableResponse\(request, pathname\)/
+    /if \(!supabaseUrl \|\| !supabasePublishableKey\)\s*\{[\s\S]*?if \(protectedRoute\)\s*\{\s*return authUnavailableResponse()/
   )
   assert.ok(
     source.indexOf('if (!supabaseUrl || !supabasePublishableKey)') <
