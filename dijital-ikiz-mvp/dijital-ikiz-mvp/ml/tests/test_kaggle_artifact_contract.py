@@ -14,6 +14,10 @@ WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "download-kaggle-sentiment
 
 
 class KaggleArtifactContractTests(unittest.TestCase):
+    def test_repository_uses_one_kaggle_notebook(self):
+        notebooks = sorted((PROJECT_DIR / "ml" / "kaggle").glob("*.ipynb"))
+        self.assertEqual(notebooks, [NOTEBOOK_PATH])
+
     def test_single_notebook_packs_all_model_tasks(self):
         notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
         code = "\n".join(
