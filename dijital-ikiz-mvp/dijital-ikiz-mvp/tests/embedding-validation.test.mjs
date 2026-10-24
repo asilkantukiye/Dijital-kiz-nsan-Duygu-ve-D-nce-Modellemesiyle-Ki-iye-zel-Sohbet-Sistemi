@@ -40,10 +40,16 @@ test('rejects nulls, strings, NaN, infinity, and overflowing norms without coerc
 test('all embedding write/query paths validate provider output and memory pruning is bounded', async () => {
   const memory = await readFile(path.join(projectDirectory, 'lib/memory.ts'), 'utf8')
   const provider = await readFile(path.join(projectDirectory, 'lib/huggingface.ts'), 'utf8')
+  const validator = await readFile(path.join(projectDirectory, 'lib/embedding-validation.ts'), 'utf8')
+
   assert.match(memory, /validateEmbeddingVector\(await embedder\.embed\(queryText, 'query'\)\)/)
   assert.match(memory, /validateEmbeddingVector\(await embedder\.embed\(memory\.content, 'passage'\)\)/)
-  assert.match(provider, /return validateEmbeddingVector\(rows\)/)
-  assert.match(provider, /typeof item !== 'number' \|\| !Number\.isFinite\(item\)/)
+  assert.match(provider, /return normalizeEmbeddingResponse\(result\)/)
+  assert.match(provider, /export function normalizeEmbeddingResponse/)
+  assert.match(provider, /function poolTokenRows/)
+  assert.match(provider, /!Number\.isFinite\(item\)/)
+  assert.match(validator, /typeof item !== 'number' \|\| !Number\.isFinite\(item\)/)
+
   assert.match(memory, /const MAX_PRUNE_BATCHES_PER_PASS = 4/)
   assert.match(memory, /const MAX_PRUNE_FILTER_CLAUSES = 64/)
   assert.match(memory, /\.select\('id,updated_at,last_used_at'\)/)
