@@ -30,9 +30,9 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 
 1. Polarite pilotu için kaynak/lisans şartları ve birleşik verinin alt kaynakları gözden geçirilir; test doğruluğu, macro-F1, weighted-F1 ve çoğunluk sınıfı baseline'ı raporlanır.
 2. Qwen3-4B QLoRA pilotu, Apache-2.0 olarak işaretlenen Türkçe talimat veri kümesinde aynı bağımsız test bölümüyle temel modelin yanıt-token kaybına karşı değerlendirilir; veri kaynağı ve lisans beyanı ayrıca denetlenir.
-2. VAD için her örneği açık yönergeyle puanlayan yeterli ve izinli Türkçe veri oluşturulur; mümkünse iki bağımsız değerlendirici ve uyum analizi eklenir.
-3. Big Five için metinden kişilik etiketi tahmin edilmez; gerekli katılımcı onamı ve Türkçe geçerliği/kullanım şartı doğrulanmış ölçek skorları kullanılır.
-4. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
+3. VAD için her örneği açık yönergeyle puanlayan yeterli ve izinli Türkçe veri oluşturulur; mümkünse iki bağımsız değerlendirici ve uyum analizi eklenir.
+4. Big Five için metinden kişilik etiketi tahmin edilmez; gerekli katılımcı onamı ve Türkçe geçerliği/kullanım şartı doğrulanmış ölçek skorları kullanılır.
+5. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
 
 **Durdurma kuralı:** Doğrulanmış uygun veri yoksa o görev eğitilmiş gibi gösterilmez; etiketi uydurulmuş ya da lisans durumu belirsiz veri eklenmez.
 
