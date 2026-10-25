@@ -41,7 +41,7 @@ test('missing deployment prerequisites are explained without exposing secret val
     'UPSTASH_REDIS_REST_TOKEN',
     'RATE_LIMIT_KEY_SALT'
   ]) assert.ok(workflow.includes(key), `Production preflight is missing ${key}`)
-  assert.match(workflow, /Never print environment values/)
+  assert.match(workflow, /Environment variable values were not printed/)
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /Missing prerequisites mean no production deployment was attempted/)
@@ -123,7 +123,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   const config = JSON.parse(configText)
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
-  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prod --skip-domain/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
