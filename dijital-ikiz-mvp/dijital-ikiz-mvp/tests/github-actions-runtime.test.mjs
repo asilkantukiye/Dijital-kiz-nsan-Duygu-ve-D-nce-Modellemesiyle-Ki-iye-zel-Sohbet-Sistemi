@@ -76,7 +76,7 @@ test('CI and Vercel validation use the committed npm lockfile reproducibly', asy
   assert.match(ci, /run: npm ci\b/)
   assert.doesNotMatch(ci, /run: npm install\b/)
 
-  assert.equal((deploy.match(/cache-dependency-path:.*package-lock\.json/g) ?? []).length, 2)
+  assert.equal((deploy.match(/cache-dependency-path:.*package-lock\.json/g) ?? []).length, 3)
   assert.match(deploy, /run: npm ci\b/)
   assert.doesNotMatch(deploy, /run: npm install\b/)
 })
