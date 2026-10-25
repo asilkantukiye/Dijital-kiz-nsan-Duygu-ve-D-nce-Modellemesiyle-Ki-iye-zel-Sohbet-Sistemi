@@ -274,6 +274,7 @@ jobs:
         shell: bash
         env:
           DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
         run: |
           set -euo pipefail
