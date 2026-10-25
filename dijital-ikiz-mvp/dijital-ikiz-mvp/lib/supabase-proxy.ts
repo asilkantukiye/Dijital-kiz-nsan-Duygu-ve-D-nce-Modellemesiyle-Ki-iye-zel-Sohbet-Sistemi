@@ -2,8 +2,23 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isValidSupabaseUrl } from '@/lib/supabase-url'
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request })
+export async function updateSession(
+  request: NextRequest,
+  requestHeaderOverrides?: HeadersInit
+) {
+  // Rebuild these headers when Supabase rotates cookies so request-cookie
+  // mutations are preserved along with security headers forwarded to Next.js.
+  const createResponse = () => {
+    if (!requestHeaderOverrides) return NextResponse.next({ request })
+
+    const headers = new Headers(request.headers)
+    new Headers(requestHeaderOverrides).forEach((value, key) => {
+      headers.set(key, value)
+    })
+    return NextResponse.next({ request: { headers } })
+  }
+
+  let response = createResponse()
 
   const pathname = request.nextUrl.pathname
   const protectedRoute =
@@ -47,7 +62,7 @@ export async function updateSession(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
 
-          response = NextResponse.next({ request })
+          response = createResponse()
 
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options)
