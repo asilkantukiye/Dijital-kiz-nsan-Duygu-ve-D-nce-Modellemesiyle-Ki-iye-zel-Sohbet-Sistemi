@@ -16,13 +16,15 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+  assert.match(workflow, /HEALTHCHECK_TOKEN:\s*\$\{\{\s*secrets\.HEALTHCHECK_TOKEN\s*\}\}/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED:\s*\$\{\{\s*vars\.SUPABASE_PRODUCTION_SCHEMA_VERIFIED\s*\}\}/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true"/)
   assert.match(workflow, /only after the baseline schema and all required migrations are applied/)
   assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
   assert.ok((workflow.match(/--scope "help-70c6"/g) ?? []).length >= 5)
-  assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/)
+  assert.match(workflow, /WORKFLOW_REF: \$\{\{ github\.ref \}\}/)
+  assert.match(workflow, /deployment must be dispatched from main/)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
@@ -40,14 +42,16 @@ test('missing deployment prerequisites are explained without exposing secret val
     'HF_TOKEN',
     'UPSTASH_REDIS_REST_URL',
     'UPSTASH_REDIS_REST_TOKEN',
-    'RATE_LIMIT_KEY_SALT'
+    'RATE_LIMIT_KEY_SALT',
+    'HEALTHCHECK_TOKEN'
   ]) assert.ok(workflow.includes(key), `Production preflight is missing ${key}`)
   assert.match(workflow, /values were not printed/)
   assert.match(workflow, /env ls production --scope "help-70c6" > "\$env_file" 2>&1/)
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /Missing prerequisites mean no production deployment was attempted/)
-  assert.match(workflow, /Never put the token in source code, workflow logs, issues, or chat/)
+  assert.match(workflow, /Never put either token in source code, workflow logs, issues, or chat/)
+  assert.match(workflow, /HEALTHCHECK_TOKEN.*minimum 32 characters/)
   assert.match(workflow, /leave the variable unset/)
   assert.match(workflow, /Deployment prerequisites are missing[^\n]*\n\s*exit 1/)
 })
@@ -114,9 +118,14 @@ test('production deployment URL is captured and health/readiness is checked afte
   assert.match(workflow, /health\.ready !== true/)
   assert.match(workflow, /Staged production health smoke test passed/)
   const readiness = workflow.indexOf('Staged production health smoke test passed')
+  const deepHealth = workflow.indexOf('Verify production upstream connectivity')
   const promotion = workflow.indexOf('vercel@63.1.2 promote')
+  const promoteJob = workflow.indexOf('\n  promote:')
   const productionAliasCheck = workflow.indexOf('Verify health through the production domain')
-  assert.ok(readiness > 0 && promotion > readiness && productionAliasCheck > promotion, 'promotion must follow staged readiness and precede the production alias check')
+  assert.ok(readiness > 0 && deepHealth > readiness && promotion > deepHealth && productionAliasCheck > promotion, 'promotion must follow staged config and upstream health checks')
+  assert.ok(promoteJob > deepHealth && promotion > promoteJob, 'production approval/promotion job must not begin before upstream health passes')
+  assert.match(workflow, /promote:[\s\S]*?environment:\s*production/)
+  assert.match(workflow, /cancel-in-progress:\s*false/)
 })
 
 test('Vercel Git integration cannot bypass gated production deployments on main', async () => {
@@ -147,6 +156,8 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /staged sağlık kontrolü başarılı olursa/i)
   assert.match(readme, /SUPABASE_SERVICE_ROLE_KEY/)
   assert.match(readme, /RATE_LIMIT_KEY_SALT/)
+  assert.match(readme, /HEALTHCHECK_TOKEN/)
+  assert.match(readme, /Supabase Auth, Hugging Face token kimliği ve Upstash Redis/)
 })
 
 
