@@ -169,7 +169,7 @@ Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ay
 6. Hazırlanan deployment'ın `/api/health` endpoint'i geçerli JSON, `ok: true` ve `ready: true` döndürmelidir. Ancak bu kontrol yapılandırma ve readiness koşullarını doğrular; başarılı bir gerçek Qwen çıkarımını, Supabase veri yazımını veya iki kullanıcı arasındaki izolasyonu tek başına kanıtlamaz.
 7. Yalnızca staged sağlık kontrolü başarılı olursa Vercel deployment'ı terfi ettirilir. Ardından `https://dijital-ikiz-insan.vercel.app/api/health` üzerinden üretim alan adı tekrar kontrol edilir.
 
-Önkoşullardan biri eksikse workflow hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Vercel Git entegrasyonu önizleme deployment'ları oluşturabilir; uygulama kökündeki `vercel.json`, `main` dalından otomatik Git deployment'ını kapatır (`git.deploymentEnabled.main: false)). Böylece `main` dalına merge tek başına üretim terfisi başlatmamalıdır. Üretim dağıtımı yalnızca GitHub Actions **Vercel Deploy** workflow'u üzerinden yapılmalıdır.
+Önkoşullardan biri eksikse workflow hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Vercel Git entegrasyonu önizleme deployment'ları oluşturabilir; uygulama kökündeki `vercel.json`, `main` dalından otomatik Git deployment'ını kapatır (`git.deploymentEnabled.main: false). Böylece `main` dalına merge tek başına üretim terfisi başlatmamalıdır. Üretim dağıtımı yalnızca GitHub Actions **Vercel Deploy** workflow'u üzerinden yapılmalıdır.
 
 ## 7. Semantic Memory Engine
 
