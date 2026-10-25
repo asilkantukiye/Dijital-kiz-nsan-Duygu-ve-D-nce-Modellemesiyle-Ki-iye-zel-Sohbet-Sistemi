@@ -270,30 +270,6 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
 
-  promote:
-    needs: [preflight, validate, stage]
-    if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' && needs.stage.result == 'success' }}
-    runs-on: ubuntu-latest
-    # Configure required reviewers in Settings -> Environments -> production.
-    # This approval is reached only after the staged deployment passes both health gates.
-    environment: production
-    defaults:
-      run:
-        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Use Node.js 22
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
-
       - name: Verify production upstream connectivity
         shell: bash
         env:
@@ -343,6 +319,31 @@ jobs:
             echo "- Hugging Face token authentication passed; this probe does not perform model inference."
             echo "- Upstash Redis PING passed."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    needs: [preflight, validate, stage]
+    if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' && needs.stage.result == 'success' }}
+    runs-on: ubuntu-latest
+    # Configure required reviewers in Settings -> Environments -> production.
+    # This approval is reached only after the staged deployment passes both health gates.
+    environment: production
+    defaults:
+      run:
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
+
 
       - name: Promote verified staged deployment
         env:
