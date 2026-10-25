@@ -153,7 +153,7 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz/)
   assert.match(readme, /vercel deploy --prebuilt --prod --skip-domain/)
   assert.match(readme, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true/)
-  assert.match(readme, /staged sağlık kontrolü başarılı olursa/i)
+  assert.match(readme, /Staged yapılandırma ve tüm upstream sağlık kontrolleri başarılı olduktan sonra/i)
   assert.match(readme, /SUPABASE_SERVICE_ROLE_KEY/)
   assert.match(readme, /RATE_LIMIT_KEY_SALT/)
   assert.match(readme, /HEALTHCHECK_TOKEN/)
