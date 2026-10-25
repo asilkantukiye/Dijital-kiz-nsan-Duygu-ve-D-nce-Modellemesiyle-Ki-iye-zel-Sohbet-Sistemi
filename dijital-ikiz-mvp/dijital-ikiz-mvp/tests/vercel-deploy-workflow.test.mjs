@@ -22,6 +22,7 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
   assert.ok((workflow.match(/--scope "help-70c6"/g) ?? []).length >= 5)
+  assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
@@ -41,7 +42,8 @@ test('missing deployment prerequisites are explained without exposing secret val
     'UPSTASH_REDIS_REST_TOKEN',
     'RATE_LIMIT_KEY_SALT'
   ]) assert.ok(workflow.includes(key), `Production preflight is missing ${key}`)
-  assert.match(workflow, /Environment variable values were not printed/)
+  assert.match(workflow, /values were not printed/)
+  assert.match(workflow, /env ls production --scope "help-70c6" > "\$env_file" 2>&1/)
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /Missing prerequisites mean no production deployment was attempted/)
@@ -147,7 +149,7 @@ test('production deployment is manual, uses a pinned CLI, and never passes the t
   assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m)
   assert.doesNotMatch(workflow, /^\s+push:\s*\n\s+branches:\s*\[\"main\"\]/m)
   assert.match(workflow, /environment: production/)
-  assert.ok((workflow.match(/vercel@63\.1\.2/g) ?? []).length >= 6)
+  assert.ok((workflow.match(/vercel@63\.1\.2/g) ?? []).length >= 5)
   assert.doesNotMatch(workflow, /vercel@latest/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
