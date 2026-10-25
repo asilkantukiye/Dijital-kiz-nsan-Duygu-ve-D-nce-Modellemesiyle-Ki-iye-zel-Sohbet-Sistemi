@@ -51,6 +51,7 @@ async function probe(
     const response = await fetcher(url, {
       ...init,
       cache: 'no-store',
+      redirect: 'error',
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
     })
     const successful = response.ok
@@ -111,6 +112,7 @@ export async function probeUpstreams(
             },
             body: JSON.stringify(['PING']),
             cache: 'no-store',
+            redirect: 'error',
             signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
           })
 
