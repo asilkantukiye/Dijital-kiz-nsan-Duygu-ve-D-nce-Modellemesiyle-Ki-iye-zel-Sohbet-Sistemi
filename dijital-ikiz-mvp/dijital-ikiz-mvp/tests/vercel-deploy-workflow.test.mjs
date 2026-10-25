@@ -127,7 +127,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   const config = JSON.parse(configText)
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
-  assert.match(workflow, /vercel@63.1.2 deploy --prod --skip-domain/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prebuilt --prod --skip-domain/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
