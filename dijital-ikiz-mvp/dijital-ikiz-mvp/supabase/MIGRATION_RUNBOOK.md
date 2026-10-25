@@ -34,7 +34,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 13. 20261023230000_aud_05_embedding_validation.sql
 14. 20261023230500_aud_05_validate_embedding_integrity.sql
 15. 20261023231000_aud_06_chat_deduplication_window.sql
-16. 20261025210000_stage6_foreign_key_indexes.sql
+16. 20261025170000_stage6_foreign_key_indexes.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
