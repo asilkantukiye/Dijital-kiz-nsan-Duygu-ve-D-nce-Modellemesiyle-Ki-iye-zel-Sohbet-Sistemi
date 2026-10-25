@@ -534,6 +534,12 @@ GRANT USAGE ON SCHEMA public TO service_role;
 CREATE INDEX chat_request_deduplication_expiry_idx
   ON public.chat_request_deduplication (dedupe_expires_at, updated_at);
 
+CREATE INDEX IF NOT EXISTS chat_request_deduplication_user_message_id_idx
+  ON public.chat_request_deduplication (user_message_id);
+
+CREATE INDEX IF NOT EXISTS chat_request_deduplication_assistant_message_id_idx
+  ON public.chat_request_deduplication (assistant_message_id);
+
 CREATE OR REPLACE FUNCTION public.claim_chat_request_server(
   p_user_id uuid,
   p_request_hash text,
@@ -1121,6 +1127,9 @@ ALTER TABLE public.memory_items
   ON DELETE SET NULL (source_message_id);
 
 COMMIT;
+
+CREATE INDEX IF NOT EXISTS memory_items_source_message_owner_idx
+  ON public.memory_items (source_message_id, user_id);
 -- AUD-05: keep memory vectors correctly dimensioned, finite-norm and non-zero.
 ALTER TABLE public.memory_items
   DROP CONSTRAINT IF EXISTS memory_items_embedding_integrity_check;
