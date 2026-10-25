@@ -104,7 +104,9 @@ test('production deployment URL is captured and health/readiness is checked afte
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /id: deployment/)
-  assert.match(workflow, /vercel@63.1.2 deploy --prod --skip-domain/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prebuilt --prod --skip-domain/)
+  assert.match(workflow, /vercel@63.1.2 pull --yes --environment=production/)
+  assert.match(workflow, /vercel@63.1.2 build --prod/)
   assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
   assert.match(workflow, /vercel@63.1.2 curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
