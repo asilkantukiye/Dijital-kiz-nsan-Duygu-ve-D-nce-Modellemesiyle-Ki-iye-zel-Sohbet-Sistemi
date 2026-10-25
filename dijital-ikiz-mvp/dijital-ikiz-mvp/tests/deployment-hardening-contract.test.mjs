@@ -31,6 +31,7 @@ test('deep health secret is passed through a protected temporary header file', a
   assert.match(workflow, /umask 077/)
   assert.match(workflow, /header_file="\$\(mktemp\)"/)
   assert.match(workflow, /x-healthcheck-token:/)
+  assert.match(workflow, /Verify production upstream connectivity[\\s\\S]*?VERCEL_TOKEN: \\$\\{\\{ secrets\\.VERCEL_TOKEN \\}\\}/)
   assert.match(workflow, /trap 'rm -f "\$header_file"' EXIT/)
   assert.doesNotMatch(workflow, /-H ["']x-healthcheck-token:\s*\$HEALTHCHECK_TOKEN/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
