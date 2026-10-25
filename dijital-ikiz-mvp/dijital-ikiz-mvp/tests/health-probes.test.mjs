@@ -24,6 +24,7 @@ test('deep probe checks Supabase Auth, Hugging Face identity, and Redis PING', a
   assert.deepEqual(result.providers, { supabase: true, huggingface: true, rateLimit: true })
   assert.equal(calls.length, 3)
   assert.ok(calls.every((call) => call.init.cache === 'no-store'))
+  assert.ok(calls.every((call) => call.init.redirect === 'error'))
   assert.ok(calls.every((call) => call.init.signal instanceof AbortSignal))
   assert.ok(calls.every((call) => call.init.signal.aborted === false))
 })
