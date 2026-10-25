@@ -31,14 +31,43 @@ jobs:
             missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
           fi
 
+          # Verify Vercel Production configuration before creating any deployment.
+          # The env-list output is kept on the runner and never printed to Actions logs.
+          if (( ${#missing[@]} == 0 )); then
+            if ! npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6" > "$RUNNER_TEMP/vercel-link.log" 2>&1; then
+              missing+=("Unable to verify/link the intended Vercel project")
+            fi
+          fi
+
+          if (( ${#missing[@]} == 0 )); then
+            env_file="$RUNNER_TEMP/vercel-production-env.txt"
+            if ! npx --yes vercel@63.1.2 env ls production --scope "help-70c6" > "$env_file" 2>&1; then
+              missing+=("Unable to inspect Vercel Production environment variable names")
+            else
+              for key in \
+                NEXT_PUBLIC_SUPABASE_URL \
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
+                SUPABASE_SERVICE_ROLE_KEY \
+                HF_TOKEN \
+                UPSTASH_REDIS_REST_URL \
+                UPSTASH_REDIS_REST_TOKEN \
+                RATE_LIMIT_KEY_SALT; do
+                if ! grep -Fq -- "$key" "$env_file"; then
+                  missing+=("Missing Vercel Production variable: $key")
+                fi
+              done
+            fi
+          fi
+
           if (( ${#missing[@]} == 0 )); then
             echo "ready=true" >> "$GITHUB_OUTPUT"
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "Vercel access and the database migration confirmation are present."
+              echo "Vercel access, required Production variable names, and the database migration confirmation are present."
               echo ""
               echo "The migration confirmation is manual. CI cannot prove the live Supabase project was migrated; confirm the migration and function permissions in the intended project first."
+              echo "Environment variable values were not printed."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "Required deployment prerequisites are configured."
           else
@@ -58,6 +87,7 @@ jobs:
               echo "Set repository variable **SUPABASE_PRODUCTION_SCHEMA_VERIFIED** to exactly **true** only after the baseline schema and all required migrations are applied to the intended Supabase project, and RLS policies plus required RPC permissions/functions are verified. Follow supabase/MIGRATION_RUNBOOK.md."
               echo ""
               echo "If Supabase is inactive or the migration cannot be verified, leave the variable unset. CI passing does not prove production database readiness."
+              echo "The preflight also blocks if required Production variable names are absent or cannot be inspected."
               echo ""
               echo "After both prerequisites are verified, open **Actions → Vercel Deploy → Run workflow**. Missing prerequisites mean no production deployment was attempted."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -145,7 +175,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --yes --scope "help-70c6")"
+          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --skip-domain --yes --scope "help-70c6")"
           deployment_url="$(printf '%s\n' "$deployment_output" | node tests/helpers/extract-vercel-deployment-url.mjs)"
 
           if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app$ ]]; then
@@ -155,10 +185,11 @@ jobs:
 
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
           {
-            echo "## Production deployment created"
+            echo "## Staged production deployment created"
             echo ""
             echo "- Deployment URL: $deployment_url"
-            echo "- Next step: verify /api/health and required configuration."
+            echo "- Production domain assignment was skipped."
+            echo "- Promotion runs only after the staged /api/health check passes."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify production health and chat configuration
@@ -202,8 +233,42 @@ jobs:
 
           {
             echo ""
-            echo "## Production health smoke test passed"
+            echo "## Staged production health smoke test passed"
             echo ""
             echo "- Endpoint /api/health returned valid JSON."
             echo "- The app confirmed liveness and minimum chat-provider configuration."
+            echo "- This deployment has not been assigned the production domain."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote verified staged deployment
+        env:
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 promote "$DEPLOYMENT_URL" --yes --scope "help-70c6"
+
+      - name: Verify health through the production domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error --max-time 20 https://dijital-ikiz-insan.vercel.app/api/health)"
+          printf '%s' "$health_response" | node -e '
+          let input = "";
+          process.stdin.setEncoding("utf8");
+          process.stdin.on("data", chunk => input += chunk);
+          process.stdin.on("end", () => {
+            let health;
+            try { health = JSON.parse(input); }
+            catch { console.error("Production alias health endpoint did not return valid JSON."); process.exit(1); }
+            if (health.ok !== true || health.ready !== true) {
+              console.error("Production alias is not ready; configuration status:", JSON.stringify(health.configured ?? {}));
+              process.exit(1);
+            }
+            console.log("Production alias health/readiness check passed.");
+          });
+          '
+          {
+            echo ""
+            echo "## Production alias health check passed"
+            echo ""
+            echo "- The public production domain returned ok=true and ready=true after promotion."
           } >> "$GITHUB_STEP_SUMMARY"
