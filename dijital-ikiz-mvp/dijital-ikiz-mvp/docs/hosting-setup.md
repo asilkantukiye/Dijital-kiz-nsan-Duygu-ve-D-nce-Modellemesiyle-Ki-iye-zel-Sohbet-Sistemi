@@ -24,6 +24,7 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `UPSTASH_REDIS_REST_URL` — Upstash REST endpoint (HTTPS)
 - `UPSTASH_REDIS_REST_TOKEN` — gizli REST token'ı; Vercel ortam ayarlarında sakla
 - `RATE_LIMIT_KEY_SALT` — en az 32 rastgele karakter; yalnızca sunucu tarafında tut
+- `HEALTHCHECK_TOKEN` — en az 32 rastgele karakter; sadece gizli `/api/health/deep` operasyonel denetimi için
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
 Üretim sohbeti için Upstash rate-limit değişkenleri de zorunludur. Bunlar yoksa `/api/health` `ready: false` bildirir ve sohbet API'si model çağrısını başlatmaz. Token veya salt değerini GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
@@ -33,6 +34,7 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 GitHub deposunda **Settings → Secrets and variables → Actions → New repository secret** bölümüne şunları ekle:
 
 - `VERCEL_TOKEN`: Vercel hesabının Settings → Tokens bölümünde oluşturulan token.
+- `HEALTHCHECK_TOKEN`: en az 32 rastgele karakter. Aynı değeri GitHub Actions secret ve Vercel **Production** environment variable olarak ayarla; değeri sohbete/repoya koyma.
 
 Takım kapsamı workflow içinde `help-70c6` olarak sabitlenmiştir; `VERCEL_ORG_ID` secret'ı gerekmez. Workflow, `VERCEL_TOKEN` veya `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` yoksa gerçek deploy'u atlar. Token'ı sohbet mesajlarına veya repodaki dosyalara yazma.
 
@@ -48,6 +50,10 @@ InfinityFree yalnızca `infinityfree/` klasöründeki statik HTML sayfasını ba
 3. Bunları InfinityFree panelindeki FTP bilgileriyle doldur. Parolayı sohbetten gönderme.
 4. Workflow `infinityfree/` klasörünü `/htdocs/` hedefine yükler. Henüz gerçek alan adı ve Vercel adresi doğrulanmadıysa, tanıtım sayfasındaki `YOUR-VERCEL-DOMAIN` yer tutucusunu gerçek adresle değiştir.
 5. Secret'lar eklendikten sonra GitHub → Actions → **Deploy InfinityFree landing page** iş akışını aç ve **Run workflow** ile başlat. Günlükte `deploy` işinin `skipped` değil `success` olduğunu ve FTP yükleme adımının tamamlandığını kontrol et.
+
+## Derin sağlık kontrolü
+
+Staged deployment, `/api/health` yapılandırma kontrolüne ek olarak `/api/health/deep` bağlantı kontrolünden geçer. İstek `x-healthcheck-token` başlığında doğru `HEALTHCHECK_TOKEN` ile gönderilir. Bu kontrol Supabase Auth erişimini, Hugging Face token kimliğini ve Upstash Redis `PING` yanıtını sınar; model inference çalıştırmaz. Dönen gövde yalnızca sağlayıcılar için true/false değerleri içerir. Token'ı hiçbir zaman loglama veya paylaşma.
 
 ## Güvenli işlem sırası
 
