@@ -12,64 +12,20 @@ on:
 
 jobs:
   preflight:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Use Node.js 22
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-
       - name: Check deployment prerequisites
         id: check
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
         run: |
           missing=()
-          if [[ -z "$VERCEL_TOKEN" ]]; then
-            missing+=("VERCEL_TOKEN (GitHub Actions secret)")
-          fi
           if [[ "$SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true" ]]; then
             missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
-          fi
-
-          # Verify Vercel Production configuration before creating any deployment.
-          # The env-list output is kept on the runner and never printed to Actions logs.
-          if (( ${#missing[@]} == 0 )); then
-            if ! npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6" > "$RUNNER_TEMP/vercel-link.log" 2>&1; then
-              missing+=("Unable to verify/link the intended Vercel project")
-            fi
-          fi
-
-          if (( ${#missing[@]} == 0 )); then
-            env_file="$RUNNER_TEMP/vercel-production-env.txt"
-            if ! npx --yes vercel@63.1.2 env ls production --scope "help-70c6" > "$env_file" 2>&1; then
-              missing+=("Unable to inspect Vercel Production environment variable names")
-            else
-              for key in \
-                NEXT_PUBLIC_SUPABASE_URL \
-                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
-                SUPABASE_SERVICE_ROLE_KEY \
-                HF_TOKEN \
-                UPSTASH_REDIS_REST_URL \
-                UPSTASH_REDIS_REST_TOKEN \
-                RATE_LIMIT_KEY_SALT; do
-                if ! grep -Fq -- "$key" "$env_file"; then
-                  missing+=("Missing Vercel Production variable: $key")
-                fi
-              done
-            fi
           fi
 
           if (( ${#missing[@]} == 0 )); then
@@ -77,10 +33,9 @@ jobs:
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "Vercel access, required Production variable names, and the database migration confirmation are present."
+              echo "The manual database migration confirmation is present."
               echo ""
               echo "The migration confirmation is manual. CI cannot prove the live Supabase project was migrated; confirm the migration and function permissions in the intended project first."
-              echo "Environment variable values were not printed."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "Required deployment prerequisites are configured."
           else
@@ -100,7 +55,6 @@ jobs:
               echo "Set repository variable **SUPABASE_PRODUCTION_SCHEMA_VERIFIED** to exactly **true** only after the baseline schema and all required migrations are applied to the intended Supabase project, and RLS policies plus required RPC permissions/functions are verified. Follow supabase/MIGRATION_RUNBOOK.md."
               echo ""
               echo "If Supabase is inactive or the migration cannot be verified, leave the variable unset. CI passing does not prove production database readiness."
-              echo "The preflight also blocks if required Production variable names are absent or cannot be inspected."
               echo ""
               echo "After both prerequisites are verified, open **Actions → Vercel Deploy → Run workflow**. Missing prerequisites mean no production deployment was attempted."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -119,6 +73,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Use Node.js 22
         uses: actions/setup-node@v7
@@ -158,7 +114,7 @@ jobs:
 
   deploy:
     needs: [preflight, validate]
-    if: ${{ needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
+    if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -168,6 +124,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Use Node.js 22
         uses: actions/setup-node@v7
@@ -180,6 +138,39 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6"
+
+      - name: Verify required Production environment variable names
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          env_file="$RUNNER_TEMP/vercel-production-env.txt"
+          if ! npx --yes vercel@63.1.2 env ls production --scope "help-70c6" > "$env_file" 2>&1; then
+            echo "::error::Could not inspect Vercel Production environment variable names; deployment blocked."
+            exit 1
+          fi
+
+          missing=()
+          for key in \
+            NEXT_PUBLIC_SUPABASE_URL \
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
+            SUPABASE_SERVICE_ROLE_KEY \
+            HF_TOKEN \
+            UPSTASH_REDIS_REST_URL \
+            UPSTASH_REDIS_REST_TOKEN \
+            RATE_LIMIT_KEY_SALT; do
+            if ! grep -Fq -- "$key" "$env_file"; then
+              missing+=("$key")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Missing required Vercel Production variable names: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+          echo "Required Production variable names are present; values were not printed."
 
       - name: Deploy to Vercel production
         id: deployment
