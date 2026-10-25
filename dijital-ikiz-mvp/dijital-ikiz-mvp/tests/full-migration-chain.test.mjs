@@ -8,7 +8,7 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 
-test('CI applies all fifteen Supabase migrations in timestamp order', async () => {
+test('CI applies all sixteen Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
@@ -30,7 +30,8 @@ test('CI applies all fifteen Supabase migrations in timestamp order', async () =
     '20261023220000_aud_04_memory_ownership_validation.sql',
     '20261023230000_aud_05_embedding_validation.sql',
     '20261023230500_aud_05_validate_embedding_integrity.sql',
-    '20261023231000_aud_06_chat_deduplication_window.sql'
+    '20261023231000_aud_06_chat_deduplication_window.sql',
+    '20261025170000_stage6_foreign_key_indexes.sql'
   ]
 
   const positions = migrations.map((migration) => {
@@ -101,4 +102,7 @@ test('migration catalog checks vector placement, the complete RPC set, RLS and p
   assert.match(catalogSql, /authenticated unexpectedly has direct chat\/profile write privilege/)
   assert.match(catalogSql, /authenticated is missing USAGE on extensions schema/)
   assert.match(catalogSql, /memory source-message foreign-key index is missing/)
+  assert.match(catalogSql, /AUD-04 composite memory source foreign-key index is missing/)
+  assert.match(catalogSql, /AUD-02 user-message foreign-key index is missing/)
+  assert.match(catalogSql, /AUD-02 assistant-message foreign-key index is missing/)
 })

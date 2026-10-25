@@ -12,6 +12,7 @@ on:
 
 jobs:
   preflight:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.check.outputs.ready }}
@@ -20,13 +21,9 @@ jobs:
         id: check
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
         run: |
           missing=()
-          if [[ -z "$VERCEL_TOKEN" ]]; then
-            missing+=("VERCEL_TOKEN (GitHub Actions secret)")
-          fi
           if [[ "$SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true" ]]; then
             missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
           fi
@@ -36,7 +33,7 @@ jobs:
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "Vercel access and the database migration confirmation are present."
+              echo "The manual database migration confirmation is present."
               echo ""
               echo "The migration confirmation is manual. CI cannot prove the live Supabase project was migrated; confirm the migration and function permissions in the intended project first."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -76,6 +73,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Use Node.js 22
         uses: actions/setup-node@v7
@@ -115,7 +114,7 @@ jobs:
 
   deploy:
     needs: [preflight, validate]
-    if: ${{ needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
+    if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -125,6 +124,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Use Node.js 22
         uses: actions/setup-node@v7
@@ -138,6 +139,49 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6"
 
+      - name: Verify required Production environment variable names
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          env_file="$RUNNER_TEMP/vercel-production-env.txt"
+          if ! npx --yes vercel@63.1.2 env ls production --scope "help-70c6" > "$env_file" 2>&1; then
+            echo "::error::Could not inspect Vercel Production environment variable names; deployment blocked."
+            exit 1
+          fi
+
+          missing=()
+          for key in \
+            NEXT_PUBLIC_SUPABASE_URL \
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
+            SUPABASE_SERVICE_ROLE_KEY \
+            HF_TOKEN \
+            UPSTASH_REDIS_REST_URL \
+            UPSTASH_REDIS_REST_TOKEN \
+            RATE_LIMIT_KEY_SALT; do
+            if ! grep -Fq -- "$key" "$env_file"; then
+              missing+=("$key")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Missing required Vercel Production variable names: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+          echo "Required Production variable names are present; values were not printed."
+
+      - name: Pull Vercel Production settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 pull --yes --environment=production --scope "help-70c6"
+
+      - name: Build the Production artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 build --prod --scope "help-70c6"
+
       - name: Deploy to Vercel production
         id: deployment
         shell: bash
@@ -145,7 +189,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --yes --scope "help-70c6")"
+          deployment_output="$(npx --yes vercel@63.1.2 deploy --prebuilt --prod --skip-domain --yes --scope "help-70c6")"
           deployment_url="$(printf '%s\n' "$deployment_output" | node tests/helpers/extract-vercel-deployment-url.mjs)"
 
           if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app$ ]]; then
@@ -155,10 +199,11 @@ jobs:
 
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
           {
-            echo "## Production deployment created"
+            echo "## Staged production deployment created"
             echo ""
             echo "- Deployment URL: $deployment_url"
-            echo "- Next step: verify /api/health and required configuration."
+            echo "- Production domain assignment was skipped."
+            echo "- Promotion runs only after the staged /api/health check passes."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify production health and chat configuration
@@ -202,8 +247,42 @@ jobs:
 
           {
             echo ""
-            echo "## Production health smoke test passed"
+            echo "## Staged production health smoke test passed"
             echo ""
             echo "- Endpoint /api/health returned valid JSON."
             echo "- The app confirmed liveness and minimum chat-provider configuration."
+            echo "- This deployment has not been assigned the production domain."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote verified staged deployment
+        env:
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 promote "$DEPLOYMENT_URL" --yes --scope "help-70c6"
+
+      - name: Verify health through the production domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error --max-time 20 https://dijital-ikiz-insan.vercel.app/api/health)"
+          printf '%s' "$health_response" | node -e '
+          let input = "";
+          process.stdin.setEncoding("utf8");
+          process.stdin.on("data", chunk => input += chunk);
+          process.stdin.on("end", () => {
+            let health;
+            try { health = JSON.parse(input); }
+            catch { console.error("Production alias health endpoint did not return valid JSON."); process.exit(1); }
+            if (health.ok !== true || health.ready !== true) {
+              console.error("Production alias is not ready; configuration status:", JSON.stringify(health.configured ?? {}));
+              process.exit(1);
+            }
+            console.log("Production alias health/readiness check passed.");
+          });
+          '
+          {
+            echo ""
+            echo "## Production alias health check passed"
+            echo ""
+            echo "- The public production domain returned ok=true and ready=true after promotion."
           } >> "$GITHUB_STEP_SUMMARY"

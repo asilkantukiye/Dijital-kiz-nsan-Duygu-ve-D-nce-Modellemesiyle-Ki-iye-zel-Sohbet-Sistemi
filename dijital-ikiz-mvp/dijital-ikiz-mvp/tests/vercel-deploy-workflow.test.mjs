@@ -21,7 +21,8 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   assert.match(workflow, /only after the baseline schema and all required migrations are applied/)
   assert.match(workflow, /RLS policies plus required RPC permissions\/functions are verified/)
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
-  assert.equal((workflow.match(/--scope "help-70c6"/g) ?? []).length, 3)
+  assert.ok((workflow.match(/--scope "help-70c6"/g) ?? []).length >= 5)
+  assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
 
@@ -32,6 +33,17 @@ test('missing deployment prerequisites are explained without exposing secret val
   assert.match(workflow, /VERCEL_TOKEN/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
   assert.match(workflow, /help-70c6/)
+  for (const key of [
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'HF_TOKEN',
+    'UPSTASH_REDIS_REST_URL',
+    'UPSTASH_REDIS_REST_TOKEN',
+    'RATE_LIMIT_KEY_SALT'
+  ]) assert.ok(workflow.includes(key), `Production preflight is missing ${key}`)
+  assert.match(workflow, /values were not printed/)
+  assert.match(workflow, /env ls production --scope "help-70c6" > "\$env_file" 2>&1/)
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /Missing prerequisites mean no production deployment was attempted/)
@@ -92,13 +104,19 @@ test('production deployment URL is captured and health/readiness is checked afte
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /id: deployment/)
-  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prebuilt --prod --skip-domain/)
+  assert.match(workflow, /vercel@63.1.2 pull --yes --environment=production/)
+  assert.match(workflow, /vercel@63.1.2 build --prod/)
   assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
   assert.match(workflow, /vercel@63.1.2 curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
   assert.match(workflow, /health\.ok !== true/)
   assert.match(workflow, /health\.ready !== true/)
-  assert.match(workflow, /Production health smoke test passed/)
+  assert.match(workflow, /Staged production health smoke test passed/)
+  const readiness = workflow.indexOf('Staged production health smoke test passed')
+  const promotion = workflow.indexOf('vercel@63.1.2 promote')
+  const productionAliasCheck = workflow.indexOf('Verify health through the production domain')
+  assert.ok(readiness > 0 && promotion > readiness && productionAliasCheck > promotion, 'promotion must follow staged readiness and precede the production alias check')
 })
 
 test('Vercel Git integration cannot bypass gated production deployments on main', async () => {
@@ -109,7 +127,7 @@ test('Vercel Git integration cannot bypass gated production deployments on main'
   const config = JSON.parse(configText)
 
   assert.equal(config.git?.deploymentEnabled?.main, false)
-  assert.match(workflow, /vercel@63.1.2 deploy --prod/)
+  assert.match(workflow, /vercel@63.1.2 deploy --prebuilt --prod --skip-domain/)
   assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED/)
 })
 
@@ -133,7 +151,7 @@ test('production deployment is manual, uses a pinned CLI, and never passes the t
   assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m)
   assert.doesNotMatch(workflow, /^\s+push:\s*\n\s+branches:\s*\[\"main\"\]/m)
   assert.match(workflow, /environment: production/)
-  assert.equal((workflow.match(/vercel@63\.1\.2/g) ?? []).length, 3)
+  assert.ok((workflow.match(/vercel@63\.1\.2/g) ?? []).length >= 5)
   assert.doesNotMatch(workflow, /vercel@latest/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)

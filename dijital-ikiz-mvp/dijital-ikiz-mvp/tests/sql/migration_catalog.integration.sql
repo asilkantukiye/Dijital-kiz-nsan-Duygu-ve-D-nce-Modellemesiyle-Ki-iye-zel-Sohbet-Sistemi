@@ -183,5 +183,17 @@ BEGIN
     RAISE EXCEPTION 'memory source-message foreign-key index is missing';
   END IF;
 
+  IF to_regclass('public.memory_items_source_message_owner_idx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-04 composite memory source foreign-key index is missing';
+  END IF;
+
+  IF to_regclass('public.chat_request_deduplication_user_message_id_idx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-02 user-message foreign-key index is missing';
+  END IF;
+
+  IF to_regclass('public.chat_request_deduplication_assistant_message_id_idx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-02 assistant-message foreign-key index is missing';
+  END IF;
+
 END
 $migration_catalog$;
