@@ -172,6 +172,16 @@ jobs:
 
           echo "Required Production variable names are present; values were not printed."
 
+      - name: Pull Vercel Production settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 pull --yes --environment=production --scope "help-70c6"
+
+      - name: Build the Production artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 build --prod --scope "help-70c6"
+
       - name: Deploy to Vercel production
         id: deployment
         shell: bash
@@ -179,7 +189,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          deployment_output="$(npx --yes vercel@63.1.2 deploy --prod --skip-domain --yes --scope "help-70c6")"
+          deployment_output="$(npx --yes vercel@63.1.2 deploy --prebuilt --prod --skip-domain --yes --scope "help-70c6")"
           deployment_url="$(printf '%s\n' "$deployment_output" | node tests/helpers/extract-vercel-deployment-url.mjs)"
 
           if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app$ ]]; then
