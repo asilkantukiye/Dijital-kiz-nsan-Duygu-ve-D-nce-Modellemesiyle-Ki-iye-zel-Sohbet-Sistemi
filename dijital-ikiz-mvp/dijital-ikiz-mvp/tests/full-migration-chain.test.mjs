@@ -31,7 +31,7 @@ test('CI applies all sixteen Supabase migrations in timestamp order', async () =
     '20261023230000_aud_05_embedding_validation.sql',
     '20261023230500_aud_05_validate_embedding_integrity.sql',
     '20261023231000_aud_06_chat_deduplication_window.sql',
-    '20261025210000_stage6_foreign_key_indexes.sql'
+    '20261025170000_stage6_foreign_key_indexes.sql'
   ]
 
   const positions = migrations.map((migration) => {
