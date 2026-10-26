@@ -25,6 +25,24 @@ x_{t+1,j}=(1-\alpha)x_{t,j}+\alpha u_{t,j},\quad \alpha=0.25
 
 where x is the normalized previous state and u is the bounded feature for the latest message. The patch clamps the computed result before returning it, instead of relying only on the real-arithmetic property of the smoother.
 
+The exact scalar clamp is
+
+\[
+C(z)=
+\begin{cases}
+0.5 & \text{if } z \text{ is not finite},\\
+\min(1,\max(0,z)) & \text{otherwise}.
+\end{cases}
+\]
+
+For a missing or non-finite prior coordinate, normalization first substitutes its configured baseline value \(b_j\); a finite numeric prior becomes \(C(p_j)\). The current-message feature is also passed through \(C\), and then the result is
+
+\[
+x_{t+1,j}=C\left((1-0.25)C(p_{t,j})+0.25C(u_{t,j})\right).
+\]
+
+Thus the returned coordinate is bounded even if a future feature accidentally returns a NaN or an out-of-range value. The baseline vector is configured centrally; missing profile objects use the baseline as a whole.
+
 ### Boundedness proof
 
 Suppose x and u are in [0,1] and alpha is in [0,1]. The update is a convex combination: both weights are non-negative and sum to one. Therefore
@@ -127,6 +145,70 @@ User-scoped Supabase calls handle identity-sensitive reads. The service-role cli
 The normal memory_items RLS policy applies both USING and WITH CHECK predicates requiring auth.uid() = user_id. AUD-04 binds the memory owner and source-message ID. AUD-07 strengthens the key to (source_message_id, user_id, source_message_role) referencing (messages.id, messages.user_id, messages.role), while a CHECK requires source_message_role = 'user'. The referenced composite unique index makes PostgreSQL enforce owner and role for both INSERT and UPDATE regardless of application-level validation. If a source message is deleted, only source_message_id becomes NULL, preserving memory ownership.
 
 The match_memory_items RPC is SECURITY INVOKER, filters by auth.uid(), and remains subject to RLS. Feedback is constrained by both route-level checks and a database policy requiring same owner, assistant role and matching variant. Direct authenticated INSERT/UPDATE on messages and twin_profiles is revoked. The idempotency table has RLS enabled but no anon/authenticated policy or grants; its server-only, fail-closed configuration should not be “fixed” by granting browser access.
+
+### Definitive row policies
+
+The effective policies for ordinary authenticated clients are equivalent to the following. They must be paired with table grants and the composite FK, not treated as a substitute for either.
+
+~~~sql
+ALTER TABLE public.memory_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "users own memory items" ON public.memory_items;
+CREATE POLICY "users own memory items"
+  ON public.memory_items
+  FOR ALL TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+ALTER TABLE public.twin_profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "users own twin profile" ON public.twin_profiles;
+CREATE POLICY "users own twin profile"
+  ON public.twin_profiles
+  FOR ALL TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "users own messages" ON public.messages;
+CREATE POLICY "users own messages"
+  ON public.messages
+  FOR ALL TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+ALTER TABLE public.message_feedback ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "users own feedback" ON public.message_feedback;
+CREATE POLICY "users own feedback"
+  ON public.message_feedback
+  FOR ALL TO authenticated
+  USING (
+    (SELECT auth.uid()) = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.messages AS m
+      WHERE m.id = message_feedback.message_id
+        AND m.user_id = (SELECT auth.uid())
+        AND m.role = 'assistant'
+        AND m.variant = message_feedback.variant
+    )
+  )
+  WITH CHECK (
+    (SELECT auth.uid()) = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.messages AS m
+      WHERE m.id = message_feedback.message_id
+        AND m.user_id = (SELECT auth.uid())
+        AND m.role = 'assistant'
+        AND m.variant = message_feedback.variant
+    )
+  );
+
+ALTER TABLE public.chat_request_deduplication ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.chat_request_deduplication FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE public.chat_request_deduplication TO service_role;
+-- Intentionally create no anon/authenticated policy on this server-only table.
+~~~
+
+The memory policy prevents one authenticated owner from selecting or changing another owner's rows. The composite source FK independently prevents an owner from referencing another tenant's message—even when a table owner/test intentionally bypasses RLS—and the AUD-07 third key component further requires the source role to be user. The chat-write boundary additionally revokes direct authenticated INSERT/UPDATE on messages and twin_profiles; therefore the broad owner policies above do not restore those table grants.
 
 ### Definitive limit
 
