@@ -114,6 +114,7 @@ test('migration catalog checks vector placement, the complete RPC set, RLS and p
   assert.match(catalogSql, /authenticated is missing EXECUTE/)
   assert.match(catalogSql, /replace_my_memory_preference/)
   assert.match(catalogSql, /persist_chat_turn_server/)
+  assert.match(catalogSql, /persist_my_memory_item/)
   assert.match(catalogSql, /authenticated unexpectedly has direct chat\/profile write privilege/)
   assert.match(catalogSql, /authenticated is missing USAGE on extensions schema/)
   assert.match(catalogSql, /memory source-message foreign-key index is missing/)
