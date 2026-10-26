@@ -88,6 +88,17 @@ END
 $aud07_delete_invalidates_claim$;
 
 RESET ROLE;
+DO $aud07_delete_privileges$
+BEGIN
+  IF NOT has_table_privilege('service_role', 'public.memory_items', 'SELECT')
+     OR NOT has_table_privilege('service_role', 'public.memory_items', 'DELETE')
+     OR NOT has_table_privilege('service_role', 'public.twin_profiles', 'DELETE')
+     OR NOT has_table_privilege('service_role', 'public.messages', 'DELETE') THEN
+    RAISE EXCEPTION 'AUD-07 failed: server deletion is missing the minimum table privileges';
+  END IF;
+END
+$aud07_delete_privileges$;
+
 DO $aud07_delete_postconditions$
 BEGIN
   IF EXISTS (SELECT 1 FROM public.chat_request_deduplication WHERE user_id = '55555555-5555-4555-8555-555555555555')
