@@ -67,6 +67,10 @@ try {
     'SET ROLE service_role;',
     "SELECT public.release_chat_request_server('" + USER_ID + "'::uuid, '" + REQUEST_HASH + "', '" + ownerToken + "'::uuid);"
   ].join('\n'))
+  await psql([
+    'SET ROLE service_role;',
+    "DELETE FROM public.chat_request_deduplication WHERE user_id = '" + USER_ID + "'::uuid AND request_hash = '" + REQUEST_HASH + "';"
+  ].join('\n'))
 } catch (error) {
   // Failures must not leave the synthetic processing claim behind for later tests.
   try {
@@ -81,6 +85,10 @@ try {
       await psql([
         'SET ROLE service_role;',
         "SELECT public.release_chat_request_server('" + USER_ID + "'::uuid, '" + REQUEST_HASH + "', '" + token + "'::uuid);"
+      ].join('\n'))
+      await psql([
+        'SET ROLE service_role;',
+        "DELETE FROM public.chat_request_deduplication WHERE user_id = '" + USER_ID + "'::uuid AND request_hash = '" + REQUEST_HASH + "';"
       ].join('\n'))
     }
   } catch {
