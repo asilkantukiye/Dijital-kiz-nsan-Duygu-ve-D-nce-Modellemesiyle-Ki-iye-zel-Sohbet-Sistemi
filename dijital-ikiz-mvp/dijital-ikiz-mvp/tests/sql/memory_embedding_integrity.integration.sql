@@ -46,7 +46,7 @@ BEGIN
     ('[' || array_to_string(ARRAY[3::real, 4::real] || array_fill(0::real, ARRAY[382]), ',') || ']')::extensions.vector(384)
   );
 
-  SELECT extensions.vector_norm(embedding), embedding <-> expected_unit_vector
+  SELECT extensions.vector_norm(embedding), embedding OPERATOR(extensions.<->) expected_unit_vector
   INTO stored_norm, distance_to_expected
   FROM public.memory_items
   WHERE content = 'aud07-normalization-must-be-storage-enforced';
