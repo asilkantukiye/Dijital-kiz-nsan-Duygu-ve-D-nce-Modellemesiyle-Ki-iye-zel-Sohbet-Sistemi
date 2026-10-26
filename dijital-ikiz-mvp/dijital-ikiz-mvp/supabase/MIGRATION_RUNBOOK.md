@@ -35,6 +35,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 14. 20261023230500_aud_05_validate_embedding_integrity.sql
 15. 20261023231000_aud_06_chat_deduplication_window.sql
 16. 20261025170000_stage6_foreign_key_indexes.sql
+17. 20261026170000_aud_07_storage_and_recovery_hardening.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
@@ -180,3 +181,22 @@ CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A
 ## AUD-06: completed chat deduplication replay window
 
 `20261023231000_aud_06_chat_deduplication_window.sql` sets the completed-response replay window to 10 seconds. A database trigger applies the TTL atomically when a claim transitions to `completed`, and already-completed rows are shortened based on their original `updated_at`. The five-minute processing lease is deliberately unchanged: identical requests that arrive while inference is active remain `in_progress` and do not start a second model call. The PostgreSQL idempotency integration test asserts the completed cache expiry is positive and no more than 10 seconds.
+
+
+## AUD-07: storage invariants and deletion/recovery serialization
+
+`20261026170000_aud_07_storage_and_recovery_hardening.sql` extends the AUD-04 source FK so a memory anchor must reference a message with the same `user_id` **and** `role = 'user'`. It adds the required unique key on `messages(id,user_id,role)`, detaches historical memory rows linked to same-owner assistant messages, and enforces the source-role contract with a CHECK and composite FK. This is a database boundary, not just a route validation.
+
+The same migration normalizes new or updated embeddings in a `BEFORE INSERT` / `BEFORE UPDATE OF embedding` trigger using `extensions.l2_normalize`, rejecting null, zero-norm, non-finite, or non-384-dimensional vectors. An additional validated CHECK enforces stored L2 norm within `0.001` of 1. The trigger runs only on writes; it adds no operation to the HNSW search path. Current application validation remains necessary for clear errors and to avoid wasting provider calls.
+
+To serialize in-flight lifecycle mutations, the server-only claim, release, completion-persistence, and delete RPCs use the same transaction-scoped advisory lock derived from the verified user UUID. The lock is held only inside each short database transaction, never across an external Qwen call. Deletion removes pending/completed idempotency rows before user memories, profile, and messages; a delayed inference worker then finds no owned claim and cannot recreate data. Cleanup batches use `FOR UPDATE SKIP LOCKED` and stable ordering so cleanup does not wait on claims held by other transactions.
+
+The API now invokes `delete_my_chat_data_server(p_user_id)` with a server-only admin client **after** `auth.getUser()` and uses only `user.id` as the target. The legacy browser-callable `delete_my_chat_data()` RPC is revoked from `PUBLIC`, `anon`, and `authenticated`; do not grant it back.
+
+CI adds:
+- 24 simultaneous duplicate claim attempts: exactly one must receive `claimed`; the other 23 must receive `in_progress`.
+- A storage-level embedding normalization test using an unnormalized `[3,4,0,…]` vector and checking that the database stores approximately `[0.6,0.8,0,…]`.
+- A memory source-role negative test that tries to anchor memory to an assistant message.
+- A deletion recovery test that claims a request, deletes its user data, then proves a delayed writer cannot persist with the deleted claim.
+
+**Operational rule:** this migration is present in the repository and tested in CI only after the corresponding workflow is green. It has not been applied to the live Supabase project. The live project’s historical migration versions must first be reconciled against the SQL actually applied; do not run `schema.sql`, use `migration repair`, or apply the migration by guessing.
