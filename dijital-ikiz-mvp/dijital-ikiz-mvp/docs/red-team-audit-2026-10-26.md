@@ -104,7 +104,7 @@ This is a proof for the audited server-owned paths, not a theorem that arbitrary
 
 The chat route previously claimed an idempotency row before enforcing the distributed rate limit. That allowed duplicate floods to consume claim/poll database capacity before reaching the limiter. The order is now authenticated identity → bounded payload validation → rate limit → idempotency claim → inference → atomic persistence. Production fails closed when distributed rate-limit configuration is absent or its backend is unavailable.
 
-The implemented quotas include per-user and global limits. They are not IP-based Sybil prevention: someone able to create many valid identities may distribute requests across identities until the global limit is reached. A trusted proxy/IP reputation control remains a possible additional defense, not an implemented guarantee.
+The current constants are 20 requests per user per 60-second window, 120 requests globally per 60-second window, and 1,000 requests globally per UTC-day key. Upstash evaluates all three counters in one atomic Redis EVAL; the per-user identifier is HMAC-SHA256 hashed with a salt of at least 32 characters rather than stored raw. In production, incomplete Upstash configuration or a backend error fails closed. These quotas are not IP-based Sybil prevention: someone able to create many valid identities may distribute requests across identities until the global limit is reached. A trusted proxy/IP reputation control remains a possible additional defense, not an implemented guarantee.
 
 ### Delete-vs-inference race
 
