@@ -65,6 +65,12 @@ e_t=0.75^t e_0.
 
 Thus the exact recurrence converges geometrically to a fixed target. The old-state contribution is approximately 7.52×10^-4 after 25 updates and 3.21×10^-13 after 100 updates. In floating-point arithmetic, rounding eventually produces a representable-number floor; convergence should not be described as infinitely many distinct floating-point values.
 
+Under a standard IEEE-754 binary64 round-to-nearest model, for these bounded multiply/add operations the absolute per-update rounding perturbation is conservatively about \(2u_{64}\), where \(u_{64}=2^{-53}\), while intermediate results are in the normal range. With constant target, the perturbed recurrence then obeys
+\[
+|e_{t+1}|\le0.75|e_t|+2u_{64},
+\]
+so its limiting error bound is \(2u_{64}/(1-0.75)=8u_{64}\approx8.88\times10^{-16}\), under that model. Subnormal values require the usual absolute-error qualification. Regardless of this convergence approximation, the final clamp directly enforces the [0,1] interval on every returned coordinate; that postcondition, not a floating-point assumption, prevents out-of-range drift.
+
 For arbitrary adversarial input, convergence to a single state is not guaranteed. If scalar observations alternate between 0 and 1, the stable two-cycle values are 3/7 and 4/7. The state remains bounded while oscillating. Boundedness and convergence are distinct guarantees.
 
 ### Scientific limitation
