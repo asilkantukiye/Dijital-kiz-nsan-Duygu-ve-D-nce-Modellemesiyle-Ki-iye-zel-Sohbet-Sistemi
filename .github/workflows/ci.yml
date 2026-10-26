@@ -96,7 +96,25 @@ jobs:
             --file tests/sql/security_rpc.integration.sql \
             --file tests/sql/memory_source_ownership.integration.sql \
             --file tests/sql/memory_embedding_integrity.integration.sql \
-            --file tests/sql/chat_delete_recovery.integration.sql
+
+
+      - name: Stress concurrent idempotency claims against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: node tests/chat-idempotency-concurrency.integration.mjs
+
+      - name: Test deletion versus in-flight chat recovery
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: psql --set ON_ERROR_STOP=1 --file tests/sql/chat_delete_recovery.integration.sql
 
       - name: Test embedding integrity against PostgreSQL
         env:
