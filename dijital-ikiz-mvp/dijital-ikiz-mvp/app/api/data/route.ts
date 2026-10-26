@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { rejectCrossOrigin } from '@/lib/api-security'
 import { createClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-admin'
 
 export async function DELETE(req: Request) {
   try {
@@ -17,9 +18,12 @@ export async function DELETE(req: Request) {
       )
     }
 
-    // Keep deletion in one Postgres function call so a database error cannot
-    // leave only some of the requested chat/profile/memory data removed.
-    const { error } = await supabase.rpc('delete_my_chat_data')
+    // This server-only RPC invalidates in-flight chat claims and serializes with
+    // chat persistence. User identity comes only from the verified cookie session.
+    const adminSupabase = createAdminClient()
+    const { error } = await adminSupabase.rpc('delete_my_chat_data_server', {
+      p_user_id: user.id
+    })
     if (error) throw error
 
     return NextResponse.json(
