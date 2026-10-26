@@ -122,6 +122,27 @@ export async function POST(req: Request) {
 
     // The SHA-256 fingerprint scopes an identical prompt+variant to this verified user.
     // PostgreSQL owns the cross-instance lock; no in-memory mutex is trusted here.
+    const rateLimitDecision = await enforceChatRateLimit(user.id)
+
+    if (!rateLimitDecision.allowed) {
+      const status = rateLimitDecision.unavailable ? 503 : 429
+      const error = rateLimitDecision.unavailable
+        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
+        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
+
+      return NextResponse.json(
+        { error },
+        {
+          status,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
+          }
+        }
+      )
+    }
+
+
     const requestHash = hashChatRequest(variant, message)
     const ownerToken = createChatRequestOwnerToken()
     const claimResult = await claimChatRequestWithWait(async () => {
@@ -166,27 +187,6 @@ export async function POST(req: Request) {
         p_owner_token: ownerToken
       })
       if (error) throw error
-    }
-
-    const rateLimitDecision = await enforceChatRateLimit(user.id)
-
-    if (!rateLimitDecision.allowed) {
-      await releaseClaim()
-      const status = rateLimitDecision.unavailable ? 503 : 429
-      const error = rateLimitDecision.unavailable
-        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
-        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
-
-      return NextResponse.json(
-        { error },
-        {
-          status,
-          headers: {
-            'Cache-Control': 'no-store',
-            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
-          }
-        }
-      )
     }
 
     const [
