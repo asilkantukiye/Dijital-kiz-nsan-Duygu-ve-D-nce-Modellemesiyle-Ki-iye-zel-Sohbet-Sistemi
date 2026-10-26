@@ -114,7 +114,7 @@ test('production deployment URL is captured and health/readiness is checked afte
   assert.ok(workflow.includes('tests/helpers/extract-vercel-deployment-url.mjs'))
   assert.match(workflow, /echo "url=\$deployment_url" >> "\$GITHUB_OUTPUT"/)
   assert.match(workflow, /vercel@63.1.2 curl \/api\/health --deployment "\$DEPLOYMENT_URL"/)
-  assert.ok(workflow.includes('curl /api/health/deep --deployment "$DEPLOYMENT_URL" --scope "help-70c6" -- --header "@$header_file"'), "deep health custom header must be forwarded to curl after the Vercel CLI separator")
+  assert.ok(workflow.includes('curl /api/health/deep --deployment "$DEPLOYMENT_URL" --scope "help-70c6" -H "@$header_file"'), "deep health custom header must be forwarded to curl after the Vercel CLI separator")
   assert.match(workflow, /health\.ok !== true/)
   assert.match(workflow, /health\.ready !== true/)
   assert.match(workflow, /Staged production health smoke test passed/)
