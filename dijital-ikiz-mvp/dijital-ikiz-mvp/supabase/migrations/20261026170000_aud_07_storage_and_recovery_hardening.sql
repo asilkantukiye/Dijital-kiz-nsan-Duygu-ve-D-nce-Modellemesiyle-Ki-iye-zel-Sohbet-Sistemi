@@ -526,7 +526,8 @@ END;
 $$;
 
 -- Privileges on DELETE are not inherited from BYPASSRLS; grant only the server role.
-GRANT DELETE ON TABLE public.memory_items, public.twin_profiles, public.messages TO service_role;
+GRANT SELECT, DELETE ON TABLE public.memory_items TO service_role;
+GRANT DELETE ON TABLE public.twin_profiles, public.messages TO service_role;
 REVOKE ALL ON FUNCTION public.delete_my_chat_data() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.delete_my_chat_data_server(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_my_chat_data_server(uuid) TO service_role;
