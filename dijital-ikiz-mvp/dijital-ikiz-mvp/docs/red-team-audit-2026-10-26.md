@@ -35,10 +35,10 @@ C(z)=
 \end{cases}
 \]
 
-For a missing or non-finite prior coordinate, normalization first substitutes its configured baseline value \(b_j\); a finite numeric prior becomes \(C(p_j)\). The current-message feature is also passed through \(C\), and then the result is
+For a prior coordinate \(p_j\), define \(N_j(p_j)=C(p_j)\) when it is a finite number and \(N_j(p_j)=b_j\) when it is missing or non-finite, where \(b_j\) is the configured baseline for that coordinate. The current-message feature is also passed through \(C\), and then the result is
 
 \[
-x_{t+1,j}=C\left((1-0.25)C(p_{t,j})+0.25C(u_{t,j})\right).
+x_{t+1,j}=C\left(0.75N_j(p_{t,j})+0.25C(u_{t,j})\right).
 \]
 
 Thus the returned coordinate is bounded even if a future feature accidentally returns a NaN or an out-of-range value. The baseline vector is configured centrally; missing profile objects use the baseline as a whole.
