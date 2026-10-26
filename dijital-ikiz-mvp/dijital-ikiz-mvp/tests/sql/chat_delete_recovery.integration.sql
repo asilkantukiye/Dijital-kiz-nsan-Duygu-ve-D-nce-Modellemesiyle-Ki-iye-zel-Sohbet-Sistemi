@@ -79,12 +79,6 @@ BEGIN
     RAISE EXCEPTION 'AUD-07 failed: an in-flight worker persisted after data deletion';
   END IF;
 
-  IF NOT has_function_privilege('authenticated', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE')
-     OR has_function_privilege('service_role', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE') IS DISTINCT FROM true THEN
-    -- The first condition is inverted below by the intended ACL assertion.
-    NULL;
-  END IF;
-
   IF has_function_privilege('authenticated', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE')
      OR NOT has_function_privilege('service_role', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE') THEN
