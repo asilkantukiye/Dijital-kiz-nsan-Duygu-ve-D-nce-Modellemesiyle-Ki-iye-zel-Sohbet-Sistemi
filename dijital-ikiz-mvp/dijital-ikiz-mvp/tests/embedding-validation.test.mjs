@@ -93,7 +93,7 @@ test('memory writes revalidate source ownership under the same lock as account d
 
   const memoryWriterPosition = migration.indexOf('CREATE OR REPLACE FUNCTION public.persist_my_memory_item')
   const deletionPosition = migration.indexOf('CREATE OR REPLACE FUNCTION public.delete_my_chat_data_server')
-  const preferencePosition = migration.lastIndexOf('CREATE OR REPLACE FUNCTION public.replace_my_memory_preference')
+  const preferencePosition = migration.toLowerCase().lastIndexOf('create or replace function public.replace_my_memory_preference')
   assert.ok(memoryWriterPosition > 0 && deletionPosition > memoryWriterPosition)
   assert.ok(preferencePosition > 0 && memoryWriterPosition > preferencePosition)
 
