@@ -61,3 +61,22 @@ test('all embedding write/query paths validate provider output and memory prunin
   assert.match(memory, /\.not\('last_used_at', 'is', null\)\.lt\('updated_at', cutoff\)\.lt\('last_used_at', cutoff\)/)
   assert.doesNotMatch(memory, /while\s*\(true\)/)
 })
+
+
+test('failed model inference does not mutate memory recency or prune stored memories', async () => {
+  const memory = await readFile(path.join(projectDirectory, 'lib', 'memory.ts'), 'utf8')
+  const route = await readFile(path.join(projectDirectory, 'app', 'api', 'chat', 'route.ts'), 'utf8')
+  const retrieveStart = memory.indexOf('export async function retrieveMemories')
+  const retrieveEnd = memory.indexOf('export async function finalizeMemoryTurn', retrieveStart)
+  assert.ok(retrieveStart >= 0 && retrieveEnd > retrieveStart)
+
+  const retrieveBody = memory.slice(retrieveStart, retrieveEnd)
+  assert.doesNotMatch(retrieveBody, /\.update\(/)
+  assert.doesNotMatch(retrieveBody, /pruneMemoryLifecycle\(/)
+
+  const modelPosition = route.indexOf('await qwenChat(modelMessages)')
+  const persistencePosition = route.indexOf("adminSupabase.rpc('persist_chat_turn_idempotent_server'")
+  const finalizationPosition = route.indexOf('await finalizeMemoryTurn(user.id, memoryIdsToMark)')
+  assert.ok(modelPosition >= 0 && persistencePosition > modelPosition)
+  assert.ok(finalizationPosition > persistencePosition, 'memory recency/pruning must happen only after the atomic chat commit')
+})
