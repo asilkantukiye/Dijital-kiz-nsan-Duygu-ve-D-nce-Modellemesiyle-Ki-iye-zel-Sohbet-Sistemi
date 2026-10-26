@@ -145,7 +145,8 @@ BEGIN
     'release_chat_request_server',
     'persist_chat_turn_idempotent_server',
     'merge_twin_profile_observation',
-    'replace_my_memory_preference'
+    'replace_my_memory_preference',
+    'persist_my_memory_item'
   ]
   LOOP
     function_oid := NULL;
