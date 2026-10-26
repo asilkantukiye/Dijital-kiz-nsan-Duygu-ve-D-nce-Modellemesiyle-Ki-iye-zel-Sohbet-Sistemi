@@ -479,6 +479,153 @@ BEGIN
 END;
 $$;
 
+-- Serialize preference replacement with account deletion; revalidate the optional
+-- source anchor in the same transaction after taking the shared per-user lock.
+create or replace function public.replace_my_memory_preference(
+  p_keep_id uuid,
+  p_duplicate_ids uuid[],
+  p_content text,
+  p_importance real,
+  p_embedding extensions.vector(384),
+  p_source_message_id uuid
+)
+returns void
+language plpgsql
+security invoker
+set search_path = pg_catalog, public, extensions
+as $
+declare
+  v_user_id uuid := auth.uid();
+  v_updated integer := 0;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  -- Serialize preference replacement with server-side account deletion.
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user_id::text, 0));
+
+  IF p_source_message_id IS NOT NULL THEN
+    PERFORM 1 FROM public.messages
+    WHERE id = p_source_message_id
+      AND user_id = v_user_id
+      AND role = 'user'
+    FOR KEY SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Memory source message is not an owned user message.';
+    END IF;
+  END IF;
+
+  if p_keep_id is null
+     or p_content is null
+     or char_length(p_content) not between 2 and 240
+     or p_importance is null
+     or p_importance not between 0 and 1
+     or p_embedding is null then
+    raise exception 'Invalid preference replacement payload';
+  end if;
+
+  update public.memory_items
+  set content = p_content,
+      importance = p_importance,
+      embedding = p_embedding,
+      source_message_id = p_source_message_id,
+      updated_at = now()
+  where id = p_keep_id
+    and user_id = v_user_id
+    and memory_type = 'preference';
+
+  get diagnostics v_updated = row_count;
+  if v_updated <> 1 then
+    raise exception 'Preference memory not found';
+  end if;
+
+  delete from public.memory_items
+  where user_id = v_user_id
+    and memory_type = 'preference'
+    and id <> p_keep_id
+    and id = any(coalesce(p_duplicate_ids, array[]::uuid[]));
+end;
+$;
+
+REVOKE ALL ON FUNCTION public.replace_my_memory_preference(
+  uuid, uuid[], text, real, extensions.vector(384), uuid
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.replace_my_memory_preference(
+  uuid, uuid[], text, real, extensions.vector(384), uuid
+) TO authenticated;
+
+-- Persist a memory only if the verified caller still owns the source user message.
+-- This RPC is SECURITY INVOKER and uses auth.uid(), so callers cannot choose a
+-- tenant by supplying a user_id. Its short transaction shares the same advisory
+-- lock with deletion; expensive embedding inference happens before this function.
+CREATE OR REPLACE FUNCTION public.persist_my_memory_item(
+  p_source_message_id uuid,
+  p_memory_type text,
+  p_content text,
+  p_importance real,
+  p_embedding extensions.vector(384)
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public, extensions
+AS $
+DECLARE
+  v_user_id uuid := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF p_source_message_id IS NULL
+     OR p_memory_type IS NULL OR p_memory_type NOT IN ('preference', 'communication')
+     OR p_content IS NULL OR char_length(p_content) NOT BETWEEN 2 AND 240
+     OR p_importance IS NULL OR p_importance NOT BETWEEN 0 AND 1
+     OR p_embedding IS NULL THEN
+    RAISE EXCEPTION 'Invalid memory item payload'
+      USING ERRCODE = '23514';
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user_id::text, 0));
+
+  PERFORM 1
+  FROM public.messages
+  WHERE id = p_source_message_id
+    AND user_id = v_user_id
+    AND role = 'user'
+  FOR KEY SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Memory source message is not an owned user message.'
+      USING ERRCODE = '23503';
+  END IF;
+
+  INSERT INTO public.memory_items (
+    user_id, memory_type, content, importance, embedding,
+    source_message_id, source_message_role, updated_at
+  )
+  VALUES (
+    v_user_id, p_memory_type, p_content, p_importance, p_embedding,
+    p_source_message_id, 'user', clock_timestamp()
+  )
+  ON CONFLICT (user_id, content) DO UPDATE
+  SET memory_type = EXCLUDED.memory_type,
+      importance = EXCLUDED.importance,
+      embedding = EXCLUDED.embedding,
+      source_message_id = EXCLUDED.source_message_id,
+      source_message_role = 'user',
+      updated_at = clock_timestamp();
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.persist_my_memory_item(
+  uuid, text, text, real, extensions.vector(384)
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.persist_my_memory_item(
+  uuid, text, text, real, extensions.vector(384)
+) TO authenticated;
+
 -- This RPC invalidates in-flight claims before deleting chat rows, so a delayed
 -- model response cannot recreate records after the user has requested deletion.
 CREATE OR REPLACE FUNCTION public.delete_my_chat_data_server(p_user_id uuid)
