@@ -14,8 +14,10 @@ DECLARE
   is_security_definer boolean;
   memory_source_attnum smallint;
   memory_user_attnum smallint;
+  memory_source_role_attnum smallint;
   message_id_attnum smallint;
   message_user_attnum smallint;
+  message_role_attnum smallint;
 BEGIN
   SELECT n.nspname
   INTO extension_schema
@@ -47,6 +49,31 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'AUD-05 embedding integrity constraint is missing or unvalidated';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.memory_items'::regclass
+      AND conname = 'memory_items_embedding_unit_norm_check'
+      AND contype = 'c'
+      AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'AUD-07 unit-norm constraint is missing or unvalidated';
+  END IF;
+  IF to_regclass('public.messages_id_user_role_uidx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-07 source-role referenced unique index is missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.memory_items'::regclass
+      AND tgname = 'normalize_memory_embedding_before_insert'
+      AND NOT tgisinternal
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.memory_items'::regclass
+      AND tgname = 'normalize_memory_embedding_before_update'
+      AND NOT tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'AUD-07 storage-level embedding normalization triggers are missing';
+  END IF;
 
   SELECT attnum INTO memory_source_attnum
   FROM pg_attribute
@@ -54,12 +81,18 @@ BEGIN
   SELECT attnum INTO memory_user_attnum
   FROM pg_attribute
   WHERE attrelid = 'public.memory_items'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO memory_source_role_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_role' AND NOT attisdropped;
   SELECT attnum INTO message_id_attnum
   FROM pg_attribute
   WHERE attrelid = 'public.messages'::regclass AND attname = 'id' AND NOT attisdropped;
   SELECT attnum INTO message_user_attnum
   FROM pg_attribute
   WHERE attrelid = 'public.messages'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO message_role_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.messages'::regclass AND attname = 'role' AND NOT attisdropped;
 
   IF to_regclass('public.messages_id_user_id_uidx') IS NULL THEN
     RAISE EXCEPTION 'AUD-04 composite messages(id,user_id) unique index is missing';
@@ -71,8 +104,8 @@ BEGIN
     WHERE c.conrelid = 'public.memory_items'::regclass
       AND c.confrelid = 'public.messages'::regclass
       AND c.contype = 'f'
-      AND c.conkey = ARRAY[memory_source_attnum, memory_user_attnum]::smallint[]
-      AND c.confkey = ARRAY[message_id_attnum, message_user_attnum]::smallint[]
+      AND c.conkey = ARRAY[memory_source_attnum, memory_user_attnum, memory_source_role_attnum]::smallint[]
+      AND c.confkey = ARRAY[message_id_attnum, message_user_attnum, message_role_attnum]::smallint[]
       AND c.confdeltype = 'n'
       AND c.confdelsetcols = ARRAY[memory_source_attnum]::smallint[]
   ) THEN
@@ -105,6 +138,7 @@ BEGIN
   FOREACH function_name IN ARRAY ARRAY[
     'match_memory_items',
     'delete_my_chat_data',
+    'delete_my_chat_data_server',
     'persist_chat_turn',
     'persist_chat_turn_server',
     'claim_chat_request_server',
@@ -136,11 +170,11 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation') THEN
+    IF function_name IN ('delete_my_chat_data', 'delete_my_chat_data_server', 'persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation') THEN
       IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
       END IF;
-      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation')
+      IF function_name IN ('delete_my_chat_data_server', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation')
          AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'service_role is missing EXECUTE on server-only chat RPC %', function_name;
       END IF;
