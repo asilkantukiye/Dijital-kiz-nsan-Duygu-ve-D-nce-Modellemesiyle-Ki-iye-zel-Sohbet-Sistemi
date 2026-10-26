@@ -33,8 +33,9 @@ $aud05_reject_zero_embedding$;
 DO $aud07_normalize_embedding$
 DECLARE
   stored_norm double precision;
-  first_component double precision;
-  second_component double precision;
+  distance_to_expected double precision;
+  expected_unit_vector extensions.vector(384) :=
+    ('[' || array_to_string(ARRAY[0.6::real, 0.8::real] || array_fill(0::real, ARRAY[382]), ',') || ']')::extensions.vector(384);
 BEGIN
   INSERT INTO public.memory_items (user_id, memory_type, content, importance, embedding)
   VALUES (
@@ -45,16 +46,16 @@ BEGIN
     ('[' || array_to_string(ARRAY[3::real, 4::real] || array_fill(0::real, ARRAY[382]), ',') || ']')::extensions.vector(384)
   );
 
-  SELECT extensions.vector_norm(embedding), embedding[1], embedding[2]
-  INTO stored_norm, first_component, second_component
+  SELECT extensions.vector_norm(embedding), embedding <-> expected_unit_vector
+  INTO stored_norm, distance_to_expected
   FROM public.memory_items
   WHERE content = 'aud07-normalization-must-be-storage-enforced';
 
   IF stored_norm IS NULL OR abs(stored_norm - 1.0) > 0.001 THEN
     RAISE EXCEPTION 'AUD-07 failed: database did not store a unit-normalized vector (norm=%)', stored_norm;
   END IF;
-  IF abs(first_component - 0.6) > 0.001 OR abs(second_component - 0.8) > 0.001 THEN
-    RAISE EXCEPTION 'AUD-07 failed: normalization produced unexpected components (%, %)', first_component, second_component;
+  IF distance_to_expected IS NULL OR distance_to_expected > 0.001 THEN
+    RAISE EXCEPTION 'AUD-07 failed: normalized vector differs from expected unit vector (L2 distance=%)', distance_to_expected;
   END IF;
 
   DELETE FROM public.memory_items
