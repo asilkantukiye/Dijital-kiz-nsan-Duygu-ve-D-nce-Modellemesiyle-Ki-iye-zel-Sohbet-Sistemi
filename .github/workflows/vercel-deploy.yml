@@ -283,7 +283,7 @@ jobs:
           trap 'rm -f "$header_file"' EXIT
           printf 'x-healthcheck-token: %s\n' "$HEALTHCHECK_TOKEN" > "$header_file"
 
-          probe_response="$(npx --yes vercel@63.1.2 curl /api/health/deep --deployment "$DEPLOYMENT_URL" --scope "help-70c6" -H "@$header_file")"
+          probe_response="$(npx --yes vercel@63.1.2 curl /api/health/deep --deployment "$DEPLOYMENT_URL" --scope "help-70c6" -- --header "@$header_file")"
 
           printf '%s' "$probe_response" | node -e '
           let input = "";
