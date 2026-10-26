@@ -28,6 +28,40 @@ BEGIN
 END
 $aud05_reject_zero_embedding$;
 
+
+-- Storage-level normalization: bypass application code with a non-unit vector.
+DO $aud07_normalize_embedding$
+DECLARE
+  stored_norm double precision;
+  first_component double precision;
+  second_component double precision;
+BEGIN
+  INSERT INTO public.memory_items (user_id, memory_type, content, importance, embedding)
+  VALUES (
+    '11111111-1111-4111-8111-111111111111',
+    'preference',
+    'aud07-normalization-must-be-storage-enforced',
+    0.5,
+    ('[' || array_to_string(ARRAY[3::real, 4::real] || array_fill(0::real, ARRAY[382]), ',') || ']')::extensions.vector(384)
+  );
+
+  SELECT extensions.vector_norm(embedding), embedding[1], embedding[2]
+  INTO stored_norm, first_component, second_component
+  FROM public.memory_items
+  WHERE content = 'aud07-normalization-must-be-storage-enforced';
+
+  IF stored_norm IS NULL OR abs(stored_norm - 1.0) > 0.001 THEN
+    RAISE EXCEPTION 'AUD-07 failed: database did not store a unit-normalized vector (norm=%)', stored_norm;
+  END IF;
+  IF abs(first_component - 0.6) > 0.001 OR abs(second_component - 0.8) > 0.001 THEN
+    RAISE EXCEPTION 'AUD-07 failed: normalization produced unexpected components (%, %)', first_component, second_component;
+  END IF;
+
+  DELETE FROM public.memory_items
+  WHERE content = 'aud07-normalization-must-be-storage-enforced';
+END
+$aud07_normalize_embedding$;
+
 DO $aud05_embedding_constraint_catalog$
 BEGIN
   IF NOT EXISTS (
@@ -38,6 +72,28 @@ BEGIN
       AND convalidated
   ) THEN
     RAISE EXCEPTION 'AUD-05 failed: embedding integrity constraint is missing or unvalidated';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.memory_items'::regclass
+      AND conname = 'memory_items_embedding_unit_norm_check'
+      AND contype = 'c'
+      AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'AUD-07 failed: unit-norm storage constraint is missing or unvalidated';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.memory_items'::regclass
+      AND tgname = 'normalize_memory_embedding_before_insert'
+      AND NOT tgisinternal
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.memory_items'::regclass
+      AND tgname = 'normalize_memory_embedding_before_update'
+      AND NOT tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'AUD-07 failed: storage-level vector normalization triggers are missing';
   END IF;
 END
 $aud05_embedding_constraint_catalog$;
