@@ -51,5 +51,6 @@ test('deletion invalidates idempotency claims before removing memories, profiles
 
   assert.ok(claims >= 0 && memories > claims && profiles > memories && messages > profiles)
   assert.match(sql, /'chat_claims_deleted', deleted_claims/)
-  assert.match(sql, /grant delete on table public\.memory_items, public\.twin_profiles, public\.messages to service_role/i)
+  assert.match(sql, /grant select, delete on table public\.memory_items to service_role/i)
+  assert.match(sql, /grant delete on table public\.twin_profiles, public\.messages to service_role/i)
 })
