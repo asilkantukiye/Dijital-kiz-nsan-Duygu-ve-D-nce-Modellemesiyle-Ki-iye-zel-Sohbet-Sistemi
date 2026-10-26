@@ -146,10 +146,13 @@ test('malformed responses, non-success statuses and network errors fail closed',
 test('chat route denies inference before calling the model when the limiter blocks', async () => {
   const route = await readFile(path.join(testDirectory, '..', 'app', 'api', 'chat', 'route.ts'), 'utf8')
   const limiterPosition = route.indexOf('await enforceChatRateLimit(user.id)')
+  const claimPosition = route.indexOf('claimChatRequestWithWait(async () =>')
   const modelPosition = route.indexOf('await qwenChat(modelMessages)')
 
   assert.ok(limiterPosition >= 0, 'route must call distributed limiter')
-  assert.ok(modelPosition > limiterPosition, 'model inference must happen after the limiter')
+  assert.ok(claimPosition > limiterPosition, 'rate limiting must happen before idempotency RPCs to protect the database from same-user request floods')
+  assert.ok(modelPosition > claimPosition, 'model inference must happen after the idempotency claim')
+
   assert.match(route, /rateLimitDecision\.unavailable \? 503 : 429/)
   assert.match(route, /'Retry-After': String\(rateLimitDecision\.retryAfterSeconds\)/)
 })
