@@ -88,6 +88,43 @@ END
 $aud07_delete_invalidates_claim$;
 
 RESET ROLE;
+
+-- A late memory extractor can still be running after its chat turn committed.
+-- Its authenticated RPC must re-check the source under the same per-user lock;
+-- if deletion won the race, the now-missing source rejects the write.
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '55555555-5555-4555-8555-555555555555';
+DO $aud07_memory_write_after_delete$
+DECLARE
+  rejected boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.persist_my_memory_item(
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee55'::uuid,
+      'preference',
+      'aud07-late-memory-after-delete',
+      0.5,
+      ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384)
+    );
+  EXCEPTION WHEN foreign_key_violation THEN
+    rejected := true;
+  END;
+
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'AUD-07 failed: memory was recreated after deletion removed its source message';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.memory_items
+    WHERE user_id = '55555555-5555-4555-8555-555555555555'
+      AND content = 'aud07-late-memory-after-delete'
+  ) THEN
+    RAISE EXCEPTION 'AUD-07 failed: stale memory row was persisted after deletion';
+  END IF;
+END
+$aud07_memory_write_after_delete$;
+RESET ROLE;
+
 DO $aud07_delete_privileges$
 BEGIN
   IF NOT has_table_privilege('service_role', 'public.memory_items', 'SELECT')
