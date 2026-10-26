@@ -236,20 +236,17 @@ export async function persistMemories(
       continue
     }
 
-    const { error } = await supabase
-      .from('memory_items')
-      .upsert(
-        {
-          user_id: userId,
-          memory_type: item.memory.memory_type,
-          content: item.memory.content,
-          importance: item.memory.importance,
-          embedding: item.embedding,
-          source_message_id: sourceMessageId,
-          updated_at: now
-        },
-        { onConflict: 'user_id,content' }
-      )
+    // The SQL RPC takes the shared per-user transaction lock and rechecks the
+    // source message inside the same transaction. If account deletion won the
+    // race while embeddings were being generated, the source no longer exists
+    // and this write fails instead of resurrecting memory after deletion.
+    const { error } = await supabase.rpc('persist_my_memory_item', {
+      p_source_message_id: sourceMessageId,
+      p_memory_type: item.memory.memory_type,
+      p_content: item.memory.content,
+      p_importance: item.memory.importance,
+      p_embedding: item.embedding
+    })
 
     if (error) throw error
     persisted += 1
