@@ -8,7 +8,7 @@ import {
   profileToSystemPrompt
 } from '@/lib/twin'
 import { qwenChat } from '@/lib/huggingface'
-import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
+import { finalizeMemoryTurn, formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
 import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
 import { readJsonBodyLimited } from '@/lib/request-body'
 import { enforceChatRateLimit } from '@/lib/distributed-rate-limit'
@@ -122,6 +122,27 @@ export async function POST(req: Request) {
 
     // The SHA-256 fingerprint scopes an identical prompt+variant to this verified user.
     // PostgreSQL owns the cross-instance lock; no in-memory mutex is trusted here.
+    const rateLimitDecision = await enforceChatRateLimit(user.id)
+
+    if (!rateLimitDecision.allowed) {
+      const status = rateLimitDecision.unavailable ? 503 : 429
+      const error = rateLimitDecision.unavailable
+        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
+        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
+
+      return NextResponse.json(
+        { error },
+        {
+          status,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
+          }
+        }
+      )
+    }
+
+
     const requestHash = hashChatRequest(variant, message)
     const ownerToken = createChatRequestOwnerToken()
     const claimResult = await claimChatRequestWithWait(async () => {
@@ -166,27 +187,6 @@ export async function POST(req: Request) {
         p_owner_token: ownerToken
       })
       if (error) throw error
-    }
-
-    const rateLimitDecision = await enforceChatRateLimit(user.id)
-
-    if (!rateLimitDecision.allowed) {
-      await releaseClaim()
-      const status = rateLimitDecision.unavailable ? 503 : 429
-      const error = rateLimitDecision.unavailable
-        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
-        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
-
-      return NextResponse.json(
-        { error },
-        {
-          status,
-          headers: {
-            'Cache-Control': 'no-store',
-            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
-          }
-        }
-      )
     }
 
     const [
@@ -237,9 +237,11 @@ export async function POST(req: Request) {
     const safeHistory = boundHistory(rawHistory)
 
     let memoryContext: string | null = null
+    let memoryIdsToMark: string[] = []
     if (variant === 'personalized') {
       try {
         const memories = await retrieveMemories(user.id, message)
+        memoryIdsToMark = memories.map((memory) => memory.id)
         memoryContext = formatMemoryContext(memories)
       } catch {
         // Memory is best-effort; avoid logging user-derived provider/database details.
@@ -338,6 +340,13 @@ export async function POST(req: Request) {
     releaseOwnedClaim = null
 
     if (persistenceDisposition === 'completed' && variant === 'personalized') {
+      try {
+        await finalizeMemoryTurn(user.id, memoryIdsToMark)
+      } catch {
+        // Memory activity/pruning is ancillary to the committed chat turn.
+        console.error('Memory finalization failed; chat response was already saved.')
+      }
+
       try {
         await persistMemories(user.id, userMessageId, message)
       } catch {

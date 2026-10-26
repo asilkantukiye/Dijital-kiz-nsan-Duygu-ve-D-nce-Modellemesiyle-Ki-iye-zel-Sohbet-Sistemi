@@ -86,6 +86,7 @@ jobs:
             --file supabase/migrations/20261023230500_aud_05_validate_embedding_integrity.sql \
             --file supabase/migrations/20261023231000_aud_06_chat_deduplication_window.sql \
             --file supabase/migrations/20261025170000_stage6_foreign_key_indexes.sql \
+            --file supabase/migrations/20261026170000_aud_07_storage_and_recovery_hardening.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/chat_write_boundary.integration.sql \
@@ -94,7 +95,26 @@ jobs:
             --file tests/sql/memory_preference_update.integration.sql \
             --file tests/sql/security_rpc.integration.sql \
             --file tests/sql/memory_source_ownership.integration.sql \
-            --file tests/sql/memory_embedding_integrity.integration.sql
+            --file tests/sql/memory_embedding_integrity.integration.sql \
+
+
+      - name: Stress concurrent idempotency claims against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: node tests/chat-idempotency-concurrency.integration.mjs
+
+      - name: Test deletion versus in-flight chat recovery
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: psql --set ON_ERROR_STOP=1 --file tests/sql/chat_delete_recovery.integration.sql
 
       - name: Test embedding integrity against PostgreSQL
         env:

@@ -116,33 +116,56 @@ BEGIN
 END
 $feedback_rls$;
 
--- Deletion must clean the signed-in user's memory/profile/messages and cascade
--- their feedback while preserving every other user's rows.
+-- Deletion is executed by the trusted server RPC after the route verifies
+-- the signed-in user. Browser roles must not invoke this service-role boundary.
+RESET ROLE;
+SET ROLE service_role;
 DO $delete_my_data$
 DECLARE
-  actor uuid := auth.uid();
+  actor uuid := '11111111-1111-4111-8111-111111111111';
   deletion_result jsonb;
 BEGIN
-  deletion_result := public.delete_my_chat_data();
+  deletion_result := public.delete_my_chat_data_server(actor);
 
   IF (deletion_result ->> 'memories_deleted')::integer <> 1 THEN
-    RAISE EXCEPTION 'delete_my_chat_data returned an unexpected memory count';
+    RAISE EXCEPTION 'server deletion returned an unexpected memory count';
   END IF;
   IF (deletion_result ->> 'profiles_deleted')::integer <> 1 THEN
-    RAISE EXCEPTION 'delete_my_chat_data returned an unexpected profile count';
+    RAISE EXCEPTION 'server deletion returned an unexpected profile count';
   END IF;
   IF (deletion_result ->> 'messages_deleted')::integer <> 2 THEN
-    RAISE EXCEPTION 'delete_my_chat_data returned an unexpected message count';
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM public.memory_items WHERE user_id = actor)
-     OR EXISTS (SELECT 1 FROM public.twin_profiles WHERE user_id = actor)
-     OR EXISTS (SELECT 1 FROM public.messages WHERE user_id = actor)
-     OR EXISTS (SELECT 1 FROM public.message_feedback WHERE user_id = actor) THEN
-    RAISE EXCEPTION 'delete_my_chat_data left behind user-owned rows';
+    RAISE EXCEPTION 'server deletion returned an unexpected message count';
   END IF;
 END
 $delete_my_data$;
+
+RESET ROLE;
+DO $delete_my_data_acl$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'browser roles can execute server-only data deletion';
+  END IF;
+  IF has_function_privilege('authenticated', 'public.delete_my_chat_data()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'legacy authenticated deletion RPC remains callable';
+  END IF;
+  IF NOT has_function_privilege('service_role', 'public.delete_my_chat_data_server(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'service_role is missing server deletion RPC permission';
+  END IF;
+END
+$delete_my_data_acl$;
+
+DO $delete_my_data_postconditions$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.memory_items WHERE user_id = '11111111-1111-4111-8111-111111111111')
+     OR EXISTS (SELECT 1 FROM public.twin_profiles WHERE user_id = '11111111-1111-4111-8111-111111111111')
+     OR EXISTS (SELECT 1 FROM public.messages WHERE user_id = '11111111-1111-4111-8111-111111111111')
+     OR EXISTS (SELECT 1 FROM public.message_feedback WHERE user_id = '11111111-1111-4111-8111-111111111111')
+     OR EXISTS (SELECT 1 FROM public.chat_request_deduplication WHERE user_id = '11111111-1111-4111-8111-111111111111') THEN
+    RAISE EXCEPTION 'server data deletion left behind user-owned rows';
+  END IF;
+END
+$delete_my_data_postconditions$;
 
 RESET ROLE;
 DO $other_user_preserved$

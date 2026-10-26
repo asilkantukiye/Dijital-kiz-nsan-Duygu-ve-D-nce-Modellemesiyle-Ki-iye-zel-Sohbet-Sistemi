@@ -8,7 +8,20 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 
-test('CI applies all sixteen Supabase migrations in timestamp order', async () => {
+test('migration runbook uses the same Stage 6 filename as CI', async () => {
+  const [runbook, workflow] = await Promise.all([
+    readFile(path.join(projectDirectory, 'supabase', 'MIGRATION_RUNBOOK.md'), 'utf8'),
+    readFile(path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'), 'utf8')
+  ])
+
+  const migration = '20261025170000_stage6_foreign_key_indexes.sql'
+  const outdatedMigration = '20261025210000_stage6_foreign_key_indexes.sql'
+  assert.ok(runbook.includes(migration), 'runbook must name the real migration file')
+  assert.ok(!runbook.includes(outdatedMigration), 'runbook must not reference a nonexistent migration filename')
+  assert.ok(workflow.includes('--file supabase/migrations/' + migration))
+})
+
+test('CI applies all seventeen Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
@@ -31,7 +44,8 @@ test('CI applies all sixteen Supabase migrations in timestamp order', async () =
     '20261023230000_aud_05_embedding_validation.sql',
     '20261023230500_aud_05_validate_embedding_integrity.sql',
     '20261023231000_aud_06_chat_deduplication_window.sql',
-    '20261025170000_stage6_foreign_key_indexes.sql'
+    '20261025170000_stage6_foreign_key_indexes.sql',
+    '20261026170000_aud_07_storage_and_recovery_hardening.sql'
   ]
 
   const positions = migrations.map((migration) => {
@@ -51,7 +65,8 @@ test('CI applies all sixteen Supabase migrations in timestamp order', async () =
     'tests/sql/memory_preference_update.integration.sql',
     'tests/sql/security_rpc.integration.sql',
     'tests/sql/memory_source_ownership.integration.sql',
-    'tests/sql/memory_embedding_integrity.integration.sql'
+    'tests/sql/memory_embedding_integrity.integration.sql',
+    'tests/sql/chat_delete_recovery.integration.sql'
   ]
   assert.match(workflow, /name: Test concurrent profile updates against PostgreSQL/)
   assert.match(workflow, /name: Test embedding integrity against PostgreSQL/)
@@ -99,6 +114,7 @@ test('migration catalog checks vector placement, the complete RPC set, RLS and p
   assert.match(catalogSql, /authenticated is missing EXECUTE/)
   assert.match(catalogSql, /replace_my_memory_preference/)
   assert.match(catalogSql, /persist_chat_turn_server/)
+  assert.match(catalogSql, /persist_my_memory_item/)
   assert.match(catalogSql, /authenticated unexpectedly has direct chat\/profile write privilege/)
   assert.match(catalogSql, /authenticated is missing USAGE on extensions schema/)
   assert.match(catalogSql, /memory source-message foreign-key index is missing/)

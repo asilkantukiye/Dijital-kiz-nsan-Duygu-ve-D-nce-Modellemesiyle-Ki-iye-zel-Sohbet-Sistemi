@@ -5,14 +5,13 @@ permissions:
 
 concurrency:
   group: vercel-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
 
 jobs:
   preflight:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.check.outputs.ready }}
@@ -21,9 +20,21 @@ jobs:
         id: check
         shell: bash
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
           missing=()
+          if [[ "$WORKFLOW_REF" != "refs/heads/main" ]]; then
+            missing+=("deployment must be dispatched from main (current ref: $WORKFLOW_REF)")
+          fi
+          if [[ -z "$VERCEL_TOKEN" ]]; then
+            missing+=("VERCEL_TOKEN (GitHub Actions secret)")
+          fi
+          if [[ ${#HEALTHCHECK_TOKEN} -lt 32 ]]; then
+            missing+=("HEALTHCHECK_TOKEN (GitHub Actions secret, minimum 32 characters)")
+          fi
           if [[ "$SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true" ]]; then
             missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
           fi
@@ -33,7 +44,7 @@ jobs:
             {
               echo "## Vercel deployment preflight"
               echo ""
-              echo "The manual database migration confirmation is present."
+              echo "Vercel access, upstream health secret, and database migration confirmation are present."
               echo ""
               echo "The migration confirmation is manual. CI cannot prove the live Supabase project was migrated; confirm the migration and function permissions in the intended project first."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -50,7 +61,9 @@ jobs:
               done
               echo ""
               echo "Add VERCEL_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
-              echo "Never put the token in source code, workflow logs, issues, or chat."
+              echo "Never put either token in source code, workflow logs, issues, or chat."
+              echo ""
+              echo "Add HEALTHCHECK_TOKEN as a GitHub Actions secret (at least 32 random characters) and configure the identical value as a Vercel Production environment variable. The post-deploy probe will fail closed if the values do not match."
               echo ""
               echo "Set repository variable **SUPABASE_PRODUCTION_SCHEMA_VERIFIED** to exactly **true** only after the baseline schema and all required migrations are applied to the intended Supabase project, and RLS policies plus required RPC permissions/functions are verified. Follow supabase/MIGRATION_RUNBOOK.md."
               echo ""
@@ -112,11 +125,12 @@ jobs:
       - name: Build
         run: npm run build
 
-  deploy:
+  stage:
     needs: [preflight, validate]
     if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' }}
     runs-on: ubuntu-latest
-    environment: production
+    outputs:
+      url: ${{ steps.deployment.outputs.url }}
     defaults:
       run:
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
@@ -159,7 +173,8 @@ jobs:
             HF_TOKEN \
             UPSTASH_REDIS_REST_URL \
             UPSTASH_REDIS_REST_TOKEN \
-            RATE_LIMIT_KEY_SALT; do
+            RATE_LIMIT_KEY_SALT \
+            HEALTHCHECK_TOKEN; do
             if ! grep -Fq -- "$key" "$env_file"; then
               missing+=("$key")
             fi
@@ -203,7 +218,7 @@ jobs:
             echo ""
             echo "- Deployment URL: $deployment_url"
             echo "- Production domain assignment was skipped."
-            echo "- Promotion runs only after the staged /api/health check passes."
+            echo "- Promotion runs only after configuration and upstream health checks pass."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify production health and chat configuration
@@ -254,9 +269,86 @@ jobs:
             echo "- This deployment has not been assigned the production domain."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Promote verified staged deployment
+
+      - name: Verify production upstream connectivity
+        shell: bash
         env:
           DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          header_file="$(mktemp)"
+          trap 'rm -f "$header_file"' EXIT
+          printf 'x-healthcheck-token: %s\n' "$HEALTHCHECK_TOKEN" > "$header_file"
+
+          probe_response="$(npx --yes vercel@63.1.2 curl /api/health/deep --deployment "$DEPLOYMENT_URL" --scope "help-70c6" -H "@$header_file")"
+
+          printf '%s' "$probe_response" | node -e '
+          let input = "";
+          process.stdin.setEncoding("utf8");
+          process.stdin.on("data", chunk => input += chunk);
+          process.stdin.on("end", () => {
+            let result;
+            try {
+              result = JSON.parse(input);
+            } catch {
+              console.error("Deep health endpoint did not return valid JSON.");
+              process.exit(1);
+            }
+
+            if (
+              result.ok !== true ||
+              result.providers?.supabase !== true ||
+              result.providers?.huggingface !== true ||
+              result.providers?.rateLimit !== true
+            ) {
+              console.error("Upstream connectivity probe failed; provider checks did not all pass.");
+              process.exit(1);
+            }
+
+            console.log("Deep health passed for Supabase Auth, Hugging Face token authentication, and Upstash Redis.");
+          });
+          '
+
+          {
+            echo ""
+            echo "## Staged upstream connectivity passed"
+            echo ""
+            echo "- Supabase Auth HTTP probe passed."
+            echo "- Hugging Face token authentication passed; this probe does not perform model inference."
+            echo "- Upstash Redis PING passed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    needs: [preflight, validate, stage]
+    if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' && needs.stage.result == 'success' }}
+    runs-on: ubuntu-latest
+    # Configure required reviewers in Settings -> Environments -> production.
+    # This approval is reached only after the staged deployment passes both health gates.
+    environment: production
+    defaults:
+      run:
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dijital-ikiz-mvp/dijital-ikiz-mvp/package-lock.json
+
+
+      - name: Promote verified staged deployment
+        env:
+          DEPLOYMENT_URL: ${{ needs.stage.outputs.url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@63.1.2 promote "$DEPLOYMENT_URL" --yes --scope "help-70c6"
 

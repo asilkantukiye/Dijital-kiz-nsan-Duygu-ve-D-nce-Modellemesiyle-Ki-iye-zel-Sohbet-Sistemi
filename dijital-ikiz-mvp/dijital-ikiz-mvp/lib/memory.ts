@@ -83,8 +83,9 @@ async function pruneMemoryLifecycle(supabase: ServerSupabaseClient, userId: stri
 export async function retrieveMemories(userId: string, queryText: string) {
   const supabase = await createClient()
   await assertMemoryUserContext(supabase, userId)
-  await pruneMemoryLifecycle(supabase, userId)
 
+  // Retrieval is read-only until the chat turn has committed. A model timeout or
+  // provider error must not mutate memory usage timestamps or prune stored rows.
   // Avoid an external embedding call while the user has no stored memories.
   const { data: existing, error: existingError } = await supabase
     .from('memory_items')
@@ -108,18 +109,29 @@ export async function retrieveMemories(userId: string, queryText: string) {
 
   const memories = (data ?? []) as MemoryItem[]
 
-  if (memories.length > 0) {
-    const ids = memories.map((item) => item.id)
-    const { error: updateError } = await supabase
+  return memories
+}
+
+export async function finalizeMemoryTurn(userId: string, memoryIds: string[]) {
+  const supabase = await createClient()
+  await assertMemoryUserContext(supabase, userId)
+
+  const ids = [...new Set(memoryIds.filter(
+    (id): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)
+  ))].slice(0, MAX_MEMORY_RESULTS)
+
+  if (ids.length > 0) {
+    const { error } = await supabase
       .from('memory_items')
       .update({ last_used_at: new Date().toISOString() })
       .eq('user_id', userId)
       .in('id', ids)
 
-    if (updateError) throw updateError
+    if (error) throw error
   }
 
-  return memories
+  // Maintenance is also deferred until a complete chat turn has committed.
+  await pruneMemoryLifecycle(supabase, userId)
 }
 
 export async function persistMemories(
@@ -224,20 +236,17 @@ export async function persistMemories(
       continue
     }
 
-    const { error } = await supabase
-      .from('memory_items')
-      .upsert(
-        {
-          user_id: userId,
-          memory_type: item.memory.memory_type,
-          content: item.memory.content,
-          importance: item.memory.importance,
-          embedding: item.embedding,
-          source_message_id: sourceMessageId,
-          updated_at: now
-        },
-        { onConflict: 'user_id,content' }
-      )
+    // The SQL RPC takes the shared per-user transaction lock and rechecks the
+    // source message inside the same transaction. If account deletion won the
+    // race while embeddings were being generated, the source no longer exists
+    // and this write fails instead of resurrecting memory after deletion.
+    const { error } = await supabase.rpc('persist_my_memory_item', {
+      p_source_message_id: sourceMessageId,
+      p_memory_type: item.memory.memory_type,
+      p_content: item.memory.content,
+      p_importance: item.memory.importance,
+      p_embedding: item.embedding
+    })
 
     if (error) throw error
     persisted += 1

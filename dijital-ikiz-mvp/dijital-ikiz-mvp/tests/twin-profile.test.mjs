@@ -81,3 +81,52 @@ test('heuristic baselines and weights are named, bounded, and explicitly uncalib
     assert.ok(value >= 0 && value <= 25)
   }
 })
+
+
+test('profile remains finite and bounded across extreme alternating messages', () => {
+  let profile = normalizeProfile({
+    valence: 0,
+    arousal: 1,
+    dominance: 0,
+    openness: 1,
+    conscientiousness: 0,
+    extraversion: 1,
+    agreeableness: 0,
+    neuroticism: 1,
+    informality: 0,
+    emoji_frequency: 1,
+    humor: 0,
+    slang: 1,
+    avg_sentence_length: 0
+  })
+
+  const messages = ['harika çok seviyorum 😂!!!', 'berbat korku stres yalnız', 'kanka lol 🤣!!!', 'tamamen nötr bir cümle']
+  for (let index = 0; index < 100_000; index += 1) {
+    profile = analyzeMessage(messages[index % messages.length], profile)
+    for (const [key, value] of Object.entries(profile)) {
+      assert.ok(Number.isFinite(value), key + ' must remain finite at turn ' + index)
+      assert.ok(value >= 0 && value <= 1, key + ' must remain in [0,1] at turn ' + index)
+    }
+  }
+})
+
+test('constant observations converge geometrically; arbitrary alternating inputs need not converge', () => {
+  const target = analyzeMessage('Harika çok seviyorum 😂!!!', null)
+  let profile = normalizeProfile(null)
+  for (let index = 0; index < 100; index += 1) {
+    profile = analyzeMessage('Harika çok seviyorum 😂!!!', profile)
+  }
+
+  for (const key of Object.keys(target)) {
+    assert.ok(Math.abs(profile[key] - target[key]) < 1e-10, key + ' should converge to a constant observation')
+  }
+
+  let alternating = normalizeProfile(null)
+  for (let index = 0; index < 10_000; index += 1) {
+    alternating = analyzeMessage(index % 2 === 0 ? 'harika' : 'berbat', alternating)
+  }
+  for (const value of Object.values(alternating)) {
+    assert.ok(Number.isFinite(value))
+    assert.ok(value >= 0 && value <= 1)
+  }
+})

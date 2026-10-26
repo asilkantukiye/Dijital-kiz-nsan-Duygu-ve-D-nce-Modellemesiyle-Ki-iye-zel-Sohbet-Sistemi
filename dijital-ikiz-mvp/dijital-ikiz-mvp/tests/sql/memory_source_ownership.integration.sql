@@ -8,7 +8,8 @@ RESET ROLE;
 INSERT INTO public.messages (id, user_id, role, variant, content)
 VALUES
   ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01', '11111111-1111-4111-8111-111111111111', 'user', 'personalized', 'aud04-source-owner-a'),
-  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02', '22222222-2222-4222-8222-222222222222', 'user', 'personalized', 'aud04-source-owner-b');
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02', '22222222-2222-4222-8222-222222222222', 'user', 'personalized', 'aud04-source-owner-b'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee03', '11111111-1111-4111-8111-111111111111', 'assistant', 'personalized', 'aud07-assistant-source-must-not-anchor-memory');
 
 INSERT INTO public.memory_items (id, user_id, memory_type, content, importance, embedding, source_message_id)
 VALUES
@@ -63,6 +64,37 @@ BEGIN
   END IF;
 END
 $aud04_reject_cross_tenant_insert$;
+
+
+DO $aud07_reject_assistant_source$
+DECLARE
+  rejected boolean := false;
+BEGIN
+  BEGIN
+    INSERT INTO public.memory_items (
+      user_id, memory_type, content, importance, embedding, source_message_id
+    )
+    VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'preference',
+      'aud07-assistant-source-must-fail',
+      0.7,
+      ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384),
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee03'
+    );
+  EXCEPTION WHEN foreign_key_violation THEN
+    rejected := true;
+  END;
+
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'AUD-07 failed: memory anchored to an assistant message was accepted';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.memory_items WHERE content = 'aud07-assistant-source-must-fail') THEN
+    RAISE EXCEPTION 'AUD-07 failed: rejected assistant-anchored memory was persisted';
+  END IF;
+END
+$aud07_reject_assistant_source$;
 
 DO $aud04_reject_cross_tenant_update$
 DECLARE
@@ -122,20 +154,27 @@ DO $aud04_constraint_catalog$
 DECLARE
   memory_source_attnum smallint;
   memory_user_attnum smallint;
+  memory_source_role_attnum smallint;
   message_id_attnum smallint;
   message_user_attnum smallint;
+  message_role_attnum smallint;
 BEGIN
   SELECT attnum INTO memory_source_attnum FROM pg_attribute
   WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_id' AND NOT attisdropped;
   SELECT attnum INTO memory_user_attnum FROM pg_attribute
   WHERE attrelid = 'public.memory_items'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO memory_source_role_attnum FROM pg_attribute
+  WHERE attrelid = 'public.memory_items'::regclass AND attname = 'source_message_role' AND NOT attisdropped;
   SELECT attnum INTO message_id_attnum FROM pg_attribute
   WHERE attrelid = 'public.messages'::regclass AND attname = 'id' AND NOT attisdropped;
   SELECT attnum INTO message_user_attnum FROM pg_attribute
   WHERE attrelid = 'public.messages'::regclass AND attname = 'user_id' AND NOT attisdropped;
+  SELECT attnum INTO message_role_attnum FROM pg_attribute
+  WHERE attrelid = 'public.messages'::regclass AND attname = 'role' AND NOT attisdropped;
 
-  IF to_regclass('public.messages_id_user_id_uidx') IS NULL THEN
-    RAISE EXCEPTION 'AUD-04 failed: composite referenced unique index is missing';
+  IF to_regclass('public.messages_id_user_id_uidx') IS NULL
+     OR to_regclass('public.messages_id_user_role_uidx') IS NULL THEN
+    RAISE EXCEPTION 'AUD-07 failed: composite referenced unique index is missing';
   END IF;
 
   IF NOT EXISTS (
@@ -144,8 +183,8 @@ BEGIN
     WHERE c.conrelid = 'public.memory_items'::regclass
       AND c.confrelid = 'public.messages'::regclass
       AND c.contype = 'f'
-      AND c.conkey = ARRAY[memory_source_attnum, memory_user_attnum]::smallint[]
-      AND c.confkey = ARRAY[message_id_attnum, message_user_attnum]::smallint[]
+      AND c.conkey = ARRAY[memory_source_attnum, memory_user_attnum, memory_source_role_attnum]::smallint[]
+      AND c.confkey = ARRAY[message_id_attnum, message_user_attnum, message_role_attnum]::smallint[]
       AND c.confdeltype = 'n'
       AND c.confdelsetcols = ARRAY[memory_source_attnum]::smallint[]
   ) THEN

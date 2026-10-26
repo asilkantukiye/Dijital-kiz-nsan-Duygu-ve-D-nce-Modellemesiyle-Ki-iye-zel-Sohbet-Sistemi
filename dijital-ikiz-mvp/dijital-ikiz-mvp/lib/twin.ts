@@ -116,7 +116,10 @@ export function analyzeMessage(text: string, previous: TwinProfile | null): Twin
   const alpha = TWIN_HEURISTIC_CONFIG.smoothingAlpha
 
   return (Object.keys(current) as Array<keyof TwinProfile>).reduce((acc, key) => {
-    acc[key] = safePrevious[key] * (1 - alpha) + current[key] * alpha
+    // Clamp the rounded floating-point result as well as both inputs. The exact
+    // convex update is bounded, but an explicit postcondition makes that invariant
+    // hold in the representation returned to every caller.
+    acc[key] = clamp(safePrevious[key] * (1 - alpha) + current[key] * alpha)
     return acc
   }, {} as TwinProfile)
 }
