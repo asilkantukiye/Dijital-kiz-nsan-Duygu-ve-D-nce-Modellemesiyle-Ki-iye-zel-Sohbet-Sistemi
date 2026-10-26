@@ -8,7 +8,7 @@ import {
   profileToSystemPrompt
 } from '@/lib/twin'
 import { qwenChat } from '@/lib/huggingface'
-import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
+import { finalizeMemoryTurn, formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
 import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
 import { readJsonBodyLimited } from '@/lib/request-body'
 import { enforceChatRateLimit } from '@/lib/distributed-rate-limit'
@@ -237,9 +237,11 @@ export async function POST(req: Request) {
     const safeHistory = boundHistory(rawHistory)
 
     let memoryContext: string | null = null
+    let memoryIdsToMark: string[] = []
     if (variant === 'personalized') {
       try {
         const memories = await retrieveMemories(user.id, message)
+        memoryIdsToMark = memories.map((memory) => memory.id)
         memoryContext = formatMemoryContext(memories)
       } catch {
         // Memory is best-effort; avoid logging user-derived provider/database details.
@@ -338,6 +340,13 @@ export async function POST(req: Request) {
     releaseOwnedClaim = null
 
     if (persistenceDisposition === 'completed' && variant === 'personalized') {
+      try {
+        await finalizeMemoryTurn(user.id, memoryIdsToMark)
+      } catch {
+        // Memory activity/pruning is ancillary to the committed chat turn.
+        console.error('Memory finalization failed; chat response was already saved.')
+      }
+
       try {
         await persistMemories(user.id, userMessageId, message)
       } catch {
