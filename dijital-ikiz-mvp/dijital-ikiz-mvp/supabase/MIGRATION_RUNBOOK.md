@@ -40,7 +40,7 @@ Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut 
 
 ### Stage 6 FK performans indeksi
 
-`20261025210000_stage6_foreign_key_indexes.sql`, chat idempotency kaydındaki `user_message_id` ve `assistant_message_id` alanlarına ayrı indeksler, ayrıca `memory_items(source_message_id, user_id)` bileşik indeksi ekler. Bu indeksler RLS veya tablo yetkilerini değiştirmez ve kayıt içeriğini silmez; PostgreSQL'in referanslanan mesaj silme/kontrol işlemlerinde çocuk kayıtları bulmasına yardımcı olur. Yeni migration, AUD-01–AUD-06 migration zincirinden sonra uygulanmalıdır. Canlı ortamda migration geçmişi dosya sürümleriyle hizalanmadan bu dosyayı uygulama.
+`20261025170000_stage6_foreign_key_indexes.sql`, chat idempotency kaydındaki `user_message_id` ve `assistant_message_id` alanlarına ayrı indeksler, ayrıca `memory_items(source_message_id, user_id)` bileşik indeksi ekler. Bu indeksler RLS veya tablo yetkilerini değiştirmez ve kayıt içeriğini silmez; PostgreSQL'in referanslanan mesaj silme/kontrol işlemlerinde çocuk kayıtları bulmasına yardımcı olur. Yeni migration, AUD-01–AUD-06 migration zincirinden sonra uygulanmalıdır. Canlı ortamda migration geçmişi dosya sürümleriyle hizalanmadan bu dosyayı uygulama.
 
 ## AUD-01: sohbet/profil yazma sınırı
 
