@@ -115,6 +115,15 @@ jobs:
           PGDATABASE: digital_twin_test
         run: node tests/profile-update-concurrency.integration.mjs
 
+      - name: Stress concurrent rate-limit requests against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: digital_twin_test
+        run: node tests/chat-rate-limit-concurrency.integration.mjs
+
       - name: Install
         run: npm ci
 
