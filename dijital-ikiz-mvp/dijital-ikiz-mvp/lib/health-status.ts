@@ -53,11 +53,18 @@ export function buildHealthStatus(environment: HealthEnvironment): HealthStatus 
   )
   const huggingface = Boolean(environment.huggingfaceToken?.trim())
   const serverWriteBoundary = Boolean(environment.supabaseServiceRoleKey?.trim())
-  const rateLimit = Boolean(
+  const validSalt = (environment.rateLimitKeySalt?.trim().length ?? 0) >= 32
+  const upstashRateLimit = Boolean(
     isValidUpstashRestUrl(environment.upstashRedisRestUrl) &&
     environment.upstashRedisRestToken?.trim() &&
-    (environment.rateLimitKeySalt?.trim().length ?? 0) >= 32
+    validSalt
   )
+  const supabaseRateLimit = Boolean(
+    isValidSupabaseUrl(environment.supabaseUrl) &&
+    environment.supabaseServiceRoleKey?.trim() &&
+    validSalt
+  )
+  const rateLimit = upstashRateLimit || supabaseRateLimit
 
   return {
     ok: true,

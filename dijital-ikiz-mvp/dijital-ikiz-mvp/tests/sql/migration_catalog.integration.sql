@@ -84,7 +84,8 @@ BEGIN
     'messages',
     'message_feedback',
     'memory_items',
-    'chat_request_deduplication'
+    'chat_request_deduplication',
+    'chat_rate_limit_counters'
   ]
   LOOP
     table_oid := to_regclass(format('public.%I', table_name));
@@ -111,7 +112,8 @@ BEGIN
     'release_chat_request_server',
     'persist_chat_turn_idempotent_server',
     'merge_twin_profile_observation',
-    'replace_my_memory_preference'
+    'replace_my_memory_preference',
+    'consume_chat_rate_limit'
   ]
   LOOP
     function_oid := NULL;
@@ -136,11 +138,11 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation') THEN
+    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'consume_chat_rate_limit') THEN
       IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
       END IF;
-      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation')
+      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'consume_chat_rate_limit')
          AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'service_role is missing EXECUTE on server-only chat RPC %', function_name;
       END IF;
