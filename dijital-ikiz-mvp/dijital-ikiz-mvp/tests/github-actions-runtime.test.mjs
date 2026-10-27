@@ -80,3 +80,14 @@ test('CI and Vercel validation use the committed npm lockfile reproducibly', asy
   assert.match(deploy, /run: npm ci\b/)
   assert.doesNotMatch(deploy, /run: npm install\b/)
 })
+
+
+test('Kaggle result capture reports the real sentiment baseline and blocks non-improving model publication', async () => {
+  const capture = await readWorkflow('capture-kaggle-training-result.yml')
+
+  assert.match(capture, /"baseline": metrics\.get\("majority_class_baseline"\)/)
+  assert.match(capture, /qwen\["finetuned_model_test_loss"\] >= qwen\["base_model_test_loss"\]/)
+  assert.match(capture, /blocked_no_test_loss_improvement/)
+  assert.match(capture, /blocked_missing_HF_WRITE_TOKEN/)
+  assert.match(capture, /if not info\.private/)
+})
