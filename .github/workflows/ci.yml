@@ -86,7 +86,9 @@ jobs:
             --file supabase/migrations/20261023230500_aud_05_validate_embedding_integrity.sql \
             --file supabase/migrations/20261023231000_aud_06_chat_deduplication_window.sql \
             --file supabase/migrations/20261025170000_stage6_foreign_key_indexes.sql \
+            --file supabase/migrations/20261027180000_supabase_backed_chat_rate_limit.sql \
             --file tests/sql/migration_catalog.integration.sql \
+            --file tests/sql/chat_rate_limit.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
             --file tests/sql/chat_write_boundary.integration.sql \
             --file tests/sql/chat_idempotency.integration.sql \
