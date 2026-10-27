@@ -10,17 +10,30 @@ const readmePath = path.join(projectDirectory, 'README.md')
 const privacyPath = path.join(projectDirectory, 'app', 'privacy', 'page.tsx')
 const memoryPath = path.join(projectDirectory, 'lib', 'memory.ts')
 
-test('README and privacy notice disclose that memory cleanup is not a scheduled background job', async () => {
+test('README and privacy notice disclose scheduled 180-day inactive-memory cleanup while preserving chat history', async () => {
   const [readme, privacy] = await Promise.all([
     readFile(readmePath, 'utf8'),
     readFile(privacyPath, 'utf8')
   ])
 
   for (const document of [readme, privacy]) {
-    assert.match(document, /arka planda zamanlanmış bir iş değildir/i)
-    assert.match(document, /hiç geri dönmezse/i)
-    assert.match(document, /otomatik silinmez/i)
+    assert.match(document, /180 günlük etkin olmama/i)
+    assert.match(document, /saatlik/i)
+    assert.match(document, /sohbet.*silmez/i)
+    assert.doesNotMatch(document, /arka planda zamanlanmış bir iş değildir/i)
+    assert.doesNotMatch(document, /hiç geri dönmezse.*otomatik silinmez/i)
   }
+})
+
+test('scheduled retention policy removes inactive memories and expired metadata but never purges chat history', async () => {
+  const migrationPath = path.join(projectDirectory, 'supabase', 'migrations', '20261027181851_stage6_retention_inactivity_semantics.sql')
+  const migration = await readFile(migrationPath, 'utf8')
+
+  assert.match(migration, /candidate\.updated_at < v_cutoff/)
+  assert.match(migration, /candidate\.last_used_at IS NULL OR candidate\.last_used_at < v_cutoff/)
+  assert.match(migration, /DELETE FROM public\.chat_request_deduplication/)
+  assert.match(migration, /DELETE FROM public\.chat_rate_limit_counters/)
+  assert.doesNotMatch(migration, /DELETE FROM public\.messages/i)
 })
 
 test('memory lifecycle pruning is triggered in authenticated-user memory flows', async () => {
