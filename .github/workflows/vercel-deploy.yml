@@ -8,6 +8,10 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/vercel-deploy.yml"
   workflow_dispatch:
 
 jobs:
@@ -21,6 +25,7 @@ jobs:
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
           WORKFLOW_REF: ${{ github.ref }}
@@ -31,6 +36,9 @@ jobs:
           fi
           if [[ -z "$VERCEL_TOKEN" ]]; then
             missing+=("VERCEL_TOKEN (GitHub Actions secret)")
+          fi
+          if [[ -z "$HF_TOKEN" ]]; then
+            missing+=("HF_TOKEN (Hugging Face inference/read token in GitHub Actions Secrets)")
           fi
           if [[ ${#HEALTHCHECK_TOKEN} -lt 32 ]]; then
             missing+=("HEALTHCHECK_TOKEN (GitHub Actions secret, minimum 32 characters)")
@@ -152,6 +160,49 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6"
+
+      - name: Provision missing server-only Production secrets
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+        run: |
+          set -euo pipefail
+          env_file="$RUNNER_TEMP/vercel-production-env.txt"
+          if ! npx --yes vercel@63.1.2 env ls production --scope "help-70c6" > "$env_file" 2>&1; then
+            echo "::error::Could not inspect Production environment variable names; no secret was changed."
+            exit 1
+          fi
+
+          provision_if_missing() {
+            local key="$1"
+            local value="$2"
+            local minimum_length="$3"
+
+            if grep -Fq -- "$key" "$env_file"; then
+              echo "$key already exists in Production; preserving the stored value."
+              return 0
+            fi
+            if [[ -z "$value" || ${#value} -lt "$minimum_length" ]]; then
+              echo "::error::$key is missing from Production and its matching GitHub Actions secret is absent or too short."
+              exit 1
+            fi
+
+            # Keep values on stdin, suppress CLI output, and never print secret contents.
+            if ! printf '%s' "$value" | npx --yes vercel@63.1.2 env add "$key" production --scope "help-70c6" --sensitive --force >/dev/null 2>&1; then
+              echo "::error::Could not provision $key in Production."
+              exit 1
+            fi
+            if ! npx --yes vercel@63.1.2 env ls production --scope "help-70c6" > "$env_file" 2>&1 || ! grep -Fq -- "$key" "$env_file"; then
+              echo "::error::$key was not present after provisioning."
+              exit 1
+            fi
+            echo "Provisioned missing Production secret: $key (value redacted)."
+          }
+
+          provision_if_missing "HF_TOKEN" "$HF_TOKEN" 20
+          provision_if_missing "HEALTHCHECK_TOKEN" "$HEALTHCHECK_TOKEN" 32
 
       - name: Verify required Production environment variable names
         shell: bash
