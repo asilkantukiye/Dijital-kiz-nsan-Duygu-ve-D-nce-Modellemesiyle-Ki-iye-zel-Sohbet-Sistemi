@@ -159,7 +159,7 @@ export async function enforceChatRateLimit(
   const salt = environment.RATE_LIMIT_KEY_SALT?.trim()
   const supabaseUrlValue = environment.NEXT_PUBLIC_SUPABASE_URL?.trim()
   const supabaseServiceRoleKey = environment.SUPABASE_SERVICE_ROLE_KEY?.trim()
-  const hasAnyConfiguration = Boolean(rawUrl || token || salt || supabaseUrlValue || supabaseServiceRoleKey)
+  const hasAnyConfiguration = Boolean(rawUrl || token || salt)
 
   if (!hasAnyConfiguration && environment.NODE_ENV !== 'production') {
     return localDevelopmentLimit(userId, nowMs)
