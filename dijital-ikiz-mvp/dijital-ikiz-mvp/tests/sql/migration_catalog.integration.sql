@@ -84,7 +84,8 @@ BEGIN
     'messages',
     'message_feedback',
     'memory_items',
-    'chat_request_deduplication'
+    'chat_request_deduplication',
+    'chat_rate_limit_counters'
   ]
   LOOP
     table_oid := to_regclass(format('public.%I', table_name));
@@ -111,7 +112,8 @@ BEGIN
     'release_chat_request_server',
     'persist_chat_turn_idempotent_server',
     'merge_twin_profile_observation',
-    'replace_my_memory_preference'
+    'replace_my_memory_preference',
+    'consume_chat_rate_limit'
   ]
   LOOP
     function_oid := NULL;
