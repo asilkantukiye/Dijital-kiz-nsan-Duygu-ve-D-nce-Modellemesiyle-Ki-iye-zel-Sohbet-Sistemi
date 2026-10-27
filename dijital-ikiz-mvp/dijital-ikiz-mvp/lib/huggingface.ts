@@ -141,13 +141,20 @@ export type ChatProviderErrorCode =
   | 'AI_INVALID_RESPONSE'
 
 export class ChatProviderError extends Error {
+  readonly code: ChatProviderErrorCode
+  readonly status: 502 | 503
+  readonly publicMessage: string
+
   constructor(
-    readonly code: ChatProviderErrorCode,
-    readonly status: 502 | 503,
-    readonly publicMessage: string
+    code: ChatProviderErrorCode,
+    status: 502 | 503,
+    publicMessage: string
   ) {
     super(publicMessage)
     this.name = 'ChatProviderError'
+    this.code = code
+    this.status = status
+    this.publicMessage = publicMessage
   }
 }
 
