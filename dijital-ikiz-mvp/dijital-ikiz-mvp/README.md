@@ -57,6 +57,8 @@ HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 RATE_LIMIT_KEY_SALT=
+# Optional secret for the protected /api/health/deep diagnostic endpoint
+HEALTHCHECK_TOKEN=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY`, Supabase proje ayarlarındaki service-role/secret server key'dir. Yalnızca server environment (`.env.local` veya Vercel Environment Variables) içinde tutulmalıdır; adının başına `NEXT_PUBLIC_` eklemeyin. **Gizli anahtarları GitHub'a yüklemeyin.** `.env.local` `.gitignore` içindedir.
@@ -101,6 +103,10 @@ Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata ç
 
 Varsayılan limitler: kullanıcı başına 20 istek/dakika, tüm proje için 120 istek/dakika ve 1000 istek/UTC günü. Bunlar başlangıç mühendislik sınırlarıdır; gerçek kullanıcı hacmi ve Hugging Face fiyat/harcama limitlerine göre izlenip ayarlanmalıdır. Limit servisi üretimde eksik/erişilemezse sohbet API'si ücretli model çağrısı yapmaz ve `503` döndürür. Geliştirme ortamında değişkenler boşken yalnızca yerel testler için süreç içi sayaç kullanılabilir; bu sayaç dağıtık koruma değildir.
 
+### Üretim tarayıcı güvenliği
+
+Üretimde her proxy isteği yeni bir nonce tabanlı Content Security Policy (CSP) alır; unsafe-eval etkinleştirilmez. Tarayıcının dış bağlantıları Supabase HTTPS ve Realtime WebSocket adresleriyle sınırlıdır; Hugging Face ve Upstash yalnızca sunucudan çağrılır. HSTS yalnızca production build'inde etkinleştirilir. CSP nonce'ları istekler arasında yeniden kullanılmaz.
+
 ## 5. Lokal çalıştırma
 
 ```powershell
@@ -142,6 +148,7 @@ HF_EMBEDDING_MODEL
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 RATE_LIMIT_KEY_SALT
+HEALTHCHECK_TOKEN
 ```
 
 Üretim, preview ve development ortamları için gerekli değişkenleri ekleyin.
@@ -151,9 +158,10 @@ RATE_LIMIT_KEY_SALT
 `.github/workflows/vercel-deploy.yml`, yalnızca **elle başlatılan** üretim dağıtımı içindir. Dağıtım için bir secret ve ayrı bir repository variable gerekir:
 
 - `VERCEL_TOKEN` secret'ı: Vercel hesabında oluşturulan erişim token'ı.
+- `HEALTHCHECK_TOKEN` secret'ı: en az 32 rastgele karakterlik gizli değer. Aynı değeri Vercel Production environment variable olarak da tanımla; yalnızca /api/health/deep için kullanılır.
 - `SUPABASE_PRODUCTION_SCHEMA_VERIFIED` repository variable'ı: yalnızca doğru Supabase projesinde temel şema ve tüm gerekli migration'lar uygulandıktan; RLS politikaları ve gereken RPC fonksiyon/izinleri runbook'a göre doğrulandıktan sonra tam olarak `true` değerine ayarlanır.
 
-Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ayrıca `VERCEL_ORG_ID` secret'ı oluşturman gerekmez. Token'ı kaynak koda, issue'lara, loglara veya sohbet mesajlarına yazma. GitHub repository ayarlarında **Settings → Secrets and variables → Actions → New repository secret** yoluyla `VERCEL_TOKEN` ekle; aynı sayfadaki **Variables → New repository variable** yoluyla migration onay değişkenini oluştur. Proje Supabase tarafında **INACTIVE** görünüyorsa veya migration'ın uygulandığı doğrulanamıyorsa değişkeni `true` yapma ve dağıtımı başlatma. [Supabase migration runbook](supabase/MIGRATION_RUNBOOK.md) doğru projeyi doğrulama, migration geçmişini kontrol etme ve fonksiyon izinlerini denetleme adımlarını açıklar.
+Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ayrıca `VERCEL_ORG_ID` secret'ı oluşturman gerekmez. Token'ı kaynak koda, issue'lara, loglara veya sohbet mesajlarına yazma. GitHub repository ayarlarında **Settings → Secrets and variables → Actions → New repository secret** yoluyla `VERCEL_TOKEN` ve `HEALTHCHECK_TOKEN` ekle; aynı sayfadaki **Variables → New repository variable** yoluyla migration onay değişkenini oluştur. HEALTHCHECK_TOKEN üretmek için terminalde `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"` çalıştırıp aynı gizli değeri GitHub secret ve Vercel Production değişkenine gir. Değeri sohbete, issue'ya veya repoya yazma. Proje Supabase tarafında **INACTIVE** görünüyorsa veya migration'ın uygulandığı doğrulanamıyorsa değişkeni `true` yapma ve dağıtımı başlatma. [Supabase migration runbook](supabase/MIGRATION_RUNBOOK.md) doğru projeyi doğrulama, migration geçmişini kontrol etme ve fonksiyon izinlerini denetleme adımlarını açıklar.
 
 
 
@@ -164,10 +172,11 @@ Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ay
 1. Workflow yalnızca elle başlatılır ve yalnızca `main` dalından ilerler.
 2. `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` olmadan preflight başarısız olur. Bu değişkeni yalnızca doğru Supabase projesindeki temel şema, gereken tüm migration'lar, RLS politikaları ve kritik RPC izinleri gerçek sorgularla doğrulandıktan sonra ayarlayın. Dosya adı ile canlı migration sürümü eşleşmiyorsa önce geçmişi uzlaştırın; bu değişkeni yalnızca CI yeşil olduğu için `true` yapmayın.
 3. Tam Python/ML doğrulaması, uygulama birim testleri, TypeScript kontrolü ve üretim build'i geçmelidir.
-4. Korunan deployment işi Vercel Production ortamında gereken değişken adlarını kontrol eder: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `HF_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` ve `RATE_LIMIT_KEY_SALT`. Kontrol değerleri loglamaz; eksik anahtar adlarını raporlayıp dağıtımı durdurur.
+4. Staging işi Vercel Production ortamında gereken değişken adlarını kontrol eder: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `HF_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RATE_LIMIT_KEY_SALT` ve `HEALTHCHECK_TOKEN`. Kontrol değerleri loglamaz; eksik anahtar adlarını raporlayıp dağıtımı durdurur.
 5. Vercel Production ayarları çekilir, aynı Production ayarlarıyla build alınır ve `vercel deploy --prebuilt --prod --skip-domain` kullanılarak deployment önce alan adı atanmadan hazırlanır.
-6. Hazırlanan deployment'ın `/api/health` endpoint'i geçerli JSON, `ok: true` ve `ready: true` döndürmelidir. Ancak bu kontrol yapılandırma ve readiness koşullarını doğrular; başarılı bir gerçek Qwen çıkarımını, Supabase veri yazımını veya iki kullanıcı arasındaki izolasyonu tek başına kanıtlamaz.
-7. Yalnızca staged sağlık kontrolü başarılı olursa Vercel deployment'ı terfi ettirilir. Ardından `https://dijital-ikiz-insan.vercel.app/api/health` üzerinden üretim alan adı tekrar kontrol edilir.
+6. Hazırlanan deployment'ın `/api/health` endpoint'i geçerli JSON, `ok: true` ve `ready: true` döndürmelidir. Ancak bu kontrol yapılandırma ve readiness koşullarını doğrular; gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz; Supabase veri yazımını veya iki kullanıcı arasındaki izolasyonu da test etmez.
+7. Staged deployment'ın `/api/health/deep` endpoint'i yalnızca `x-healthcheck-token` başlığında doğru gizli token gönderildiğinde bağlantı denetimi yapar. Supabase Auth, Hugging Face token kimliği ve Upstash Redis `PING` kontrol edilir; model çıkarımı çağrılmaz ve gizli değerler yanıtta dönmez. Herhangi bir denetim başarısızsa workflow terfi ettirmez.
+8. Staged yapılandırma ve tüm upstream sağlık kontrolleri başarılı olduktan sonra ayrı `promote` işi `production` GitHub Environment kapısına gelir. Terfi sonrası `https://dijital-ikiz-insan.vercel.app/api/health` alan adı tekrar kontrol edilir.
 
 Önkoşullardan biri eksikse workflow hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Vercel Git entegrasyonu önizleme deployment'ları oluşturabilir; uygulama kökündeki `vercel.json`, `main` dalından otomatik Git deployment'ını kapatır (`git.deploymentEnabled.main: false). Böylece `main` dalına merge tek başına üretim terfisi başlatmamalıdır. Üretim dağıtımı yalnızca GitHub Actions **Vercel Deploy** workflow'u üzerinden yapılmalıdır.
 

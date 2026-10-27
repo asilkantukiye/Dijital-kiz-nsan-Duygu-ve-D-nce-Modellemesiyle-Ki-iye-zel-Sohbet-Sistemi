@@ -8,6 +8,19 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectDirectory = path.resolve(testDirectory, '..')
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 
+test('migration runbook uses the same Stage 6 filename as CI', async () => {
+  const [runbook, workflow] = await Promise.all([
+    readFile(path.join(projectDirectory, 'supabase', 'MIGRATION_RUNBOOK.md'), 'utf8'),
+    readFile(path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'), 'utf8')
+  ])
+
+  const migration = '20261025170000_stage6_foreign_key_indexes.sql'
+  const outdatedMigration = '20261025210000_stage6_foreign_key_indexes.sql'
+  assert.ok(runbook.includes(migration), 'runbook must name the real migration file')
+  assert.ok(!runbook.includes(outdatedMigration), 'runbook must not reference a nonexistent migration filename')
+  assert.ok(workflow.includes('--file supabase/migrations/' + migration))
+})
+
 test('CI applies all sixteen Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
