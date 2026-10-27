@@ -25,32 +25,32 @@
             "precision": 0.9302809573361083,
             "recall": 0.894,
             "f1-score": 0.9117797042325344,
-            "support": 1000.0
+            "support": 1000
           },
           "neutral": {
             "precision": 0.9979919678714859,
             "recall": 0.994,
             "f1-score": 0.9959919839679359,
-            "support": 1000.0
+            "support": 1000
           },
           "positive": {
             "precision": 0.8954937679769894,
             "recall": 0.934,
             "f1-score": 0.9143416544297601,
-            "support": 1000.0
+            "support": 1000
           },
           "accuracy": 0.9406666666666667,
           "macro avg": {
             "precision": 0.9412555643948611,
             "recall": 0.9406666666666667,
             "f1-score": 0.9407044475434101,
-            "support": 3000.0
+            "support": 3000
           },
           "weighted avg": {
             "precision": 0.9412555643948611,
             "recall": 0.9406666666666667,
             "f1-score": 0.9407044475434101,
-            "support": 3000.0
+            "support": 3000
           }
         },
         "confusion_matrix_negative_neutral_positive": [
@@ -71,7 +71,11 @@
           ]
         ]
       },
-      "baseline": null
+      "baseline": {
+        "majority_class": "positive",
+        "accuracy": 0.3333333333333333,
+        "f1_macro": 0.16666666666666666
+      }
     },
     "qwen": {
       "base_model": "Qwen/Qwen3-4B-Instruct-2507",
@@ -82,5 +86,10 @@
       "finetuned_model_test_loss": 1.4867305695467503,
       "test_loss_improvement": 0.8728887978315001
     }
+  },
+  "report_correction": {
+    "field": "metrics.sentiment.baseline",
+    "correction": "Copied from the actual metrics.sentiment.test_metrics.majority_class_baseline output",
+    "reason": "The notebook stores the baseline nested under test_metrics; the result-capture workflow previously looked for a nonexistent top-level baseline field."
   }
 }
