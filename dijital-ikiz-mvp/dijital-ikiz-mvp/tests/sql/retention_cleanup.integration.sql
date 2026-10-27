@@ -66,13 +66,15 @@ BEGIN
     RAISE EXCEPTION 'Stale rate-limit row was not removed';
   END IF;
 
-  IF to_regclass('cron.job') IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM cron.job
-    WHERE jobname = 'digital-twin-retention-cleanup'
-      AND active
-      AND schedule = '17 * * * *'
-  ) THEN
-    RAISE EXCEPTION 'Expected active hourly cleanup cron schedule';
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM cron.job
+      WHERE jobname = 'digital-twin-retention-cleanup'
+        AND active
+        AND schedule = '17 * * * *'
+    ) THEN
+      RAISE EXCEPTION 'Expected active hourly cleanup cron schedule';
+    END IF;
   END IF;
 END
 $retention_test$;
