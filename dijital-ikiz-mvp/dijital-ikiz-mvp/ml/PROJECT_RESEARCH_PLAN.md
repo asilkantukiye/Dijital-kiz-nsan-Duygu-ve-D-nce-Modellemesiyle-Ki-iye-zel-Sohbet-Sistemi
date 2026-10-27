@@ -14,7 +14,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 | Duygu ve kişilik modelleri | `ml/kaggle/dijital_ikiz_training.ipynb`, `ml/train_regressor.py` | Tek Kaggle notebook'u Türkçe polarite modelini ve Qwen3-4B QLoRA talimat pilotunu eğitir. VAD/BF yalnızca kendi hedef etiketleri olan doğrulanmış CSV eklenirse eğitilir. |
 | Üslup modellemesi | `lib/twin.ts`, `ml/data/style_template.csv` | Uygulamada heuristic başlangıç; öğrenilmiş/kalibre edilmiş model değil. |
 | Kişiye özel sohbet motoru | `app/api/chat/route.ts`, `lib/huggingface.ts`, `lib/twin.ts` | Qwen sohbet motoru var; profil özellikleri henüz deneysel baseline. |
-| Test ve değerlendirme | `ml/tests/`, `tests/`, `ml/analyze_feedback.py`, kör değerlendirme araçları | Otomatik testler var; gerçek eğitim metrikleri ve kullanıcı değerlendirmesi henüz elde edilmedi. |
+| Test ve değerlendirme | `ml/tests/`, `tests/`, `ml/analyze_feedback.py`, kör değerlendirme araçları | 27.10.2026 tarihli gerçek Kaggle koşusu polarite ve Qwen QLoRA metriklerini üretti; PostgreSQL/Node testleri, TypeScript ve build CI'da geçti. Kontrollü kullanıcı/A-B değerlendirmesi henüz yapılmadı. |
 
 ## Aşama 1 — çalışan ve ölçülebilir altyapı
 
@@ -25,17 +25,25 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 - `.github/workflows/kaggle-end-to-end-training.yml` manuel olarak başlatıldığında GitHub Actions Kaggle notebook'unu GPU ve Internet açık şekilde gönderip çalıştırır, sonucu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını kontrol eder. Önceki manuel **Prepare Kaggle Model Training** + Kaggle **Run All** yolu yedek olarak kalır.
 - İsteğe bağlı Hugging Face yayımlama adımı, ölçüm dosyaları olan Qwen3-4B LoRA adaptörünü özel bir Hub deposuna yükler. Bu işlem tam birleştirilmiş model veya çalışan inference endpoint'i oluşturmaz; Vercel uygulamasının mevcut `HF_MODEL` ayarını otomatik değiştirmez. Gerçek metrik oluşmadan model yayımlama adımı çalışmaz.
 
-**Tamamlanma ölçütü:** CI, Python veri testleri, SQL entegrasyon testleri, TypeScript ve üretim derlemesi yeşil olmalı; notebook çıktısı gerçek Kaggle çalıştırmasından alınmalı.
+**Doğrulanan durum (27.10.2026):** [Kaggle run 40562948791](https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40562948791) başarıyla tamamlandı; artefakt doğrulaması geçti. Polarite için 15.000/3.000/3.000, Qwen için 1.498/150/250 kodlanmış train/validation/test örneği raporlandı. Eğitim sonuçları `docs/kaggle-training-results-2026-10-27.md` dosyasında. Canlıya alma ve kullanıcı değerlendirmesi hâlâ ayrı kapılardır.
 
 ## Aşama 2 — gerçek bilimsel veri ve model doğrulama
 
-1. Polarite pilotu için kaynak/lisans şartları ve birleşik verinin alt kaynakları gözden geçirilir; test doğruluğu, macro-F1, weighted-F1 ve çoğunluk sınıfı baseline'ı raporlanır.
-2. Qwen3-4B QLoRA pilotu, Apache-2.0 olarak işaretlenen Türkçe talimat veri kümesinde aynı bağımsız test bölümüyle temel modelin yanıt-token kaybına karşı değerlendirilir; veri kaynağı ve lisans beyanı ayrıca denetlenir.
+1. **Polarite pilotu çalıştırıldı.** Sabitlenmiş `winvoker/turkish-sentiment-analysis-dataset` revizyonundaki gerçek test ölçümü accuracy 0,9407, macro-F1 0,9407, weighted-F1 0,9407; çoğunluk sınıfı baseline accuracy 0,3333 ve macro-F1 0,1667. Kaynak sayfasındaki CC BY-SA 4.0 beyanı ve birleşik veri alt kaynaklarının şartları dağıtım öncesi ayrıca denetlenmeli.
+2. **Qwen3-4B QLoRA pilotu çalıştırıldı.** `TFLai/Turkish-Alpaca` revizyonu `90f9589` için temel model test loss 2,3596, ince ayarlı model test loss 1,4867 oldu. Test kaybı iyileşmesi sohbet kalitesi veya kişilik/duygu başarısı kanıtı değildir; veri alt kaynakları ve lisans şartları ayrıca incelenmeli.
 3. VAD için her örneği açık yönergeyle puanlayan yeterli ve izinli Türkçe veri oluşturulur; mümkünse iki bağımsız değerlendirici ve uyum analizi eklenir.
 4. Big Five için metinden kişilik etiketi tahmin edilmez; gerekli katılımcı onamı ve Türkçe geçerliği/kullanım şartı doğrulanmış ölçek skorları kullanılır.
 5. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
 
 **Durdurma kuralı:** Doğrulanmış uygun veri yoksa o görev eğitilmiş gibi gösterilmez; etiketi uydurulmuş ya da lisans durumu belirsiz veri eklenmez.
+
+### Mevcut ölçüm ve kalan kanıtlar
+
+- Gerçek Kaggle ölçümleri: `docs/kaggle-training-results-2026-10-27.md`.
+- Polarite/Qwen eğitim çıktıları doğrulandı; VAD ve Big Five bu koşuda etiketli, izin/lisansı doğrulanmış CSV olmadığı için çalıştırılmadı.
+- Hugging Face'e Qwen LoRA yükleme `HF_WRITE_TOKEN` olmadığı için tamamlanmadı. Mevcut özel depoların bulunması, ağırlıkların depoya yüklendiği anlamına gelmez.
+- Vercel canlıya alma bu revizyonda doğrulanmış değildir: son denemelerde dağıtım platformu 24 saatlik build sınırı bildirdi ve üretim şema koruma değişkeni ayrıca yetkili GitHub Actions erişimi istiyor.
+- Genel sohbet ve kişiselleştirilmiş sohbet için kullanıcı/uzman kör değerlendirmesi, önceden belirlenmiş kalite ölçütleri ve istatistiksel A/B sonucu hâlâ gereklidir.
 
 ## Aşama 3 — entegrasyon ve TÜBİTAK kanıt dosyası
 
