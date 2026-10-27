@@ -2,7 +2,15 @@
 -- Cleanup is bounded to 20 batches of 1,000 rows per table and runs hourly.
 -- Only expired user content, expired idempotency metadata, and stale rate-limit counters are removed.
 
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+DO $extension$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron') THEN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog';
+  ELSE
+    RAISE NOTICE 'pg_cron is unavailable in this database; schedule the retention job in the hosting platform.';
+  END IF;
+END;
+$extension$;
 
 CREATE INDEX IF NOT EXISTS messages_retention_created_at_idx
   ON public.messages (created_at);
@@ -124,6 +132,11 @@ GRANT EXECUTE ON FUNCTION public.purge_expired_user_content() TO service_role;
 
 DO $schedule$
 BEGIN
+  IF to_regclass('cron.job') IS NULL THEN
+    RAISE NOTICE 'pg_cron is unavailable; the host must schedule public.purge_expired_user_content() hourly.';
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM cron.job WHERE jobname = 'digital-twin-retention-cleanup'
   ) THEN
