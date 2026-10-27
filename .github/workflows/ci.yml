@@ -139,3 +139,78 @@ jobs:
 
       - name: Build
         run: npm run build
+
+
+  report:
+    name: Record automated validation results
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    needs: [web]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Capture test, typecheck and build outcomes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RESULT: ${{ needs.web.result }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          SOURCE_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run view "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --json conclusion,url,headBranch,headSha,displayTitle,jobs > "$RUNNER_TEMP/ci-run.json"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const raw = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/ci-run.json', 'utf8'));
+          const jobs = (raw.jobs || []).map(job => ({
+            name: job.name,
+            conclusion: job.conclusion,
+            steps: (job.steps || []).map(step => ({
+              name: step.name,
+              conclusion: step.conclusion
+            }))
+          }));
+          const report = {
+            workflow: 'CI',
+            run_id: Number(process.env.SOURCE_RUN_ID),
+            run_url: process.env.SOURCE_RUN_URL,
+            branch: process.env.SOURCE_BRANCH,
+            commit: process.env.SOURCE_SHA,
+            conclusion: process.env.CI_RESULT,
+            jobs,
+            secrets_included: false
+          };
+          fs.mkdirSync(process.env.RUNNER_TEMP + '/ci-result-report', {recursive: true});
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/ci-result-report/status.json', JSON.stringify(report, null, 2) + '\n');
+          console.log(JSON.stringify(report, null, 2));
+          NODE
+
+      - name: Publish results to the CI report branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s "$RUNNER_TEMP/ci-result-report/status.json" ]]; then
+            mkdir -p "$RUNNER_TEMP/ci-result-report"
+            printf '{"workflow":"CI","run_id":%s,"conclusion":"capture_failed","secrets_included":false}\n' "$GITHUB_RUN_ID" > "$RUNNER_TEMP/ci-result-report/status.json"
+          fi
+          git fetch origin main
+          git switch -C ops/ci-results origin/main
+          mkdir -p .github/status
+          cp "$RUNNER_TEMP/ci-result-report/status.json" .github/status/ci-test-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/status/ci-test-status.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(ci): record automated validation evidence"
+          git push --force origin HEAD:ops/ci-results
