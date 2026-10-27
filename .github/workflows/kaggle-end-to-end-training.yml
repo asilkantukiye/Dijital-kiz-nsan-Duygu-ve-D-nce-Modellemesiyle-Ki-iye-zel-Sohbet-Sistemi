@@ -22,7 +22,7 @@ on:
         description: "Hugging Face repo ID (owner/model-name); required only when publishing"
         required: false
         type: string
-        default: "hasankb00/dijital-ikiz-qwen3-4b-lora-pilot"
+        default: "hasankb00/dijital-ikiz-qwen3-4b-lora"
 
 permissions:
   contents: read
@@ -261,7 +261,7 @@ jobs:
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_qwen_adapter) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-model]')) }}
         env:
           HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
-          HF_MODEL_REPO: ${{ inputs.hf_model_repo || vars.HF_MODEL_REPO || 'hasankb00/dijital-ikiz-qwen3-4b-lora-pilot' }}
+          HF_MODEL_REPO: ${{ inputs.hf_model_repo || vars.HF_MODEL_REPO || 'hasankb00/dijital-ikiz-qwen3-4b-lora' }}
         working-directory: kaggle-output/unpacked
         shell: bash
         run: |
