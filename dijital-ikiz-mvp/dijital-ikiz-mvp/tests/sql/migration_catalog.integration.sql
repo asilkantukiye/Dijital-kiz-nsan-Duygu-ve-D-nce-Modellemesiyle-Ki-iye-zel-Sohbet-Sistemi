@@ -209,6 +209,32 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'memory_items'
+      AND policyname = 'users insert current-generation memory items'
+      AND cmd = 'INSERT'
+      AND position('current_my_chat_data_generation' in coalesce(with_check, '')) > 0
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'memory_items'
+      AND policyname = 'users update current-generation memory items'
+      AND cmd = 'UPDATE'
+      AND position('current_my_chat_data_generation' in coalesce(qual, '')) > 0
+      AND position('current_my_chat_data_generation' in coalesce(with_check, '')) > 0
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'memory_items'
+      AND policyname = 'users delete own memory items'
+      AND cmd = 'DELETE'
+      AND coalesce(with_check, '') = ''
+  ) THEN
+    RAISE EXCEPTION 'memory RLS policies do not enforce generation-ordered writes and unrestricted own-row deletion';
+  END IF;
+
+  IF NOT EXISTS (
     SELECT 1
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
