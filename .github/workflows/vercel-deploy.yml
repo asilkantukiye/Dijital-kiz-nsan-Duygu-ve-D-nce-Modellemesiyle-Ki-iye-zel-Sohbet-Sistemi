@@ -8,6 +8,10 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/vercel-deploy.yml"
   workflow_dispatch:
 
 jobs:
