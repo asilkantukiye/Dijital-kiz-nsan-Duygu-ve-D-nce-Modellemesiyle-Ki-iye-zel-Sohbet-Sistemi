@@ -359,7 +359,7 @@ export async function POST(req: Request) {
 
     if (persistenceDisposition === 'completed' && variant === 'personalized') {
       try {
-        await persistMemories(user.id, userMessageId, message)
+        await persistMemories(user.id, userMessageId, message, chatDataGeneration)
       } catch {
         // Do not log user-derived memory content or third-party error payloads.
         console.error('Memory persistence failed; chat response was already saved.')
