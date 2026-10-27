@@ -146,10 +146,11 @@ SUPABASE_SERVICE_ROLE_KEY
 HF_TOKEN
 HF_MODEL
 HF_EMBEDDING_MODEL
-UPSTASH_REDIS_REST_URL
-UPSTASH_REDIS_REST_TOKEN
 RATE_LIMIT_KEY_SALT
 HEALTHCHECK_TOKEN
+# Optional only when Upstash is selected:
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
 ```
 
 Üretim, preview ve development ortamları için gerekli değişkenleri ekleyin.
