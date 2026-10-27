@@ -85,7 +85,8 @@ BEGIN
     'message_feedback',
     'memory_items',
     'chat_request_deduplication',
-    'chat_rate_limit_counters'
+    'chat_rate_limit_counters',
+    'chat_user_data_generations'
   ]
   LOOP
     table_oid := to_regclass(format('public.%I', table_name));
@@ -113,7 +114,8 @@ BEGIN
     'persist_chat_turn_idempotent_server',
     'merge_twin_profile_observation',
     'replace_my_memory_preference',
-    'consume_chat_rate_limit'
+    'consume_chat_rate_limit',
+    'get_chat_data_generation_server'
   ]
   LOOP
     function_oid := NULL;
@@ -138,11 +140,11 @@ BEGIN
       RAISE EXCEPTION 'anon unexpectedly has EXECUTE on public.%', function_name;
     END IF;
 
-    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'consume_chat_rate_limit') THEN
+    IF function_name IN ('persist_chat_turn', 'persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'consume_chat_rate_limit', 'get_chat_data_generation_server') THEN
       IF has_function_privilege('authenticated', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'authenticated unexpectedly has EXECUTE on public.%', function_name;
       END IF;
-      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'consume_chat_rate_limit')
+      IF function_name IN ('persist_chat_turn_server', 'claim_chat_request_server', 'release_chat_request_server', 'persist_chat_turn_idempotent_server', 'merge_twin_profile_observation', 'consume_chat_rate_limit', 'get_chat_data_generation_server')
          AND NOT has_function_privilege('service_role', function_oid, 'EXECUTE') THEN
         RAISE EXCEPTION 'service_role is missing EXECUTE on server-only chat RPC %', function_name;
       END IF;
@@ -152,6 +154,101 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_attribute
+    WHERE attrelid = 'public.chat_request_deduplication'::regclass
+      AND attname = 'generation'
+      AND NOT attisdropped
+      AND attnotnull
+  ) THEN
+    RAISE EXCEPTION 'chat_request_deduplication generation guard column is missing or nullable';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_attribute
+    WHERE attrelid = 'public.memory_items'::regclass
+      AND attname = 'data_generation'
+      AND NOT attisdropped
+      AND attnotnull
+  ) THEN
+    RAISE EXCEPTION 'memory_items data_generation guard column is missing or nullable';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'delete_my_chat_request_claims_for_current_user'
+      AND p.pronargs = 0
+      AND p.prosecdef
+      AND position('search_path=pg_catalog, public' in array_to_string(p.proconfig, ',')) > 0
+      AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'current-user chat-claim deletion helper is missing or has unsafe privileges/search_path';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'current_my_chat_data_generation'
+      AND p.pronargs = 0
+      AND p.prosecdef
+      AND position('search_path=pg_catalog, public' in array_to_string(p.proconfig, ',')) > 0
+      AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      AND NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'RLS memory generation lock helper is missing or has unsafe privileges/search_path';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'memory_items'
+      AND policyname = 'users insert current-generation memory items'
+      AND cmd = 'INSERT'
+      AND position('current_my_chat_data_generation' in coalesce(with_check, '')) > 0
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'memory_items'
+      AND policyname = 'users update current-generation memory items'
+      AND cmd = 'UPDATE'
+      AND position('current_my_chat_data_generation' in coalesce(qual, '')) > 0
+      AND position('current_my_chat_data_generation' in coalesce(with_check, '')) > 0
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'memory_items'
+      AND policyname = 'users delete own memory items'
+      AND cmd = 'DELETE'
+      AND coalesce(with_check, '') = ''
+  ) THEN
+    RAISE EXCEPTION 'memory RLS policies do not enforce generation-ordered writes and unrestricted own-row deletion';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'persist_my_memory_at_generation'
+      AND p.pronargs = 6
+      AND p.prosecdef
+      AND position('search_path=pg_catalog, public, extensions' in array_to_string(p.proconfig, ',')) > 0
+      AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      AND NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'generation-guarded memory persistence RPC is missing or has unsafe privileges/search_path';
+  END IF;
 
   IF has_table_privilege('authenticated', 'public.messages', 'INSERT')
      OR has_table_privilege('authenticated', 'public.messages', 'UPDATE')

@@ -181,8 +181,8 @@ BEGIN
     RAISE EXCEPTION 'browser roles can read idempotency response cache';
   END IF;
 
-  IF has_function_privilege('anon', 'public.claim_chat_request_server(uuid,text,uuid)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.claim_chat_request_server(uuid,text,uuid)', 'EXECUTE')
+  IF has_function_privilege('anon', 'public.claim_chat_request_server(uuid,text,uuid,integer)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.claim_chat_request_server(uuid,text,uuid,integer)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.release_chat_request_server(uuid,text,uuid)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.release_chat_request_server(uuid,text,uuid)', 'EXECUTE')
      OR has_function_privilege(
@@ -193,7 +193,7 @@ BEGIN
     RAISE EXCEPTION 'browser roles can execute a server-only idempotency RPC';
   END IF;
 
-  IF NOT has_function_privilege('service_role', 'public.claim_chat_request_server(uuid,text,uuid)', 'EXECUTE')
+  IF NOT has_function_privilege('service_role', 'public.claim_chat_request_server(uuid,text,uuid,integer)', 'EXECUTE')
      OR NOT has_function_privilege('service_role', 'public.release_chat_request_server(uuid,text,uuid)', 'EXECUTE')
      OR NOT has_function_privilege(
        'service_role',

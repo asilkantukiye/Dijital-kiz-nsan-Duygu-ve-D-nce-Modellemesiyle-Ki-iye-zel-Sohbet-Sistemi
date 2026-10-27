@@ -125,8 +125,13 @@ export async function retrieveMemories(userId: string, queryText: string) {
 export async function persistMemories(
   userId: string,
   sourceMessageId: string,
-  sourceText: string
+  sourceText: string,
+  chatDataGeneration: number
 ) {
+  if (!Number.isSafeInteger(chatDataGeneration) || chatDataGeneration < 0) {
+    throw new Error('Memory write generation is invalid.')
+  }
+
   const supabase = await createClient()
   const authenticatedUserId = await assertMemoryUserContext(supabase, userId)
 
@@ -161,8 +166,6 @@ export async function persistMemories(
   let persisted = 0
 
   for (const item of embedded) {
-    const now = new Date().toISOString()
-
     // Explicitly stated preferences get a deterministic same-topic lookup first.
     // This handles direct statements such as "Şekerli kahve içerim" without
     // requiring the word "Artık". Vector similarity alone never decides conflicts.
@@ -224,22 +227,20 @@ export async function persistMemories(
       continue
     }
 
-    const { error } = await supabase
-      .from('memory_items')
-      .upsert(
-        {
-          user_id: userId,
-          memory_type: item.memory.memory_type,
-          content: item.memory.content,
-          importance: item.memory.importance,
-          embedding: item.embedding,
-          source_message_id: sourceMessageId,
-          updated_at: now
-        },
-        { onConflict: 'user_id,content' }
-      )
+    // The database locks and checks the data generation in the same
+    // transaction as the insert/upsert. This prevents a late embedding job
+    // from recreating memory after the user has deleted chat data.
+    const { data: memorySaved, error } = await supabase.rpc('persist_my_memory_at_generation', {
+      p_generation: chatDataGeneration,
+      p_memory_type: item.memory.memory_type,
+      p_content: item.memory.content,
+      p_importance: item.memory.importance,
+      p_embedding: item.embedding,
+      p_source_message_id: sourceMessageId
+    })
 
     if (error) throw error
+    if (memorySaved !== true) throw new Error('Memory write was not confirmed.')
     persisted += 1
   }
 
