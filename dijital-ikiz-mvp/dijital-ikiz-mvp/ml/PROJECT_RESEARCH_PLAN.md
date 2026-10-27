@@ -22,7 +22,8 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 - Tek Kaggle notebook'u kullanılır: Türkçe polarite + Qwen3-4B QLoRA talimat ince ayarı; VAD ve Big Five ayrı hedefler olarak yalnızca uygun etiketli CSV sağlanırsa çalışır.
 - Train/validation/test ayrımı katılımcı ve normalize edilmiş metin sızıntısını engeller.
 - Her görev kendi metriklerini, veri sürümünü/hash'ini, ortam bilgilerini ve bilimsel sınırlılıklarını ayrı `metrics.json` ile raporlar.
-- GitHub Actions, eğitim notebook'unu Kaggle'a yükler; Kaggle ayarlarında Internet açılıp Run All çalıştırıldıktan sonra aynı hesabın tamamlanmış model paketini indirir.
+- `.github/workflows/kaggle-end-to-end-training.yml` manuel olarak başlatıldığında GitHub Actions Kaggle notebook'unu GPU ve Internet açık şekilde gönderip çalıştırır, sonucu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını kontrol eder. Önceki manuel **Prepare Kaggle Model Training** + Kaggle **Run All** yolu yedek olarak kalır.
+- İsteğe bağlı Hugging Face yayımlama adımı, ölçüm dosyaları olan Qwen3-4B LoRA adaptörünü özel bir Hub deposuna yükler. Bu işlem tam birleştirilmiş model veya çalışan inference endpoint'i oluşturmaz; Vercel uygulamasının mevcut `HF_MODEL` ayarını otomatik değiştirmez. Gerçek metrik oluşmadan model yayımlama adımı çalışmaz.
 
 **Tamamlanma ölçütü:** CI, Python veri testleri, SQL entegrasyon testleri, TypeScript ve üretim derlemesi yeşil olmalı; notebook çıktısı gerçek Kaggle çalıştırmasından alınmalı.
 
