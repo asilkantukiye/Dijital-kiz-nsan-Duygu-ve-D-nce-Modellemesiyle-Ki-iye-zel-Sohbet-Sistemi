@@ -25,7 +25,7 @@ jobs:
 
       - name: Record live verification and set the repository guard
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_VARIABLES_TOKEN: ${{ secrets.GH_VARIABLES_TOKEN }}
           SOURCE_SHA: ${{ github.sha }}
           SOURCE_RUN_ID: ${{ github.run_id }}
         shell: bash
@@ -34,16 +34,31 @@ jobs:
           mkdir -p "$RUNNER_TEMP/schema-verification"
           report="$RUNNER_TEMP/schema-verification/status.json"
           set_exit=0
-          gh variable set SUPABASE_PRODUCTION_SCHEMA_VERIFIED --body true --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || set_exit=$?
-          value=""
           read_exit=0
-          value="$(gh variable list --repo "$GITHUB_REPOSITORY" --json name,value --jq '.[] | select(.name == "SUPABASE_PRODUCTION_SCHEMA_VERIFIED") | .value' 2>/dev/null)" || read_exit=$?
-          if [[ "$value" == "true" ]]; then
-            verified="true"
-            result="repository_variable_set_and_read_back"
-          else
+          value=""
+          if [[ -z "${GH_VARIABLES_TOKEN:-}" ]]; then
+            set_exit=127
+            read_exit=127
             verified="false"
-            result="repository_variable_write_or_readback_failed"
+            result="GH_VARIABLES_TOKEN_secret_missing"
+            echo "::error::GH_VARIABLES_TOKEN is missing. The default GITHUB_TOKEN cannot manage repository Actions variables."
+            {
+              echo "## Supabase schema verification recorded; deployment guard unchanged"
+              echo ""
+              echo "Database checks were performed, but the repository guard was **not** changed."
+              echo "Add a repository secret named GH_VARIABLES_TOKEN using a fine-grained token scoped only to this repository with **Variables: read and write** permission, or set SUPABASE_PRODUCTION_SCHEMA_VERIFIED manually in Settings after reviewing the live database evidence."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            GH_TOKEN="$GH_VARIABLES_TOKEN" gh variable set SUPABASE_PRODUCTION_SCHEMA_VERIFIED --body true --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || set_exit=$?
+            value="$(GH_TOKEN="$GH_VARIABLES_TOKEN" gh variable list --repo "$GITHUB_REPOSITORY" --json name,value --jq '.[] | select(.name == "SUPABASE_PRODUCTION_SCHEMA_VERIFIED") | .value' 2>/dev/null)" || read_exit=$?
+            if [[ "$set_exit" -eq 0 && "$read_exit" -eq 0 && "$value" == "true" ]]; then
+              verified="true"
+              result="repository_variable_set_and_read_back"
+            else
+              verified="false"
+              result="repository_variable_write_or_readback_failed"
+              echo "::error::Could not set and read back SUPABASE_PRODUCTION_SCHEMA_VERIFIED with GH_VARIABLES_TOKEN."
+            fi
           fi
 
           VERIFIED="$verified" RESULT="$result" SET_EXIT="$set_exit" READ_EXIT="$read_exit"             SOURCE_SHA="$SOURCE_SHA" SOURCE_RUN_ID="$SOURCE_RUN_ID" REPORT_PATH="$report" node - <<'NODE'
@@ -86,7 +101,7 @@ jobs:
             git push --force origin HEAD:ops/supabase-schema-verification
           fi
           if [[ "$verified" != "true" ]]; then
-            echo "::error::Could not set and read back the verified Production schema repository variable."
+            echo "::error::Production schema checks may be recorded, but the deployment guard is not verified. Do not deploy until the repository variable is set and read back successfully."
             exit 1
           fi
           echo "Live Supabase schema verification was recorded and read back successfully."
