@@ -5,7 +5,7 @@
 - **Kaggle End-to-End Model Training çalıştırması:** [GitHub Actions run 40562948791](https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40562948791)
 - **Çalıştırma sonucu:** `success`
 - **Artefakt doğrulaması:** `passed` — model paketinin bütünlük kontrolü ve beklenen `metrics.json` dosyaları doğrulanmış.
-- **Eğitim kodu:** `ml/kaggle/dijital_ikiz_training.ipynb`; veri bölümleri sabit tohum kullanır. Polarite veri kaynağı revizyonu `ef87c7a2a7199a8b721c99425933316d35f9af2f); Qwen talimat veri kaynağı revizyonu `90f9589`.
+- **Eğitim kodu:** `ml/kaggle/dijital_ikiz_training.ipynb`; veri bölümleri sabit tohum kullanır. Polarite veri kaynağı revizyonu `ef87c7a2a7199a8b721c99425933316d35f9af2f`; Qwen talimat veri kaynağı revizyonu `90f9589`.
 - **Yayınlama durumu:** Qwen LoRA adaptörünün Hugging Face'e yüklenmesi, GitHub Actions `HF_WRITE_TOKEN` sırrı bulunmadığı için engellenmiş. Bu nedenle modelin Hugging Face'e yüklendiği veya web uygulamasında kullanıldığı iddia edilmemelidir.
 
 ## 1. Türkçe duygu polaritesi sınıflandırması
@@ -46,6 +46,9 @@ Positive         65     1   934
 - Kaynak: `winvoker/turkish-sentiment-analysis-dataset`, sabitlenmiş revizyon yukarıda verilmiştir.
 - Kaynak sayfasında lisans beyanı CC BY-SA 4.0 olarak kaydedilmiştir. Birleşik veri kümesinin alt kaynakları ve yeniden dağıtım şartları ayrıca gözden geçirilmelidir; model skoru lisans uygunluğunu tek başına kanıtlamaz.
 - Kod, test kümesindeki normalize edilmiş aynı metinleri eğitim bölümünden çıkarır. Bununla birlikte, bu ölçüm belirli bir gerçek kullanıcı grubuna veya zaman içinde görülecek dağılıma genelleme garantisi vermez.
+- Veri kümesinin kendi README'si, nötr sınıfın bir bölümünün Türkçe Wikipedia dump'ından ve bir bölümünün "Lorem ipsum" gibi rastgele metinlerden geldiğini; olumlu/olumsuz örneklerin ise farklı kaynaklardan derlendiğini belirtiyor. Bu durum kaynak/metin-türü ipuçlarıyla sınıf ayrımını kolaylaştırabilir.
+- Bu nedenle özellikle nötr sınıf F1 = 0,996 sonucu doğal sohbetlerdeki nötrlüğün aynı doğrulukla tanındığını göstermez. Kaynak bazında ayrılmış holdout veya bağımsız doğal Türkçe sohbet test kümesi yapılmadan bu sonuç **ön pilot** olarak raporlanmalıdır.
+- CPU-only TF-IDF + LogisticRegression benchmark'ı aynı split üzerinde karşılaştırma için ekleniyor. Bu model karşılaştırması yararlı olsa da aynı veri kaynağının olası kaynak artefaktı riskini tek başına çözmez.
 
 ## 2. Qwen3-4B QLoRA talimat ince ayarı
 
@@ -64,7 +67,7 @@ Test kaybındaki azalma, bu veri ve değerlendirme protokolündeki hedef yanıt 
 
 Bu deney genel Türkçe talimat verisi kullanmıştır. Kullanıcının özel sohbet geçmişiyle eğitilmiş, duygu/VAD/Big Five etiketleriyle doğrulanmış kişiye özel bir model değildir. Üretilen artefakt, tam birleştirilmiş model değil **LoRA adaptörüdür**; uyumlu temel model ve PEFT ile yüklenmesi gerekir.
 
-Hub sayfasının Apache-2.0 olarak beyan ettiği veri lisansı ve modelin lisans/kullanım şartları, dağıtım veya yeniden dağıtım öncesinde ayrıca incelenmelidir.
+Hub sayfasının Apache-2.0 olarak beyan ettiği veri lisansı ve modelin lisans/kullanım şartları, dağıtım veya yeniden dağıtım öncesinde ayrıca incelenmelidir. Bu genel talimat veri kümesi, kullanıcı bazlı kişi/duygu etiketleri içerdiği varsayılarak kullanılmamalıdır.
 
 ## 3. Tamamlanmamış deneyler ve yayın kapıları
 
