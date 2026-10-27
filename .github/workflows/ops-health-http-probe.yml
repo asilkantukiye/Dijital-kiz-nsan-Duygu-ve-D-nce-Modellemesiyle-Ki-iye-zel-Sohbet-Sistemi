@@ -1,0 +1,36 @@
+name: Temporary public health endpoint probe
+
+on:
+  push:
+    branches: ["ops/health-http-smoke-20261027"]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe public and latest deployment health endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          for host in \
+            "https://dijital-ikiz-insan.vercel.app" \
+            "https://dijital-ikiz-insan-eyd8pm1r5-help-70c6.vercel.app"; do
+            body="$(mktemp)"
+            code="$(curl --silent --show-error --max-time 20 --output "$body" --write-out '%{http_code}' "$host/api/health" || true)"
+            printf 'host=%s status=%s\n' "$host" "$code"
+            if node - "$body" <<'NODE'
+          const fs = require('node:fs')
+          try {
+            const h = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+            console.log(JSON.stringify({ok:h.ok===true,ready:h.ready===true,configured:h.configured && Object.fromEntries(Object.entries(h.configured).map(([k,v])=>[k,Boolean(v)]))}))
+          } catch {
+            console.log('health_body=non-json-or-unavailable')
+          }
+          NODE
+            then :; fi
+            rm -f "$body"
+          done
