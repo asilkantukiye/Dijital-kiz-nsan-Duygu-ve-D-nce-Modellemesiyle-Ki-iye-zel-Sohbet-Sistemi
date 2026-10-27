@@ -129,6 +129,14 @@ test('production deployment URL is captured and health/readiness is checked afte
   assert.match(workflow, /cancel-in-progress:\s*false/)
 })
 
+test('hosting guide matches the verified Supabase-backed rate-limit fallback', async () => {
+  const hostingGuide = await readFile(path.join(projectDirectory, 'docs', 'hosting-setup.md'), 'utf8')
+
+  assert.match(hostingGuide, /Upstash değişkenleri isteğe bağlıdır/)
+  assert.match(hostingGuide, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true/)
+  assert.match(hostingGuide, /Upstash Redis.*veya Supabase PostgreSQL RPC erişimi/)
+})
+
 test('Vercel Git integration cannot bypass gated production deployments on main', async () => {
   const [configText, workflow] = await Promise.all([
     readFile(vercelConfigPath, 'utf8'),

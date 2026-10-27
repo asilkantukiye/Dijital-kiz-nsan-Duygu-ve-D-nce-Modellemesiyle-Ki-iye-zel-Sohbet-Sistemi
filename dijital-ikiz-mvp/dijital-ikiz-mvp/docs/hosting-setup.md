@@ -21,13 +21,13 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `HF_TOKEN` — gizli değer; Vercel'e doğrudan gir, sohbete veya GitHub dosyasına yazma.
 - `HF_MODEL` — `Qwen/Qwen3-4B-Instruct-2507`
-- `UPSTASH_REDIS_REST_URL` — Upstash REST endpoint (HTTPS)
-- `UPSTASH_REDIS_REST_TOKEN` — gizli REST token'ı; Vercel ortam ayarlarında sakla
+- `UPSTASH_REDIS_REST_URL` — isteğe bağlı Upstash REST endpoint'i (HTTPS); yalnızca Upstash tercih edilirse tanımla.
+- `UPSTASH_REDIS_REST_TOKEN` — isteğe bağlı gizli REST token'ı; Upstash seçilirse URL ile birlikte tanımla.
 - `RATE_LIMIT_KEY_SALT` — en az 32 rastgele karakter; yalnızca sunucu tarafında tut
 - `HEALTHCHECK_TOKEN` — en az 32 rastgele karakter; sadece gizli `/api/health/deep` operasyonel denetimi için
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
-Üretim sohbeti için Upstash rate-limit değişkenleri de zorunludur. Bunlar yoksa `/api/health` `ready: false` bildirir ve sohbet API'si model çağrısını başlatmaz. Token veya salt değerini GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme. Değişken eklenince Production deployment'ı yeniden çalıştır.
+Üretimde dağıtık rate limit zorunludur; Upstash değişkenleri isteğe bağlıdır. Upstash seçilirse URL ve token birlikte tanımlanır. İkisi yoksa Supabase PostgreSQL tabanlı atomik rate-limit migration'ı canlı projede uygulanmış ve `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` olarak doğrulanmış olmalıdır. Bu önkoşul sağlanmıyorsa `/api/health` hazır durumunu onaylamaz ve sohbet API'si model çağrısını başlatmaz. Token veya salt değerini GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme.
 
 ## C. GitHub Actions için Vercel Secrets
 
@@ -53,7 +53,7 @@ InfinityFree yalnızca `infinityfree/` klasöründeki statik HTML sayfasını ba
 
 ## Derin sağlık kontrolü
 
-Staged deployment, `/api/health` yapılandırma kontrolüne ek olarak `/api/health/deep` bağlantı kontrolünden geçer. İstek `x-healthcheck-token` başlığında doğru `HEALTHCHECK_TOKEN` ile gönderilir. Bu kontrol Supabase Auth erişimini, Hugging Face token kimliğini ve Upstash Redis `PING` yanıtını sınar; model inference çalıştırmaz. Dönen gövde yalnızca sağlayıcılar için true/false değerleri içerir. Token'ı hiçbir zaman loglama veya paylaşma.
+Staged deployment, `/api/health` yapılandırma kontrolüne ek olarak `/api/health/deep` bağlantı kontrolünden geçer. İstek `x-healthcheck-token` başlığında doğru `HEALTHCHECK_TOKEN` ile gönderilir. Bu kontrol Supabase Auth erişimini, Hugging Face token kimliğini ve yapılandırılmış dağıtık rate-limit backend'ini (Upstash Redis `PING` veya Supabase PostgreSQL RPC erişimi) sınar; model inference çalıştırmaz. Dönen gövde yalnızca sağlayıcılar için true/false değerleri içerir. Token'ı hiçbir zaman loglama veya paylaşma.
 
 ## Güvenli işlem sırası
 
