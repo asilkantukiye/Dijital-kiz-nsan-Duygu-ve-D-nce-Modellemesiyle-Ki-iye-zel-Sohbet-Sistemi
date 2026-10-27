@@ -50,7 +50,7 @@ jobs:
 
       - name: Validate safe inputs and credentials
         env:
-          INPUT_KERNEL_ID: ${{ inputs.kaggle_kernel_id }}
+          INPUT_KERNEL_ID: ${{ inputs.kaggle_kernel_id || 'asilkantkiye/dijital-ikiz-training' }}
         shell: bash
         run: |
           set -euo pipefail
