@@ -131,19 +131,50 @@ export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
+export type ChatProviderErrorCode =
+  | 'AI_NOT_CONFIGURED'
+  | 'AI_PROVIDER_UNAVAILABLE'
+  | 'AI_TIMEOUT'
+  | 'AI_PROVIDER_AUTH_FAILED'
+  | 'AI_PROVIDER_BUSY'
+  | 'AI_REQUEST_REJECTED'
+  | 'AI_INVALID_RESPONSE'
+
+export class ChatProviderError extends Error {
+  readonly code: ChatProviderErrorCode
+  readonly status: 502 | 503
+  readonly publicMessage: string
+
+  constructor(
+    code: ChatProviderErrorCode,
+    status: 502 | 503,
+    publicMessage: string
+  ) {
+    super(publicMessage)
+    this.name = 'ChatProviderError'
+    this.code = code
+    this.status = status
+    this.publicMessage = publicMessage
+  }
+}
+
 export async function qwenChat(
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
   timeoutMs = 30_000
 ) {
-  const token = process.env.HF_TOKEN
+  const token = process.env.HF_TOKEN?.trim()
   const model = process.env.HF_MODEL || 'Qwen/Qwen3-4B-Instruct-2507'
-  const timeoutMessage = 'Yapay zekâ yanıtı zaman aşımına uğradı. Lütfen tekrar deneyin.'
+  const timeoutMessage = 'AI_PROVIDER_TIMEOUT_INTERNAL'
 
   if (!token) {
-    throw new Error('HF_TOKEN tanımlı değil.')
+    throw new ChatProviderError(
+      'AI_NOT_CONFIGURED',
+      503,
+      'Yapay zekâ hizmeti şu anda kullanıma hazır değil. Lütfen biraz sonra tekrar deneyin.'
+    )
   }
 
-  let lastError: unknown = null
+  let lastError: ChatProviderError | null = null
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     let completion: { response: Response; data?: unknown }
@@ -170,17 +201,13 @@ export async function qwenChat(
             cache: 'no-store'
           })
 
-          if (!response.ok) {
-            return { response }
-          }
+          if (!response.ok) return { response }
 
           let data: unknown
           try {
-            // Keep the same abort signal active while the response body is read.
-            // Fetch resolving headers does not mean response.json() has completed.
             data = await response.json()
           } catch {
-            throw new Error('Model yanıtı okunamadı.')
+            throw new Error('AI_PROVIDER_RESPONSE_PARSE_INTERNAL')
           }
 
           return { response, data }
@@ -188,13 +215,26 @@ export async function qwenChat(
         timeoutMessage
       )
     } catch (error: unknown) {
-      if (error instanceof Error && error.message === 'Model yanıtı okunamadı.') {
-        throw error
+      if (error instanceof Error && error.message === 'AI_PROVIDER_RESPONSE_PARSE_INTERNAL') {
+        throw new ChatProviderError(
+          'AI_INVALID_RESPONSE',
+          502,
+          'Yapay zekâ hizmetinden geçerli bir yanıt alınamadı. Lütfen tekrar deneyin.'
+        )
       }
 
-      lastError = error instanceof Error && error.message === timeoutMessage
-        ? error
-        : new Error('Hugging Face bağlantısı kurulamadı.')
+      const timedOut = error instanceof Error && error.message === timeoutMessage
+      lastError = timedOut
+        ? new ChatProviderError(
+            'AI_TIMEOUT',
+            503,
+            'Yapay zekâ yanıtı zaman aşımına uğradı. Biraz sonra yeniden deneyin.'
+          )
+        : new ChatProviderError(
+            'AI_PROVIDER_UNAVAILABLE',
+            503,
+            'Yapay zekâ hizmetine şu anda ulaşılamıyor. Lütfen biraz sonra yeniden deneyin.'
+          )
 
       if (attempt < 2) {
         await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 500 : 1000))
@@ -207,22 +247,47 @@ export async function qwenChat(
     const { response: res, data } = completion
 
     if (!res.ok) {
-      const error =
-        res.status === 401 || res.status === 403
-          ? new Error('Hugging Face yetkilendirmesi başarısız.')
-          : res.status === 429
-            ? new Error('Hugging Face istek limiti aşıldı.')
-            : res.status >= 500
-              ? new Error('Hugging Face geçici olarak kullanılamıyor.')
-              : new Error(`Hugging Face isteği reddetti (HTTP ${res.status}).`)
+      let providerError: ChatProviderError
+
+      if (res.status === 401 || res.status === 403) {
+        providerError = new ChatProviderError(
+          'AI_PROVIDER_AUTH_FAILED',
+          503,
+          'Yapay zekâ hizmetinin kimlik doğrulaması başarısız oldu. Servis ayarları kontrol edilmelidir.'
+        )
+      } else if (res.status === 408) {
+        providerError = new ChatProviderError(
+          'AI_TIMEOUT',
+          503,
+          'Yapay zekâ hizmeti zamanında yanıt vermedi. Lütfen tekrar deneyin.'
+        )
+      } else if (res.status === 429) {
+        providerError = new ChatProviderError(
+          'AI_PROVIDER_BUSY',
+          503,
+          'Yapay zekâ hizmeti şu anda yoğun. Biraz sonra yeniden deneyin.'
+        )
+      } else if (res.status >= 500) {
+        providerError = new ChatProviderError(
+          'AI_PROVIDER_UNAVAILABLE',
+          503,
+          'Yapay zekâ hizmeti geçici olarak kullanılamıyor. Lütfen biraz sonra yeniden deneyin.'
+        )
+      } else {
+        providerError = new ChatProviderError(
+          'AI_REQUEST_REJECTED',
+          502,
+          'Yapay zekâ hizmeti isteği işleyemedi. Mesajını kısaltıp tekrar deneyebilirsin.'
+        )
+      }
 
       if (attempt < 2 && (res.status === 408 || res.status === 429 || res.status >= 500)) {
-        lastError = error
+        lastError = providerError
         await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 500 : 1000))
         continue
       }
 
-      throw error
+      throw providerError
     }
 
     const parsed = data as {
@@ -231,13 +296,19 @@ export async function qwenChat(
     const reply = parsed?.choices?.[0]?.message?.content
 
     if (typeof reply !== 'string' || !reply.trim()) {
-      throw new Error('Model geçerli bir yanıt döndürmedi.')
+      throw new ChatProviderError(
+        'AI_INVALID_RESPONSE',
+        502,
+        'Yapay zekâ geçerli bir yanıt üretmedi. Lütfen tekrar deneyin.'
+      )
     }
 
     return reply.trim()
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error('Hugging Face isteği başarısız oldu.')
+  throw lastError ?? new ChatProviderError(
+    'AI_PROVIDER_UNAVAILABLE',
+    503,
+    'Yapay zekâ hizmeti geçici olarak kullanılamıyor. Lütfen biraz sonra yeniden deneyin.'
+  )
 }
