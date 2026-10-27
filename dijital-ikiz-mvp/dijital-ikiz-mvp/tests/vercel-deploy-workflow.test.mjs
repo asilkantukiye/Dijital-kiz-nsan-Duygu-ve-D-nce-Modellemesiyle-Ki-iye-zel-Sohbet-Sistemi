@@ -166,7 +166,7 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /SUPABASE_SERVICE_ROLE_KEY/)
   assert.match(readme, /RATE_LIMIT_KEY_SALT/)
   assert.match(readme, /HEALTHCHECK_TOKEN/)
-  assert.match(readme, /Supabase Auth, Hugging Face token kimliği ve Upstash Redis/)
+  assert.match(readme, /Supabase Auth, Hugging Face token kimliği ve yapılandırılmış dağıtık rate-limit backend'i/)
 })
 
 
