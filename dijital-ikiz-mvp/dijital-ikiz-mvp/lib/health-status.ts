@@ -40,7 +40,8 @@ function isValidUpstashRestUrl(value?: string) {
       !url.username &&
       !url.password &&
       !url.search &&
-      !url.hash
+      !url.hash &&
+      (url.pathname === '/' || url.pathname === '')
   } catch {
     return false
   }
