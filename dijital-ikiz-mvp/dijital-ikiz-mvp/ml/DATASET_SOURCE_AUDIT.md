@@ -32,6 +32,16 @@ Bu belge, bulunan veri adaylarını görev uyumu ve şu an doğrulanabilen lisan
 5. Katılımcı/kopya sızıntısı olmayan split'ler oluştur.
 6. Gerçek eğitimden sonra kullanılan kaynak, split, tohum, model sürümü ve metrikleri kaydet.
 
+## Eğitim sonrası ek denetim — 27 Ekim 2026
+
+Gerçek Kaggle koşusu 40562948791 başarıyla tamamlandı ve artefakt paketi doğrulandı. Sonuçlar: docs/kaggle-training-results-2026-10-27.md.
+
+- Polarite veri kümesinin Hub README'si, olumlu/olumsuz örneklerin birden çok kaynaktan derlendiğini; nötr örneklerin bir kısmının Türkçe Wikipedia dump'ından, bir kısmının da "Lorem ipsum" gibi rastgele metinlerden geldiğini açıkça belirtiyor.
+- Eğitim notebook'u train/test dosyalarını temizleyip aynı normalize edilmiş metin çakışmalarını çıkarıyor; ancak eğitim hedefindeki sütunlar yalnızca text ve label olarak seçildiği için kaynak/dataset alanı model girdisi olarak kullanılmıyor, kaynak bazlı holdout da yapılmıyor.
+- Dolayısıyla 3.000 test örneğindeki %94,07 accuracy ve %94,07 macro-F1 yalnızca bu sabitlenmiş veri/test dağılımı için ön sonuçtur. Nötr sınıfın F1 değerinin 0,996 olması gerçek konuşma nötrlüğünün bu doğrulukta çözüldüğünü kanıtlamaz; kaynak veya metin türü ipuçları sonuçları kolaylaştırmış olabilir.
+- Yeni CPU-only TF-IDF + LogisticRegression benchmark'ı aynı pilot split üzerinde karşılaştırma noktası oluşturur. Aynı veri setindeki güçlü skorlar, kaynak artefaktı riskini tek başına ortadan kaldırmaz. Sonraki esas değerlendirme, mümkünse kaynak-tutulan bir split ve bağımsız, doğal Türkçe konuşma test kümesi üzerinde yapılmalıdır.
+- Qwen3-4B QLoRA pilotunun test loss'u 2,3596'dan 1,4867'ye düştü; bu, genel talimat verisi üzerindeki token kaybı ölçümüdür. Kişiye özgü dijital ikiz, duygu veya kişilik doğruluğu ölçümü değildir.
+
 ## Mevcut durum
 
-Depodaki VAD/Big Five/üslup CSV'leri boş şablonlardır; gerçek eğitim verisi içermez. Bu denetim, uygun VAD veya Big Five veri kümesi bulduğumuzu kanıtlamaz. Bu nedenle %75 başarı veya kişilik kopyalama başarısı iddiası hâlâ desteklenmiyor.
+Polarite ve genel Türkçe talimat pilotları gerçek eğitimle ölçülmüştür; VAD/Big Five/üslup CSV'leri ise boş şablonlardır ve bu görevler için gerçek, izin/lisansı doğrulanmış eğitim verisi bulunmamaktadır. Lisans/alt kaynak incelemesi ve bağımsız kaynak-tutulan değerlendirme tamamlanana kadar %75 genel başarı veya kişilik kopyalama başarısı iddiası desteklenmiyor.
