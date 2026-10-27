@@ -158,13 +158,19 @@ jobs:
           archive="$GITHUB_WORKSPACE/kaggle-output/dijital-ikiz-model-artifacts.zip"
           if [[ ! -s "$archive" ]]; then
             echo "::error::The expected model archive was not returned by Kaggle."
-            find "$GITHUB_WORKSPACE/kaggle-output" -maxdepth 2 -type f -printf '%P\n' || true
+            find "$GITHUB_WORKSPACE/kaggle-output" -maxdepth 4 -type f -printf '%P (%s bytes)\n' || true
+            for log_file in "$GITHUB_WORKSPACE/kaggle-output"/*.log; do
+              [[ -f "$log_file" ]] || continue
+              echo "Sanitized Kaggle log excerpt: $(basename "$log_file")"
+              tail -n 350 "$log_file" | sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,})/[redacted-credential]/g'
+            done
             exit 1
           fi
           unzip -t "$archive"
           unzip -q "$archive" -d "$GITHUB_WORKSPACE/kaggle-output/unpacked"
           python - <<'PY'
           import json
+          import math
           import os
           from pathlib import Path
 
@@ -172,14 +178,59 @@ jobs:
           reports = sorted(root.rglob("metrics.json"))
           if not reports:
               raise SystemExit("No metrics.json files found; refusing to publish unvalidated artifacts.")
+
           summary = {}
           for path in reports:
               try:
-                  summary[str(path.relative_to(root))] = json.loads(path.read_text(encoding="utf-8"))
+                  value = json.loads(path.read_text(encoding="utf-8"))
               except Exception as exc:
                   raise SystemExit(f"Invalid metrics file: {path.name}") from exc
+              if not isinstance(value, dict):
+                  raise SystemExit(f"Metrics must be a JSON object: {path.name}")
+              summary[str(path.relative_to(root))] = value
+
+          # Require the two core models and their real test metrics before publishing any run.
+          sentiment_metrics_path = root / "sentiment" / "metrics.json"
+          sentiment_model = root / "sentiment" / "model"
+          if not sentiment_metrics_path.is_file():
+              raise SystemExit("Required sentiment/metrics.json is missing.")
+          if not (sentiment_model / "config.json").is_file():
+              raise SystemExit("Sentiment model config is missing.")
+          if not any((sentiment_model / name).is_file() for name in ("model.safetensors", "pytorch_model.bin")):
+              raise SystemExit("Sentiment model weights are missing; refusing to publish.")
+          sentiment = json.loads(sentiment_metrics_path.read_text(encoding="utf-8"))
+          sentiment_test = sentiment.get("test_metrics")
+          if not isinstance(sentiment_test, dict):
+              raise SystemExit("Sentiment test metrics are missing.")
+          for key in ("accuracy", "f1_macro", "f1_weighted"):
+              value = sentiment_test.get(key)
+              if not isinstance(value, (int, float)) or not math.isfinite(value):
+                  raise SystemExit(f"Sentiment test metric is invalid: {key}")
+
+          qwen_dir = root / "qwen-lora"
+          qwen_metrics_path = qwen_dir / "metrics.json"
+          qwen_adapter = qwen_dir / "adapter"
+          if not qwen_metrics_path.is_file():
+              raise SystemExit("Required qwen-lora/metrics.json is missing.")
+          if not (qwen_adapter / "adapter_config.json").is_file():
+              raise SystemExit("Qwen LoRA adapter_config.json is missing.")
+          if not any(path.is_file() for pattern in ("adapter_model.safetensors", "adapter_model.bin") for path in qwen_adapter.glob(pattern)):
+              raise SystemExit("Qwen LoRA adapter weights are missing; refusing to publish.")
+          qwen = json.loads(qwen_metrics_path.read_text(encoding="utf-8"))
+          if qwen.get("base_model") != "Qwen/Qwen3-4B-Instruct-2507":
+              raise SystemExit("Qwen metrics identify an unexpected base model.")
+          for key in ("base_model_test_loss", "finetuned_model_test_loss", "validation_loss", "test_loss_improvement"):
+              value = qwen.get(key)
+              if not isinstance(value, (int, float)) or not math.isfinite(value):
+                  raise SystemExit(f"Qwen test metric is missing or invalid: {key}")
+          for key in ("train_rows_encoded", "validation_rows_encoded", "test_rows_encoded"):
+              value = qwen.get(key)
+              if not isinstance(value, int) or value <= 0:
+                  raise SystemExit(f"Qwen encoded sample count is missing or invalid: {key}")
+
           output = root.parent / "metrics-summary.json"
           output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print("Validated sentiment model weights + accuracy/F1 and Qwen LoRA weights + independent test losses.")
           print(f"Validated {len(reports)} metrics report(s).")
           PY
 
