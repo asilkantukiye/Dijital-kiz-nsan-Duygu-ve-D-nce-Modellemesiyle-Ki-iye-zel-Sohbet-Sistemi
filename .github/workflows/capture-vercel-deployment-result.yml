@@ -1,0 +1,92 @@
+name: Capture Vercel Deployment Result
+
+on:
+  workflow_run:
+    workflows: ["Vercel Deploy"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: vercel-deployment-result-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: ${{ github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Record sanitized workflow outcome
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_TITLE: ${{ github.event.workflow_run.display_title }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/status
+          gh run view "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --json conclusion,url,headBranch,headSha,displayTitle,jobs > "$RUNNER_TEMP/vercel-run.json"
+          python - <<'PY'
+          import json, os, pathlib
+          raw = json.loads(pathlib.Path(os.environ["RUNNER_TEMP"] + "/vercel-run.json").read_text(encoding="utf-8"))
+          jobs = []
+          for job in raw.get("jobs", []):
+              jobs.append({
+                  "name": job.get("name"),
+                  "conclusion": job.get("conclusion"),
+                  "steps": [
+                      {"name": step.get("name"), "conclusion": step.get("conclusion")}
+                      for step in job.get("steps", [])
+                  ],
+              })
+          report = {
+              "workflow": "Vercel Deploy",
+              "run_id": int(os.environ["SOURCE_RUN_ID"]),
+              "run_url": os.environ["SOURCE_RUN_URL"],
+              "conclusion": os.environ["SOURCE_CONCLUSION"],
+              "branch": os.environ["SOURCE_BRANCH"],
+              "commit": os.environ["SOURCE_SHA"],
+              "title": os.environ["SOURCE_TITLE"],
+              "jobs": jobs,
+              "secrets_included": False,
+          }
+          path = pathlib.Path(".github/status/vercel-deployment-status.json")
+          path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Publish report to result branch
+        if: always()
+        env:
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/status
+          if [[ ! -s .github/status/vercel-deployment-status.json ]]; then
+            printf '{"workflow":"Vercel Deploy","run_id":%s,"conclusion":"capture_failed","secrets_included":false}\n' "$SOURCE_RUN_ID" > .github/status/vercel-deployment-status.json
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C ops/vercel-deployment-results origin/main
+          mkdir -p .github/status
+          cp .github/status/vercel-deployment-status.json "$RUNNER_TEMP/vercel-report.json"
+          cp "$RUNNER_TEMP/vercel-report.json" .github/status/vercel-deployment-status.json
+          git add .github/status/vercel-deployment-status.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(ops): record Vercel deployment workflow result"
+          git push --force origin ops/vercel-deployment-results
