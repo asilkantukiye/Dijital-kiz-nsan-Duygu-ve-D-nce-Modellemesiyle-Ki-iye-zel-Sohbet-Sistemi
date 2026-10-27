@@ -7,6 +7,7 @@ import test from 'node:test'
 const testDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = path.resolve(testDirectory, '../../..')
 const workflowPath = path.join(repositoryDirectory, '.github', 'workflows', 'kaggle-end-to-end-training.yml')
+const validatorPath = path.join(repositoryDirectory, 'dijital-ikiz-mvp', 'dijital-ikiz-mvp', 'ml', 'validate_training_artifacts.py')
 
 test('Kaggle training can only auto-run from a specially tagged main commit', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
@@ -18,16 +19,25 @@ test('Kaggle training can only auto-run from a specially tagged main commit', as
   assert.match(workflow, /INPUT_KERNEL_ID: \$\{\{ inputs\.kaggle_kernel_id \|\| vars\.KAGGLE_KERNEL_ID \|\| 'asilkantkiye\/dijital-ikiz-training' \}\}/)
 })
 
-test('the guarded run publishes only validated Qwen LoRA artifacts to a private model repository', async () => {
-  const workflow = await readFile(workflowPath, 'utf8')
+test('Kaggle artifacts are validated strictly before optional private HF publication', async () => {
+  const [workflow, validator] = await Promise.all([
+    readFile(workflowPath, 'utf8'),
+    readFile(validatorPath, 'utf8')
+  ])
 
   assert.match(workflow, /kaggle kernels push --path ml\/kaggle --accelerator NvidiaTeslaT4/)
   assert.match(workflow, /kaggle kernels status "\$KERNEL_ID"/)
-  assert.match(workflow, /No metrics\.json files found; refusing to publish unvalidated artifacts/)
+  assert.match(workflow, /python ml\/validate_training_artifacts\.py/)
+  assert.match(validator, /Missing required trained-task metrics/)
+  assert.match(validator, /test_loss_improvement/)
+  assert.match(validator, /train_source_sha256/)
+  assert.match(validator, /Trained sentiment model weights are missing/)
+  assert.match(validator, /Qwen adapter weights are missing/)
   assert.match(workflow, /inputs\.hf_model_repo \|\| vars\.HF_MODEL_REPO \|\| 'hasankb00\/dijital-ikiz-qwen3-4b-lora-pilot'/)
   assert.match(workflow, /repo_info\.private/)
   assert.match(workflow, /api\.upload_folder\(/)
   assert.match(workflow, /github\.event_name == 'push'.*\[run-kaggle-training\]/)
+  assert.match(workflow, /HF_WRITE_TOKEN is not configured/)
 })
 
 test('manual training remains available without placing credentials in source', async () => {
