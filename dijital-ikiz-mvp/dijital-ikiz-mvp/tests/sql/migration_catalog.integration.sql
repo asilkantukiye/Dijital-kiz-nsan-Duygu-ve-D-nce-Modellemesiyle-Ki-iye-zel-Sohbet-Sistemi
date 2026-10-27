@@ -181,6 +181,22 @@ BEGIN
     RAISE EXCEPTION 'current-user chat-claim deletion helper is missing or has unsafe privileges/search_path';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'persist_my_memory_at_generation'
+      AND p.pronargs = 6
+      AND p.prosecdef
+      AND position('search_path=pg_catalog, public, extensions' in array_to_string(p.proconfig, ',')) > 0
+      AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      AND NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'generation-guarded memory persistence RPC is missing or has unsafe privileges/search_path';
+  END IF;
+
   IF has_table_privilege('authenticated', 'public.messages', 'INSERT')
      OR has_table_privilege('authenticated', 'public.messages', 'UPDATE')
      OR has_table_privilege('authenticated', 'public.twin_profiles', 'INSERT')
