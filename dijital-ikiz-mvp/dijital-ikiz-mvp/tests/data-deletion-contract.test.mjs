@@ -61,6 +61,7 @@ test('data deletion invalidates in-flight chat claims and rejects stale generati
     'utf8'
   )
   const chatRoute = await readFile(routePath, 'utf8')
+  const memoryService = await readFile(path.join(projectDirectory, 'lib', 'memory.ts'), 'utf8')
 
   assert.match(raceMigration, /create table if not exists public\.chat_user_data_generations/i)
   assert.match(raceMigration, /select generation[\s\S]*for share/i)
@@ -73,13 +74,22 @@ test('data deletion invalidates in-flight chat claims and rejects stale generati
   assert.match(raceMigration, /grant execute on function public\.delete_my_chat_request_claims_for_current_user\(\) to authenticated/i)
   assert.match(raceMigration, /deleted_claims := public\.delete_my_chat_request_claims_for_current_user\(\)/i)
   assert.match(raceMigration, /'dedupe_rows_deleted', deleted_claims/i)
+  assert.match(raceMigration, /create or replace function public\.persist_my_memory_at_generation\([\s\S]*security definer[\s\S]*set search_path = pg_catalog, public, extensions/i)
+  assert.match(raceMigration, /for share[\s\S]*memory write invalidated by data deletion/i)
+  assert.match(raceMigration, /revoke all on function public\.persist_my_memory_at_generation\([\s\S]*from public, anon, service_role/i)
+  assert.match(raceMigration, /grant execute on function public\.persist_my_memory_at_generation\([\s\S]*to authenticated/i)
 
   assert.match(chatRoute, /get_chat_data_generation_server/)
   assert.match(chatRoute, /p_generation: chatDataGeneration/)
   assert.match(chatRoute, /code: 'CHAT_DATA_CHANGED'/)
+  assert.match(chatRoute, /persistMemories\(user\.id, userMessageId, message, chatDataGeneration\)/)
+  assert.match(memoryService, /persist_my_memory_at_generation/)
+  assert.match(memoryService, /p_generation: chatDataGeneration/)
 
   assert.match(raceIntegration, /data deletion must remove both active claims/i)
   assert.match(raceIntegration, /deleted in-flight claim allowed a late worker to persist/i)
   assert.match(raceIntegration, /stale pre-deletion generation was allowed to claim new work/i)
   assert.match(raceIntegration, /deletion changed another user idempotency claim/i)
+  assert.match(raceIntegration, /delayed memory upsert with the pre-deletion generation was accepted/i)
+  assert.match(raceIntegration, /current-generation memory write did not persist exactly once/i)
 })
