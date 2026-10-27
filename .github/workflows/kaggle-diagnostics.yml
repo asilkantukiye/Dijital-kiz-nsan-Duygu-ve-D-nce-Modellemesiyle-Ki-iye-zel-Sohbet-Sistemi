@@ -1,0 +1,100 @@
+name: Kaggle Training Diagnostics
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/kaggle-diagnostics.yml"
+  workflow_dispatch:
+    inputs:
+      kernel_id:
+        description: "Failed Kaggle notebook ID"
+        required: true
+        type: string
+        default: "asilkantkiye/dijital-ikiz-training"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kaggle-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_KULLANABILEGIN_TOKEN || secrets.KAGGLE_KULLANABILECEGIN_TOKEN || secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KERNEL_ID: ${{ inputs.kernel_id || vars.KAGGLE_KERNEL_ID || 'asilkantkiye/dijital-ikiz-training' }}
+    steps:
+      - name: Validate diagnostic inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$KERNEL_ID" =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]]; then
+            echo "::error::Invalid Kaggle kernel ID."
+            exit 1
+          fi
+          if [[ -z "${KAGGLE_API_TOKEN:-}" ]] && { [[ -z "${KAGGLE_USERNAME:-}" ]] || [[ -z "${KAGGLE_KEY:-}" ]]; }; then
+            echo "::error::Kaggle read credentials are not configured in GitHub Actions."
+            exit 1
+          fi
+          echo "Diagnostic target and credential presence validated."
+
+      - name: Install Kaggle CLI
+        run: python -m pip install --disable-pip-version-check "kaggle>=2.2.4,<3"
+
+      - name: Capture Kaggle failure output
+        id: capture
+        shell: bash
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/kaggle-diagnostics"
+          mkdir -p "$out"
+          echo "Kernel: $KERNEL_ID" > "$out/summary.txt"
+          echo "UTC: $(date -u +%FT%TZ)" >> "$out/summary.txt"
+
+          set +e
+          kaggle kernels status "$KERNEL_ID" > "$out/status.txt" 2>&1
+          status_code=$?
+          set -e
+          echo "status_exit_code=$status_code" >> "$out/summary.txt"
+          cat "$out/status.txt" | sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,}|Bearer[[:space:]]+[A-Za-z0-9._-]+)/[redacted-credential]/g' || true
+
+          set +e
+          kaggle kernels output "$KERNEL_ID" --path "$out/output" --force > "$out/output-command.txt" 2>&1
+          output_code=$?
+          set -e
+          echo "output_exit_code=$output_code" >> "$out/summary.txt"
+          cat "$out/output-command.txt" | sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,}|Bearer[[:space:]]+[A-Za-z0-9._-]+)/[redacted-credential]/g' || true
+
+          echo "Downloaded files:"
+          find "$out" -maxdepth 5 -type f -printf '%P (%s bytes)\n' | head -200 || true
+
+          # Surface notebook logs/tracebacks in Actions logs without exposing credential strings.
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              *.log|*.txt|*.err|*.json|*.jsonl)
+                if [[ $(wc -c < "$file") -le 500000 ]]; then
+                  echo "===== BEGIN SANITIZED $(basename "$file") ====="
+                  sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,}|Bearer[[:space:]]+[A-Za-z0-9._-]+)/[redacted-credential]/g' "$file" | tail -n 500
+                  echo "===== END $(basename "$file") ====="
+                fi
+                ;;
+            esac
+          done < <(find "$out" -type f -print0)
+
+          find "$out" -type f -exec sed -i -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,}|Bearer[[:space:]]+[A-Za-z0-9._-]+)/[redacted-credential]/g' {} + || true
+          echo "output_dir=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Upload diagnostic files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-training-diagnostics
+          path: ${{ runner.temp }}/kaggle-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
