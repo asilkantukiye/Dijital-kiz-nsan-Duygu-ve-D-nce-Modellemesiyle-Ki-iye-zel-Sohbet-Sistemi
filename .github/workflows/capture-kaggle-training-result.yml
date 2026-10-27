@@ -1,0 +1,243 @@
+name: Capture Kaggle Training Result
+
+on:
+  workflow_run:
+    workflows: ["Kaggle End-to-End Model Training"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: kaggle-training-result-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: ${{ github.event.workflow_run.head_branch == 'main' && contains(github.event.workflow_run.head_commit.message, '[run-kaggle-training]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Collect metrics and publish the evaluated LoRA adapter when credentials exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+          HF_MODEL_REPO: hasankb00/dijital-ikiz-qwen3-4b-lora
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$RUNNER_TEMP/kaggle-training-result"
+          mkdir -p "$workdir/download"
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name kaggle-digital-twin-model-artifacts --dir "$workdir/download" || true
+          python -m pip install --quiet "huggingface_hub>=0.34,<2"
+          python - <<'PY'
+          import json
+          import math
+          import os
+          import shutil
+          import subprocess
+          import textwrap
+          import zipfile
+          from pathlib import Path
+
+          run_id = os.environ["SOURCE_RUN_ID"]
+          report = {
+              "workflow_run_id": int(run_id),
+              "workflow_run_url": os.environ["SOURCE_RUN_URL"],
+              "commit": os.environ["SOURCE_HEAD_SHA"],
+              "training_conclusion": os.environ["SOURCE_CONCLUSION"],
+              "artifact_validation": "not_available",
+              "hugging_face_publication": "not_attempted",
+              "model_repository": os.environ["HF_MODEL_REPO"],
+          }
+          root = Path(os.environ["RUNNER_TEMP"]) / "kaggle-training-result"
+          downloads = root / "download"
+          archives = sorted(downloads.rglob("dijital-ikiz-model-artifacts.zip"))
+          if not archives:
+              report["artifact_validation"] = "missing"
+              report["message"] = "Kaggle workflow did not provide the validated model artifact archive."
+          else:
+              archive = archives[0]
+              extracted = root / "extracted"
+              extracted.mkdir(parents=True, exist_ok=True)
+              with zipfile.ZipFile(archive, "r") as bundle:
+                  bad = bundle.testzip()
+                  if bad:
+                      raise SystemExit("Model artifact ZIP integrity failed.")
+                  bundle.extractall(extracted)
+
+              sentiment_metrics = extracted / "sentiment" / "metrics.json"
+              sentiment_model = extracted / "sentiment" / "model"
+              qwen_metrics_path = extracted / "qwen-lora" / "metrics.json"
+              adapter = extracted / "qwen-lora" / "adapter"
+              tokenizer_dir = extracted / "qwen-lora" / "tokenizer"
+              required = [
+                  sentiment_metrics,
+                  sentiment_model / "config.json",
+                  qwen_metrics_path,
+                  adapter / "adapter_config.json",
+              ]
+              if not all(path.is_file() for path in required):
+                  raise SystemExit("Required sentiment or Qwen artifacts are incomplete.")
+              if not any((sentiment_model / name).is_file() for name in ("model.safetensors", "pytorch_model.bin")):
+                  raise SystemExit("Sentiment model weights are missing.")
+              if not any(adapter.glob("adapter_model.*")):
+                  raise SystemExit("Qwen adapter weights are missing.")
+
+              sentiment = json.loads(sentiment_metrics.read_text(encoding="utf-8"))
+              qwen = json.loads(qwen_metrics_path.read_text(encoding="utf-8"))
+              metrics = sentiment.get("test_metrics")
+              if not isinstance(metrics, dict):
+                  raise SystemExit("Sentiment test metrics are missing.")
+              for key in ("accuracy", "f1_macro", "f1_weighted"):
+                  value = metrics.get(key)
+                  if not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+                      raise SystemExit(f"Invalid sentiment test metric: {key}.")
+              for key in ("base_model_test_loss", "finetuned_model_test_loss", "validation_loss"):
+                  value = qwen.get(key)
+                  if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                      raise SystemExit(f"Invalid Qwen metric: {key}.")
+              for key in ("train_rows_encoded", "validation_rows_encoded", "test_rows_encoded"):
+                  value = qwen.get(key)
+                  if not isinstance(value, int) or value < 1:
+                      raise SystemExit(f"Invalid Qwen row count: {key}.")
+              if qwen.get("base_model") != "Qwen/Qwen3-4B-Instruct-2507":
+                  raise SystemExit("Unexpected Qwen base model in report.")
+
+              report["artifact_validation"] = "passed"
+              report["metrics"] = {
+                  "sentiment": {
+                      "train_rows": sentiment.get("train_rows"),
+                      "validation_rows": sentiment.get("validation_rows"),
+                      "test_rows": sentiment.get("test_rows"),
+                      "test_metrics": metrics,
+                      "baseline": sentiment.get("baseline", {}).get("test_metrics"),
+                  },
+                  "qwen": {
+                      "base_model": qwen.get("base_model"),
+                      "train_rows_encoded": qwen["train_rows_encoded"],
+                      "validation_rows_encoded": qwen["validation_rows_encoded"],
+                      "test_rows_encoded": qwen["test_rows_encoded"],
+                      "base_model_test_loss": qwen["base_model_test_loss"],
+                      "finetuned_model_test_loss": qwen["finetuned_model_test_loss"],
+                      "test_loss_improvement": qwen.get("test_loss_improvement"),
+                  },
+              }
+
+              token = os.environ.get("HF_WRITE_TOKEN", "").strip()
+              repo_id = os.environ["HF_MODEL_REPO"].strip()
+              if not token:
+                  report["hugging_face_publication"] = "blocked_missing_HF_WRITE_TOKEN"
+              else:
+                  try:
+                      from huggingface_hub import HfApi
+
+                      release = root / "release"
+                      release.mkdir(parents=True, exist_ok=True)
+                      for source in adapter.iterdir():
+                          target = release / source.name
+                          if source.is_dir():
+                              shutil.copytree(source, target, dirs_exist_ok=True)
+                          else:
+                              shutil.copy2(source, target)
+                      if tokenizer_dir.is_dir():
+                          for source in tokenizer_dir.iterdir():
+                              target = release / source.name
+                              if source.is_dir():
+                                  shutil.copytree(source, target, dirs_exist_ok=True)
+                              else:
+                                  shutil.copy2(source, target)
+                      shutil.copy2(qwen_metrics_path, release / "training-metrics.json")
+
+                      readme = textwrap.dedent(f"""\
+                      ---
+                      base_model: {qwen["base_model"]}
+                      library_name: peft
+                      pipeline_tag: text-generation
+                      tags:
+                      - turkish
+                      - qwen3
+                      - lora
+                      - kaggle
+                      ---
+
+                      # Dijital İkiz İnsan — Qwen3-4B LoRA pilot
+
+                      This private repository contains a LoRA adapter, not a standalone full model.
+                      Base model: {qwen["base_model"]}.
+                      Dataset: {qwen.get("dataset", "TFLai/Turkish-Alpaca")} at revision {qwen.get("dataset_revision", "90f9589")}.
+
+                      The attached training-metrics.json is generated from the actual evaluated run.
+                      The adapter was trained on general Turkish instruction examples; it is not a validated
+                      emotion, VAD, Big Five, or person-specific model. Review all base-model and dataset
+                      terms before redistribution. Test loss alone does not establish chat quality.
+
+                      Load this adapter with the compatible base model and the PEFT library.
+                      """)
+                      (release / "README.md").write_text(readme, encoding="utf-8")
+
+                      api = HfApi(token=token)
+                      api.create_repo(repo_id=repo_id, repo_type="model", private=True, exist_ok=True)
+                      info = api.repo_info(repo_id=repo_id, repo_type="model")
+                      if not info.private:
+                          raise RuntimeError("target repository is not private")
+                      api.upload_folder(
+                          repo_id=repo_id,
+                          repo_type="model",
+                          folder_path=str(release),
+                          commit_message=f"Publish evaluated Kaggle LoRA run {run_id}",
+                      )
+                      final_info = api.repo_info(repo_id=repo_id, repo_type="model")
+                      if not final_info.private:
+                          raise RuntimeError("repository privacy verification failed after upload")
+                      report["hugging_face_publication"] = "published_private"
+                      report["model_url"] = f"https://huggingface.co/{repo_id}"
+                  except Exception as exc:
+                      report["hugging_face_publication"] = "failed"
+                      report["publication_error_type"] = type(exc).__name__
+
+          destination = Path(os.environ["RUNNER_TEMP"]) / "kaggle-training-status.json"
+          destination.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print("Training result captured; secret values are not included in the report.")
+          print(json.dumps({
+              "workflow_run_id": report["workflow_run_id"],
+              "training_conclusion": report["training_conclusion"],
+              "artifact_validation": report["artifact_validation"],
+              "hugging_face_publication": report["hugging_face_publication"],
+              "model_url": report.get("model_url"),
+              "metrics": report.get("metrics"),
+          }, ensure_ascii=False))
+          PY
+
+      - name: Publish the status report on a dedicated branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/kaggle-training-status.json"
+          if [[ ! -s "$report" ]]; then
+            printf '{"workflow_run_id":%s,"workflow_run_url":"%s","training_conclusion":"%s","artifact_validation":"capture_failed","hugging_face_publication":"unknown"}\n' \
+              "$SOURCE_RUN_ID" "$SOURCE_RUN_URL" "$SOURCE_CONCLUSION" > "$report"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C ops/kaggle-training-results origin/main
+          mkdir -p .github/status
+          cp "$report" .github/status/kaggle-training-status.json
+          git add .github/status/kaggle-training-status.json
+          if git diff --cached --quiet; then
+            echo "Training status report is unchanged."
+            exit 0
+          fi
+          git commit -m "chore(ml): record Kaggle training result"
+          git push --force origin ops/kaggle-training-results
