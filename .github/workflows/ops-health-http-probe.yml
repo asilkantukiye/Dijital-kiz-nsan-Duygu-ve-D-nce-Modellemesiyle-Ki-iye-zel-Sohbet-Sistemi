@@ -18,7 +18,8 @@ jobs:
           set -euo pipefail
           for host in \
             "https://dijital-ikiz-insan.vercel.app" \
-            "https://dijital-ikiz-insan-eyd8pm1r5-help-70c6.vercel.app"; do
+            "https://dijital-ikiz-insan-eyd8pm1r5-help-70c6.vercel.app" \
+            "https://dijital-ikiz-insan-az1feidlf-help-70c6.vercel.app"; do
             body="$(mktemp)"
             code="$(curl --silent --show-error --max-time 20 --output "$body" --write-out '%{http_code}' "$host/api/health" || true)"
             printf 'host=%s status=%s\n' "$host" "$code"
