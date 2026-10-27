@@ -122,7 +122,7 @@ test('Supabase RPC is the production fallback when Upstash is not configured', a
     fetcher: async (url, init) => {
       requestedUrl = String(url)
       requestInit = init
-      return response([{ allowed: true, retry_after_seconds: 0, reason: 'allowed' }])
+      return new Response(JSON.stringify([{ allowed: true, retry_after_seconds: 0, reason: 'allowed' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
   })
 
@@ -159,7 +159,7 @@ test('Supabase rate-limit fallback fails closed on malformed RPC responses', asy
   ]) {
     const result = await enforceChatRateLimit('fallback-test-user', {
       environment,
-      fetcher: async () => response(payload)
+      fetcher: async () => new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } })
     })
     assert.equal(result.allowed, false)
     assert.equal(result.unavailable, true)
