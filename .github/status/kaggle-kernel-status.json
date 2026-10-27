@@ -4,6 +4,8 @@
   "status_exit_code": 0,
   "status_message": "asilkantkiye/dijital-ikiz-training has status \"KernelWorkerStatus.RUNNING\"",
   "output_download_exit_code": -1,
+  "log_exit_code": 0,
+  "log_excerpt": [],
   "artifacts": {
     "archive_found": false,
     "zip_integrity": false,
