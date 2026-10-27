@@ -31,4 +31,47 @@ jobs:
             exit 1
           fi
           python -m pip install --quiet "kaggle>=2.2.4,<3"
-          kaggle kernels status asilkantkiye/dijital-ikiz-training
+          KERNEL_ID=asilkantkiye/dijital-ikiz-training
+          status_code=0
+          status_output="$(kaggle kernels status "$KERNEL_ID" 2>&1)" || status_code=$?
+          printf 'Kaggle kernel status: %s\n' "$status_output"
+
+          output_dir="$RUNNER_TEMP/kaggle-diagnostic-output"
+          mkdir -p "$output_dir"
+          output_code=0
+          kaggle kernels output "$KERNEL_ID" --path "$output_dir" --force >"$RUNNER_TEMP/kaggle-output-command.log" 2>&1 || output_code=$?
+          if [[ "$output_code" -ne 0 ]]; then
+            echo "Kaggle output download returned non-zero; printing sanitized error details:"
+            sed -E 's/(token|key|password)[^[:space:]]*/[redacted]/Ig' "$RUNNER_TEMP/kaggle-output-command.log" | tail -n 30
+          fi
+          echo "Output file listing:"
+          find "$output_dir" -maxdepth 4 -type f -printf '%P (%s bytes)\n' | head -n 100
+
+          python - "$output_dir" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          metrics = sorted(root.rglob("metrics.json"))
+          print(f"metrics_files={len(metrics)}")
+          for path in metrics:
+              try:
+                  value = json.loads(path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  print(f"{path.name}: invalid JSON ({type(exc).__name__})")
+                  continue
+              print(json.dumps({
+                  "file": str(path.relative_to(root)),
+                  "task": value.get("task"),
+                  "model": value.get("model") or value.get("base_model"),
+                  "train_rows": value.get("train_rows") or value.get("train_rows_encoded"),
+                  "validation_rows": value.get("validation_rows") or value.get("validation_rows_encoded"),
+                  "test_rows": value.get("test_rows") or value.get("test_rows_encoded"),
+                  "test_metrics": value.get("test_metrics"),
+                  "base_model_test_loss": value.get("base_model_test_loss"),
+                  "finetuned_model_test_loss": value.get("finetuned_model_test_loss"),
+                  "test_loss_improvement": value.get("test_loss_improvement")
+              }, ensure_ascii=False))
+          PY
+
+          if [[ "$status_code" -ne 0 ]]; then
+            exit "$status_code"
+          fi
