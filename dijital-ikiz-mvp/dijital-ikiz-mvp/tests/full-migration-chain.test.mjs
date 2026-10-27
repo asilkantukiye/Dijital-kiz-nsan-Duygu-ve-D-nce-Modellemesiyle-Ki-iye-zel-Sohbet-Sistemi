@@ -21,7 +21,7 @@ test('migration runbook uses the same Stage 6 filename as CI', async () => {
   assert.ok(workflow.includes('--file supabase/migrations/' + migration))
 })
 
-test('CI applies all sixteen Supabase migrations in timestamp order', async () => {
+test('CI applies all twenty Supabase migrations in timestamp order', async () => {
   const workflow = await readFile(
     path.join(repositoryDirectory, '.github', 'workflows', 'ci.yml'),
     'utf8'
@@ -44,7 +44,11 @@ test('CI applies all sixteen Supabase migrations in timestamp order', async () =
     '20261023230000_aud_05_embedding_validation.sql',
     '20261023230500_aud_05_validate_embedding_integrity.sql',
     '20261023231000_aud_06_chat_deduplication_window.sql',
-    '20261025170000_stage6_foreign_key_indexes.sql'
+    '20261025170000_stage6_foreign_key_indexes.sql',
+    '20261027171525_supabase_backed_chat_rate_limit.sql',
+    '20261027181135_stage6_180_day_retention_cleanup.sql',
+    '20261027181851_stage6_retention_inactivity_semantics.sql',
+    '20261027182055_stage6_retention_index_cleanup.sql'
   ]
 
   const positions = migrations.map((migration) => {
@@ -64,7 +68,8 @@ test('CI applies all sixteen Supabase migrations in timestamp order', async () =
     'tests/sql/memory_preference_update.integration.sql',
     'tests/sql/security_rpc.integration.sql',
     'tests/sql/memory_source_ownership.integration.sql',
-    'tests/sql/memory_embedding_integrity.integration.sql'
+    'tests/sql/memory_embedding_integrity.integration.sql',
+    'tests/sql/retention_cleanup.integration.sql'
   ]
   assert.match(workflow, /name: Test concurrent profile updates against PostgreSQL/)
   assert.match(workflow, /name: Test embedding integrity against PostgreSQL/)
