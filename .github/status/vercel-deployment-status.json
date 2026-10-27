@@ -1,0 +1,75 @@
+{
+  "workflow": "Vercel Deploy",
+  "run_id": 40566261838,
+  "run_url": "https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40566261838",
+  "conclusion": "failure",
+  "branch": "main",
+  "commit": "757699bcc9613360f44bc09463d42f4f9cb47949",
+  "title": "ops(vercel): record gated production verification results [deploy-ver…",
+  "jobs": [
+    {
+      "name": "preflight",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check deployment prerequisites",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "validate",
+      "conclusion": "skipped",
+      "steps": []
+    },
+    {
+      "name": "Record deployment verification",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout main",
+          "conclusion": "success"
+        },
+        {
+          "name": "Create sanitized release evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish evidence to the release-status branch",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout main",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "stage",
+      "conclusion": "skipped",
+      "steps": []
+    },
+    {
+      "name": "promote",
+      "conclusion": "skipped",
+      "steps": []
+    }
+  ],
+  "secrets_included": false
+}
