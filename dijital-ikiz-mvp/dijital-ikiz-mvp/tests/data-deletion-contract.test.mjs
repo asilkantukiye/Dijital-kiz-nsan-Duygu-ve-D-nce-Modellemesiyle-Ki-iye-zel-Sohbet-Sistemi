@@ -53,7 +53,7 @@ test('one database function covers memories, twin profiles and messages', async 
 
 test('data deletion invalidates in-flight chat claims and rejects stale generations', async () => {
   const raceMigration = await readFile(
-    path.join(projectDirectory, 'supabase', 'migrations', '20261027200000_delete_my_chat_inflight_claims.sql'),
+    path.join(projectDirectory, 'supabase', 'migrations', '20261027200805_delete_my_chat_inflight_claims.sql'),
     'utf8'
   )
   const raceIntegration = await readFile(
