@@ -1440,6 +1440,7 @@ END;
 $schedule$;
 
 -- Stage 6 retention policy correction; canonical schema contains only the final intended behavior.
+DROP INDEX IF EXISTS public.memory_items_retention_created_at_idx;
 -- Correct Stage 6 retention to match the published privacy policy:
 -- expire memory only after 180 days of inactivity; preserve chat history until user deletion.
 
