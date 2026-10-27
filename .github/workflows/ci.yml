@@ -90,7 +90,7 @@ jobs:
             --file supabase/migrations/20261027181135_stage6_180_day_retention_cleanup.sql \
             --file supabase/migrations/20261027181851_stage6_retention_inactivity_semantics.sql \
             --file supabase/migrations/20261027182055_stage6_retention_index_cleanup.sql \
-            --file supabase/migrations/20261027200000_delete_my_chat_inflight_claims.sql \
+            --file supabase/migrations/20261027200805_delete_my_chat_inflight_claims.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/chat_rate_limit.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
