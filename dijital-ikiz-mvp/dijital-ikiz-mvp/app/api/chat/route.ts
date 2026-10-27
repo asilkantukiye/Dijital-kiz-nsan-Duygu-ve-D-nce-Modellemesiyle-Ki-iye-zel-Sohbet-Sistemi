@@ -366,9 +366,7 @@ export async function POST(req: Request) {
       )
     }
 
-    console.error('Chat API request failed.', {
-      category: error instanceof Error ? error.name : 'UnknownError'
-    })
+    console.error('Chat API request failed; diagnostic details omitted.')
     return NextResponse.json(
       {
         error: 'Sohbet isteği şu anda tamamlanamadı. Lütfen tekrar deneyin.',
