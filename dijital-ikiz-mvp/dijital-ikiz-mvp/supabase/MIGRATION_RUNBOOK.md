@@ -39,7 +39,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 18. 20261027181135_stage6_180_day_retention_cleanup.sql
 19. 20261027181851_stage6_retention_inactivity_semantics.sql
 20. 20261027182055_stage6_retention_index_cleanup.sql
-21. 20261027200000_delete_my_chat_inflight_claims.sql
+21. 20261027200805_delete_my_chat_inflight_claims.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
@@ -198,7 +198,7 @@ The inactivity cutoff is based on memory `updated_at` and `last_used_at`; a memo
 
 ## Stage 6: chat silme ve devam eden istek yarışı
 
-`20261027200000_delete_my_chat_inflight_claims.sql`, sohbet verisi silinirken model üretimi hâlâ sürmekte olan bir isteğin silme sonrasında yeniden mesaj/profil kaydetmesini önlemek için kullanıcı başına bir `chat_user_data_generations` sayacı kullanır.
+`20261027200805_delete_my_chat_inflight_claims.sql`, sohbet verisi silinirken model üretimi hâlâ sürmekte olan bir isteğin silme sonrasında yeniden mesaj/profil kaydetmesini önlemek için kullanıcı başına bir `chat_user_data_generations` sayacı kullanır.
 
 - `/api/chat` sunucu tarafında kullanıcının mevcut generation değerini alır ve claim RPC'sine gönderir.
 - Claim RPC generation satırına `FOR SHARE` kilidi alır; veriler silinirken aynı satır artırıldığı için claim ve silme işlemi sıralanır.
