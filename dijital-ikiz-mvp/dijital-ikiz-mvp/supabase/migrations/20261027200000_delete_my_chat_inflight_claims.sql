@@ -12,15 +12,8 @@ CREATE TABLE IF NOT EXISTS public.chat_user_data_generations (
 
 ALTER TABLE public.chat_user_data_generations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.chat_user_data_generations FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.chat_user_data_generations TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.chat_user_data_generations TO service_role;
 GRANT USAGE ON SCHEMA public TO service_role;
-
-DROP POLICY IF EXISTS "users read own chat data generation" ON public.chat_user_data_generations;
-CREATE POLICY "users read own chat data generation"
-  ON public.chat_user_data_generations
-  FOR SELECT TO authenticated
-  USING ((SELECT auth.uid()) = user_id);
 
 ALTER TABLE public.chat_request_deduplication
   ADD COLUMN IF NOT EXISTS generation integer NOT NULL DEFAULT 0
@@ -65,21 +58,21 @@ REVOKE ALL ON FUNCTION public.get_chat_data_generation_server(uuid) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.get_chat_data_generation_server(uuid) TO service_role;
 
 -- Memory writes happen after the model response is committed and therefore need
--- the same generation lock. This invoker RPC makes a normal preference upsert
--- atomic with respect to deletion, while RLS keeps its SELECT to the caller's row.
+-- the same generation lock. This narrowly scoped definer RPC uses auth.uid()
+-- instead of accepting a user ID, and writes only to that user's memory rows.
 CREATE OR REPLACE FUNCTION public.persist_my_memory_at_generation(
   p_generation integer,
   p_memory_type text,
   p_content text,
   p_importance real,
-  p_embedding extensions.vector(384),
+  p_embedding extensions.vector,
   p_source_message_id uuid
 )
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = pg_catalog, public, extensions
-AS $
+AS $$
 DECLARE
   v_user_id uuid := auth.uid();
   v_generation integer;
@@ -149,7 +142,7 @@ BEGIN
 
   RETURN true;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.persist_my_memory_at_generation(
   integer, text, text, real, extensions.vector, uuid
