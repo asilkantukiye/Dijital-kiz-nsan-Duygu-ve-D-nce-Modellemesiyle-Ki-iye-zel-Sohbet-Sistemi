@@ -493,7 +493,7 @@ returns void
 language plpgsql
 security invoker
 set search_path = pg_catalog, public, extensions
-as $
+as $$
 declare
   v_user_id uuid := auth.uid();
   v_updated integer := 0;
@@ -546,7 +546,7 @@ begin
     and id <> p_keep_id
     and id = any(coalesce(p_duplicate_ids, array[]::uuid[]));
 end;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.replace_my_memory_preference(
   uuid, uuid[], text, real, extensions.vector(384), uuid
@@ -570,7 +570,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, public, extensions
-AS $
+AS $$
 DECLARE
   v_user_id uuid := auth.uid();
 BEGIN
@@ -617,7 +617,7 @@ BEGIN
       source_message_role = 'user',
       updated_at = clock_timestamp();
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.persist_my_memory_item(
   uuid, text, text, real, extensions.vector(384)
