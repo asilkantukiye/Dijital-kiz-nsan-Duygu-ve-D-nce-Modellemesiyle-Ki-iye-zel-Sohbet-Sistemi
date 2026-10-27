@@ -107,7 +107,7 @@ jobs:
           cat > "$RUN_DIR/kernel-metadata.json" <<EOF
           {
             "id": "${KAGGLE_USERNAME}/dijital-ikiz-training",
-            "title": "Dijital Ikiz Model Training",
+            "title": "Dijital Ikiz Training",
             "code_file": "dijital_ikiz_training.ipynb",
             "language": "python",
             "kernel_type": "notebook",
