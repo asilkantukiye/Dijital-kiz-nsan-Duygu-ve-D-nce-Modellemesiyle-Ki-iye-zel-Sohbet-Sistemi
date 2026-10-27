@@ -35,7 +35,8 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 14. 20261023230500_aud_05_validate_embedding_integrity.sql
 15. 20261023231000_aud_06_chat_deduplication_window.sql
 16. 20261025170000_stage6_foreign_key_indexes.sql
-17. 20261027181135_stage6_180_day_retention_cleanup.sql
+17. 20261027171525_supabase_backed_chat_rate_limit.sql
+18. 20261027181135_stage6_180_day_retention_cleanup.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
