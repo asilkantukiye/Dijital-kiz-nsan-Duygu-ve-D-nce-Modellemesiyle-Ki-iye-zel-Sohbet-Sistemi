@@ -1,0 +1,79 @@
+name: Kaggle Kernel Logs
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/kaggle-log-only.yml"
+  workflow_dispatch:
+    inputs:
+      kernel_id:
+        description: "Kaggle notebook ID"
+        required: true
+        type: string
+        default: "asilkantkiye/dijital-ikiz-training"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kaggle-log-only-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_KULLANABILEGIN_TOKEN || secrets.KAGGLE_KULLANABILECEGIN_TOKEN || secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KERNEL_ID: ${{ inputs.kernel_id || vars.KAGGLE_KERNEL_ID || 'asilkantkiye/dijital-ikiz-training' }}
+    steps:
+      - name: Validate access
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$KERNEL_ID" =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]] || { echo "::error::Invalid Kaggle notebook ID"; exit 1; }
+          if [[ -z "${KAGGLE_API_TOKEN:-}" ]] && { [[ -z "${KAGGLE_USERNAME:-}" ]] || [[ -z "${KAGGLE_KEY:-}" ]]; }; then
+            echo "::error::Kaggle credentials are missing."
+            exit 1
+          fi
+          echo "Kaggle diagnostic credentials are present."
+
+      - name: Install Kaggle CLI
+        run: python -m pip install --disable-pip-version-check "kaggle>=2.2.4,<3"
+
+      - name: Retrieve execution log without output downloads
+        shell: bash
+        run: |
+          set -u
+          out="$RUNNER_TEMP/kaggle-log-only"
+          mkdir -p "$out"
+
+          set +e
+          kaggle kernels status "$KERNEL_ID" > "$out/status.txt" 2>&1
+          status_code=$?
+          kaggle kernels logs "$KERNEL_ID" > "$out/execution-log.txt" 2>&1
+          logs_code=$?
+          kaggle kernels files "$KERNEL_ID" > "$out/output-file-list.txt" 2>&1
+          files_code=$?
+          set -e
+
+          printf 'status_exit_code=%s\nlogs_exit_code=%s\nfiles_exit_code=%s\n' "$status_code" "$logs_code" "$files_code" > "$out/exit-codes.txt"
+
+          for file in "$out/status.txt" "$out/execution-log.txt" "$out/output-file-list.txt" "$out/exit-codes.txt"; do
+            echo "===== $(basename "$file") (credentials redacted) ====="
+            sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,}|Bearer[[:space:]]+[A-Za-z0-9._-]+)/[redacted-credential]/g' "$file" | tail -n 800
+          done
+
+          find "$out" -type f -exec sed -i -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,}|Bearer[[:space:]]+[A-Za-z0-9._-]+)/[redacted-credential]/g' {} + || true
+
+      - name: Upload sanitized execution log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-execution-log
+          path: ${{ runner.temp }}/kaggle-log-only
+          if-no-files-found: warn
+          retention-days: 7
