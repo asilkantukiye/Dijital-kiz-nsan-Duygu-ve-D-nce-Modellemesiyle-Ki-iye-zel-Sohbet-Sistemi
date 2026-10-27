@@ -61,8 +61,17 @@ jobs:
           fi
 
           if [[ -z "${OUTPUT_CODE:-}" ]]; then export OUTPUT_CODE="-1"; fi
+          if [[ -n "${KAGGLE_API_TOKEN:-}" || ( -n "${KAGGLE_USERNAME:-}" && -n "${KAGGLE_KEY:-}" ) ]]; then
+            LOG_CODE=0
+            kaggle kernels logs "$KERNEL_ID" >"$RUNNER_TEMP/kaggle-kernel-logs.txt" 2>&1 || LOG_CODE=$?
+            export LOG_CODE
+            export LOG_PATH="$RUNNER_TEMP/kaggle-kernel-logs.txt"
+          else
+            export LOG_CODE="-1"
+            export LOG_PATH=""
+          fi
           python - <<'PY'
-          import json, math, os, pathlib, zipfile
+          import json, math, os, pathlib, re, zipfile
           root = pathlib.Path(os.environ["EVIDENCE_DIR"])
           report_path = pathlib.Path(os.environ["REPORT_PATH"])
           status_text = os.environ.get("STATUS_OUTPUT", "")
@@ -76,9 +85,26 @@ jobs:
               "status_exit_code": int(os.environ.get("STATUS_CODE", "1")),
               "status_message": status_text[:1000],
               "output_download_exit_code": int(os.environ.get("OUTPUT_CODE", "-1")),
+              "log_exit_code": int(os.environ.get("LOG_CODE", "-1")),
+              "log_excerpt": [],
               "artifacts": {"archive_found": False, "zip_integrity": False, "metrics_validated": False},
               "metrics": {},
           }
+          log_path = os.environ.get("LOG_PATH", "")
+          if log_path and pathlib.Path(log_path).is_file():
+              lines = pathlib.Path(log_path).read_text(encoding="utf-8", errors="replace").splitlines()
+              pattern = re.compile(r"Traceback|Exception|Error:|ERROR|OutOfMemory|CUDA|RuntimeError|ValueError|TypeError|KeyError|Epoch [0-9]|train_loss|eval_loss|accuracy|f1_macro|Qwen LoRA step=|base_model_test_loss|finetuned_model_test_loss|test_loss_improvement|KernelWorkerStatus", re.I)
+              selected = [line for line in lines if pattern.search(line)][-80:]
+              redactions = [
+                  (re.compile(r"hf_[A-Za-z0-9]{20,}"), "[redacted-token]"),
+                  (re.compile(r"kaggle_[A-Za-z0-9]{20,}"), "[redacted-token]"),
+                  (re.compile(r"(?i)Bearer\s+\S+"), "Bearer [redacted]"),
+                  (re.compile(r"(?i)(token|secret|password|api[_-]?key)\s*[:=]\s*\S+"), r"\1=[redacted]"),
+              ]
+              for line in selected:
+                  for regex, replacement in redactions:
+                      line = regex.sub(replacement, line)
+                  report["log_excerpt"].append(line[:500])
           archives = sorted(root.rglob("dijital-ikiz-model-artifacts.zip"))
           if archives:
               archive = archives[0]
