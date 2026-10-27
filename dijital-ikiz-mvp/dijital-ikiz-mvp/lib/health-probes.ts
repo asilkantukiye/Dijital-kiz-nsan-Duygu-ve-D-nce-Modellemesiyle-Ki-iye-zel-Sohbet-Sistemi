@@ -3,6 +3,7 @@ import { isValidSupabaseUrl } from './supabase-url.ts'
 export type DeepHealthEnvironment = {
   supabaseUrl?: string
   supabasePublishableKey?: string
+  supabaseServiceRoleKey?: string
   huggingfaceToken?: string
   upstashRedisRestUrl?: string
   upstashRedisRestToken?: string
@@ -138,7 +139,19 @@ export async function probeUpstreams(
           return false
         }
       })()
-    : Promise.resolve(false)
+    : supabaseUrl && environment.supabaseServiceRoleKey?.trim()
+      ? probe(
+          fetcher,
+          new URL('/rest/v1/chat_rate_limit_counters?select=scope&limit=0', supabaseUrl),
+          {
+            method: 'GET',
+            headers: {
+              apikey: environment.supabaseServiceRoleKey.trim(),
+              Authorization: `Bearer ${environment.supabaseServiceRoleKey.trim()}`
+            }
+          }
+        )
+      : Promise.resolve(false)
 
   const [supabase, huggingface, rateLimit] = await Promise.all([
     supabasePromise,
