@@ -150,6 +150,21 @@ test('production readiness requires a valid distributed rate-limit configuration
   assert.doesNotMatch(JSON.stringify(configured), /private-test-token|x{32}/)
 })
 
+test('production readiness accepts the existing Supabase server key as a distributed limiter backend', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    supabaseServiceRoleKey: 'service-role-placeholder',
+    huggingfaceToken: 'secret-placeholder',
+    rateLimitKeySalt: 's'.repeat(32),
+    nodeEnv: 'production'
+  })
+
+  assert.equal(status.ready, true)
+  assert.equal(status.configured.rateLimit, true)
+  assert.equal(status.configured.serverWriteBoundary, true)
+})
+
 test('production readiness rejects malformed Upstash URLs and short key salts', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
