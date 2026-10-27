@@ -6,6 +6,11 @@ on:
     paths:
       - ".github/workflows/polarity-tfidf-baseline.yml"
       - "dijital-ikiz-mvp/dijital-ikiz-mvp/ml/baselines/**"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/polarity-tfidf-baseline.yml"
+      - "dijital-ikiz-mvp/dijital-ikiz-mvp/ml/baselines/**"
   workflow_dispatch:
 
 permissions:
@@ -39,6 +44,7 @@ jobs:
         run: python -m unittest discover -s ml/baselines -p "test_*.py" -v
 
       - name: Fit TF-IDF + logistic regression on the exact pilot split
+        if: ${{ github.event_name != 'pull_request' }}
         env:
           POLARITY_DATA_DIR: ${{ runner.temp }}/polarity-dataset
           BASELINE_OUTPUT: ${{ runner.temp }}/polarity-tfidf-baseline/metrics.json
@@ -47,6 +53,7 @@ jobs:
           python ml/baselines/run_polarity_baseline.py --output "$BASELINE_OUTPUT"
 
       - name: Upload baseline metrics
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v7
         with:
           name: polarity-tfidf-baseline-metrics
