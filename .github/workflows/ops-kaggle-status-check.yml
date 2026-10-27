@@ -72,6 +72,12 @@ jobs:
               }, ensure_ascii=False))
           PY
 
+          for log_file in "$output_dir"/*.log; do
+            [[ -f "$log_file" ]] || continue
+            echo "Sanitized training log excerpts from $(basename "$log_file"):"
+            grep -Eai 'Traceback|Exception|Error:|ERROR|OutOfMemory|CUDA|RuntimeError|ValueError|TypeError|metrics_path|test_metrics|base_model_test_loss|finetuned_model_test_loss|test_loss_improvement|Qwen LoRA step=|Epoch [0-9]|train_loss|eval_loss|accuracy|f1_macro|KernelWorkerStatus' "$log_file" | tail -n 220 | sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,})/[redacted-credential]/g' || true
+          done
+
           logs_code=0
           kaggle kernels logs "$KERNEL_ID" >"$RUNNER_TEMP/kaggle-kernel-logs.txt" 2>&1 || logs_code=$?
           echo "Sanitized training diagnostics (if Kaggle has published logs):"
