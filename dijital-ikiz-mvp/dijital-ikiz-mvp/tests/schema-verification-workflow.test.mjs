@@ -26,7 +26,7 @@ test('missing repository-variable credentials fail closed without exposing a tok
   const workflow = await readFile(workflowPath, 'utf8')
 
   assert.match(workflow, /result="GH_VARIABLES_TOKEN_secret_missing"/)
-  assert.match(workflow, /repository guard was.*changed/)
+  assert.ok(workflow.includes('repository guard was **not** changed'))
   assert.match(workflow, /secrets_included: false/)
   assert.doesNotMatch(workflow, /github\.token/)
 })
