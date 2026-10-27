@@ -108,6 +108,19 @@ jobs:
       - name: Install Kaggle CLI
         run: python -m pip install --upgrade "kaggle>=2.2.4,<3"
 
+      - name: Verify Hugging Face publishing credential before GPU training
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_qwen_adapter) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-kaggle-training]')) }}
+        env:
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${HF_WRITE_TOKEN:-}" ]]; then
+            echo "::error::HF_WRITE_TOKEN is missing. Add a repo-scoped write token for the private Hugging Face model before spending Kaggle GPU time."
+            exit 1
+          fi
+          echo "Hugging Face model-write credential is present (value redacted)."
+
       - name: Submit notebook and start Kaggle training
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
         run: |
