@@ -75,6 +75,22 @@ BEGIN
   IF NOT rejected THEN
     RAISE EXCEPTION 'a delayed memory upsert with the pre-deletion generation was accepted';
   END IF;
+
+  -- The legacy direct table-write path is also stopped by RLS, including
+  -- during rolling deployment while an older app instance still exists.
+  rejected := false;
+  BEGIN
+    INSERT INTO public.memory_items (user_id, memory_type, content, importance, embedding)
+    VALUES (
+      auth.uid(), 'preference', 'Kullanıcı tercihi: eski uygulama belleği', 0.5,
+      probe_embedding
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'legacy direct memory insert bypassed the current-generation RLS guard';
+  END IF;
 END
 $stale_memory_write$;
 
