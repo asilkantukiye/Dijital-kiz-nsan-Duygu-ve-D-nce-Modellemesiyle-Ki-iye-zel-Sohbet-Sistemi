@@ -95,7 +95,7 @@ jobs:
             --file tests/sql/memory_preference_update.integration.sql \
             --file tests/sql/security_rpc.integration.sql \
             --file tests/sql/memory_source_ownership.integration.sql \
-            --file tests/sql/memory_embedding_integrity.integration.sql \
+            --file tests/sql/memory_embedding_integrity.integration.sql
 
 
       - name: Stress concurrent idempotency claims against PostgreSQL
