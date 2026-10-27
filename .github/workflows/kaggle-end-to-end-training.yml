@@ -121,7 +121,7 @@ jobs:
             set -e
             normalized="$(printf '%s' "$status_output" | tr '[:upper:]' '[:lower:]')"
 
-            if [[ "$normalized" == *"complete"* || "$normalized" == *"success"* ]]; then
+            if [[ "$normalized" == *"kernelworkerstatus.complete"* ]] || [[ "$normalized" =~ (^|[^a-z])complete([^a-z]|$) ]]; then
               echo "Kaggle reported successful completion."
               exit 0
             fi
@@ -211,6 +211,7 @@ jobs:
           import os
           import re
           import shutil
+          import textwrap
           from pathlib import Path
           from huggingface_hub import HfApi
 
@@ -248,7 +249,7 @@ jobs:
           shutil.copy2(metrics_path, release_dir / "training-metrics.json")
 
           metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-          readme = f"""---
+          readme = textwrap.dedent(f"""---
           base_model: {metrics.get('base_model', 'Qwen/Qwen3-4B-Instruct-2507')}
           library_name: peft
           pipeline_tag: text-generation
@@ -271,7 +272,7 @@ jobs:
           This artifact is published privately by default. Review the dataset and base-model license terms, the metrics, and the adapter before making it public. Test loss alone does not establish chat quality or the project's claimed research target.
 
           To load the adapter, use the compatible base model with the PEFT library and follow the base model's license and usage requirements.
-          """
+          """).lstrip()
           (release_dir / "README.md").write_text(readme, encoding="utf-8")
 
           api = HfApi(token=token)
