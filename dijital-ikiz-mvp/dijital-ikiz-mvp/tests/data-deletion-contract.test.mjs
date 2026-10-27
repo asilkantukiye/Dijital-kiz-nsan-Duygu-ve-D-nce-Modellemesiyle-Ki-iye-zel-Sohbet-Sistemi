@@ -49,3 +49,37 @@ test('one database function covers memories, twin profiles and messages', async 
 
   assert.match(sql, /message_feedback rows are deleted by the messages FK's ON DELETE CASCADE/i)
 })
+
+
+test('data deletion invalidates in-flight chat claims and rejects stale generations', async () => {
+  const raceMigration = await readFile(
+    path.join(projectDirectory, 'supabase', 'migrations', '20261027200000_delete_my_chat_inflight_claims.sql'),
+    'utf8'
+  )
+  const raceIntegration = await readFile(
+    path.join(projectDirectory, 'tests', 'sql', 'data_deletion_idempotency.integration.sql'),
+    'utf8'
+  )
+  const chatRoute = await readFile(routePath, 'utf8')
+
+  assert.match(raceMigration, /create table if not exists public\.chat_user_data_generations/i)
+  assert.match(raceMigration, /select generation[\s\S]*for share/i)
+  assert.match(raceMigration, /p_generation integer default null/i)
+  assert.match(raceMigration, /errcode = 'P0409'/i)
+  assert.match(raceMigration, /set generation = generation \+ 1/i)
+  assert.match(raceMigration, /delete from public\.chat_request_deduplication[\s\S]*where user_id = v_user_id/i)
+  assert.match(raceMigration, /create or replace function public\.delete_my_chat_request_claims_for_current_user\(\)[\s\S]*security definer[\s\S]*set search_path = pg_catalog, public/i)
+  assert.match(raceMigration, /revoke all on function public\.delete_my_chat_request_claims_for_current_user\(\) from public, anon/i)
+  assert.match(raceMigration, /grant execute on function public\.delete_my_chat_request_claims_for_current_user\(\) to authenticated/i)
+  assert.match(raceMigration, /deleted_claims := public\.delete_my_chat_request_claims_for_current_user\(\)/i)
+  assert.match(raceMigration, /'dedupe_rows_deleted', deleted_claims/i)
+
+  assert.match(chatRoute, /get_chat_data_generation_server/)
+  assert.match(chatRoute, /p_generation: chatDataGeneration/)
+  assert.match(chatRoute, /code: 'CHAT_DATA_CHANGED'/)
+
+  assert.match(raceIntegration, /data deletion must remove both active claims/i)
+  assert.match(raceIntegration, /deleted in-flight claim allowed a late worker to persist/i)
+  assert.match(raceIntegration, /stale pre-deletion generation was allowed to claim new work/i)
+  assert.match(raceIntegration, /deletion changed another user idempotency claim/i)
+})
