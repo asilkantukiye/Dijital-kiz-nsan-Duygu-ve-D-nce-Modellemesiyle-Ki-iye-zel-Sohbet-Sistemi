@@ -435,3 +435,79 @@ jobs:
             echo ""
             echo "- The public production domain returned ok=true and ready=true after promotion."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Record deployment verification
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    needs: [preflight, validate, stage, promote]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Create sanitized release evidence
+        env:
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
+          PREFLIGHT_READY: ${{ needs.preflight.outputs.ready }}
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+          STAGE_RESULT: ${{ needs.stage.result }}
+          PROMOTION_RESULT: ${{ needs.promote.result }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = {
+            workflow: 'Vercel Deploy',
+            run_id: Number(process.env.RELEASE_RUN_ID),
+            run_url: process.env.RELEASE_RUN_URL,
+            commit: process.env.RELEASE_SHA,
+            preflight: {
+              result: process.env.PREFLIGHT_RESULT,
+              ready: process.env.PREFLIGHT_READY || null
+            },
+            validation: process.env.VALIDATION_RESULT,
+            staged_deployment: process.env.STAGE_RESULT,
+            production_promotion_and_health: process.env.PROMOTION_RESULT,
+            secrets_included: false
+          };
+          report.conclusion = [
+            report.preflight.result,
+            report.validation,
+            report.staged_deployment,
+            report.production_promotion_and_health
+          ].every(value => value === 'success') && report.preflight.ready === 'true'
+            ? 'success'
+            : 'blocked_or_failed';
+          fs.mkdirSync(process.env.RUNNER_TEMP + '/vercel-release-report', {recursive: true});
+          fs.writeFileSync(
+            process.env.RUNNER_TEMP + '/vercel-release-report/status.json',
+            JSON.stringify(report, null, 2) + '\n'
+          );
+          console.log(JSON.stringify(report, null, 2));
+          NODE
+
+      - name: Publish evidence to the release-status branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git switch -C ops/vercel-deployment-results origin/main
+          mkdir -p .github/status
+          cp "$RUNNER_TEMP/vercel-release-report/status.json" .github/status/vercel-deployment-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/status/vercel-deployment-status.json
+          if git diff --cached --quiet; then
+            echo "Release evidence is unchanged."
+            exit 0
+          fi
+          git commit -m "chore(ops): record Vercel release verification"
+          git push --force origin HEAD:ops/vercel-deployment-results
