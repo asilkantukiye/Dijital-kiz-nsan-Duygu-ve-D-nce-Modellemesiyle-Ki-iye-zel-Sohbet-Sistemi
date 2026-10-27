@@ -1,14 +1,16 @@
 {
   "purpose": "Record the live Supabase Production schema verification performed for this release",
-  "source_commit": "3004e406d756065977eea14242d28b188456783d",
+  "source_commit": "d4e44c3f859d555f0ef918b053f778b489e26710",
   "workflow_run_id": 40567187415,
   "database_evidence": {
     "project_status": "ACTIVE_HEALTHY",
-    "applied_migration_records": 22,
-    "user_data_rls": "enabled on audited user-scoped tables",
-    "server_rpc_permissions": "verified against live function catalog",
+    "applied_migration_records": 23,
+    "user_data_rls": "enabled on audited user-scoped tables; memory INSERT/UPDATE generation checks verified",
+    "server_rpc_permissions": "verified against live function catalog including the new generation-guarded memory RPC",
     "rate_limit_rpc_smoke_test": "passed in a transaction rolled back after test",
-    "retention_cleanup_cron": "active; latest inspected run succeeded"
+    "retention_cleanup_cron": "active; one inspected run succeeded",
+    "latest_applied_migration": "20261027200805_delete_my_chat_inflight_claims",
+    "deletion_race_guard": "generation table, 4-argument claim RPC, per-user claim invalidation, and memory generation policies verified live"
   },
   "repository_variable": {
     "name": "SUPABASE_PRODUCTION_SCHEMA_VERIFIED",
@@ -16,7 +18,9 @@
     "read_back_value_matches": false,
     "write_exit_code": 1,
     "read_exit_code": 1,
-    "result": "repository_variable_write_or_readback_failed"
+    "result": "repository_variable_write_or_readback_failed",
+    "outstanding_requirement": "GH_VARIABLES_TOKEN secret with repository-scoped Variables read/write permission, or manual repository variable update after reviewing this evidence"
   },
-  "secrets_included": false
+  "secrets_included": false,
+  "evidence_updated_at_utc": "2026-10-27T20:25:00Z"
 }
