@@ -64,6 +64,10 @@ test('data deletion invalidates in-flight chat claims and rejects stale generati
   const memoryService = await readFile(path.join(projectDirectory, 'lib', 'memory.ts'), 'utf8')
 
   assert.match(raceMigration, /create table if not exists public\.chat_user_data_generations/i)
+  assert.match(raceMigration, /alter table public\.memory_items[\s\S]*data_generation integer not null default 0/i)
+  assert.match(raceMigration, /create policy "users insert current-generation memory items"[\s\S]*data_generation = public\.current_my_chat_data_generation\(\)/i)
+  assert.match(raceMigration, /create policy "users update current-generation memory items"[\s\S]*using \([\s\S]*current_my_chat_data_generation\(\)[\s\S]*with check \([\s\S]*current_my_chat_data_generation\(\)/i)
+  assert.match(raceMigration, /create policy "users delete own memory items"[\s\S]*for delete to authenticated[\s\S]*using \(\(select auth\.uid\(\)\) = user_id\)/i)
   assert.match(raceMigration, /select generation[\s\S]*for share/i)
   assert.match(raceMigration, /p_generation integer default null/i)
   assert.match(raceMigration, /errcode = 'P0409'/i)
@@ -91,5 +95,6 @@ test('data deletion invalidates in-flight chat claims and rejects stale generati
   assert.match(raceIntegration, /stale pre-deletion generation was allowed to claim new work/i)
   assert.match(raceIntegration, /deletion changed another user idempotency claim/i)
   assert.match(raceIntegration, /delayed memory upsert with the pre-deletion generation was accepted/i)
+  assert.match(raceIntegration, /legacy direct memory insert bypassed the current-generation RLS guard/i)
   assert.match(raceIntegration, /current-generation memory write did not persist exactly once/i)
 })
