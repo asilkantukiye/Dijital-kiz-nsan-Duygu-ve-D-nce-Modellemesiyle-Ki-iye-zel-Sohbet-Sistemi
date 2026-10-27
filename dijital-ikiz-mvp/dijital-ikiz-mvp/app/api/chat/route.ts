@@ -120,15 +120,35 @@ export async function POST(req: Request) {
       )
     }
 
+    // Snapshot the user's chat-data generation before claiming work. If data deletion
+    // races this request, PostgreSQL rejects the stale generation before inference.
+    const { data: generationData, error: generationError } = await adminSupabase.rpc(
+      'get_chat_data_generation_server',
+      { p_user_id: user.id }
+    )
+    if (
+      generationError ||
+      typeof generationData !== 'number' ||
+      !Number.isSafeInteger(generationData) ||
+      generationData < 0
+    ) {
+      return NextResponse.json(
+        { error: 'Sohbet kayıt servisi şu anda kullanılamıyor.' },
+        { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' } }
+      )
+    }
+
     // The SHA-256 fingerprint scopes an identical prompt+variant to this verified user.
     // PostgreSQL owns the cross-instance lock; no in-memory mutex is trusted here.
+    const chatDataGeneration = generationData
     const requestHash = hashChatRequest(variant, message)
     const ownerToken = createChatRequestOwnerToken()
     const claimResult = await claimChatRequestWithWait(async () => {
       const { data: claimData, error: claimError } = await adminSupabase.rpc('claim_chat_request_server', {
         p_user_id: user.id,
         p_request_hash: requestHash,
-        p_owner_token: ownerToken
+        p_owner_token: ownerToken,
+        p_generation: chatDataGeneration
       })
       if (claimError) throw claimError
 
@@ -351,6 +371,23 @@ export async function POST(req: Request) {
     })
   } catch (error: unknown) {
     await releaseClaim()
+
+    const databaseErrorCode =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code ?? '')
+        : ''
+    const databaseErrorMessage = error instanceof Error ? error.message : ''
+
+    if (
+      databaseErrorCode === 'P0409' ||
+      databaseErrorMessage.includes('Chat request was not claimed') ||
+      databaseErrorMessage.includes('Chat request claim is not owned by this worker')
+    ) {
+      return NextResponse.json(
+        { error: 'Sohbet verileri değişti. Güvenliğiniz için bu istek kaydedilmedi; lütfen yeniden deneyin.', code: 'CHAT_DATA_CHANGED' },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
 
     if (error instanceof ChatProviderError) {
       console.warn('Chat provider request failed.', { code: error.code })
