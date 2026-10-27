@@ -57,14 +57,42 @@ REVOKE ALL ON FUNCTION public.current_my_chat_data_generation() FROM PUBLIC, ano
 GRANT EXECUTE ON FUNCTION public.current_my_chat_data_generation() TO authenticated;
 
 DROP POLICY IF EXISTS "users own memory items" ON public.memory_items;
+DROP POLICY IF EXISTS "users insert current-generation memory items" ON public.memory_items;
+DROP POLICY IF EXISTS "users update current-generation memory items" ON public.memory_items;
+DROP POLICY IF EXISTS "users delete own memory items" ON public.memory_items;
+
 CREATE POLICY "users own memory items"
   ON public.memory_items
-  FOR ALL TO authenticated
-  USING ((SELECT auth.uid()) = user_id)
+  FOR SELECT TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+
+CREATE POLICY "users insert current-generation memory items"
+  ON public.memory_items
+  FOR INSERT TO authenticated
   WITH CHECK (
     (SELECT auth.uid()) = user_id
     AND data_generation = public.current_my_chat_data_generation()
   );
+
+-- The USING generation lock is evaluated while selecting update candidates,
+-- before target memory rows are locked. Deletion locks the generation row first,
+-- so update and delete share one lock order rather than deadlocking.
+CREATE POLICY "users update current-generation memory items"
+  ON public.memory_items
+  FOR UPDATE TO authenticated
+  USING (
+    (SELECT auth.uid()) = user_id
+    AND data_generation = public.current_my_chat_data_generation()
+  )
+  WITH CHECK (
+    (SELECT auth.uid()) = user_id
+    AND data_generation = public.current_my_chat_data_generation()
+  );
+
+CREATE POLICY "users delete own memory items"
+  ON public.memory_items
+  FOR DELETE TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
 
 ALTER TABLE public.chat_request_deduplication
   ADD COLUMN IF NOT EXISTS generation integer NOT NULL DEFAULT 0
