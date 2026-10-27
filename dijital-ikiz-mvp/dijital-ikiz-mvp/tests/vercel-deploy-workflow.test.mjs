@@ -55,7 +55,7 @@ test('missing deployment prerequisites are explained without exposing secret val
   assert.match(workflow, /has_upstash_token=false/)
   assert.match(workflow, /UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be configured together/)
   assert.match(workflow, /verified Supabase-backed rate-limit migration/)
-  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED:\\s*\\$\\{\\{\\s*vars\\.SUPABASE_PRODUCTION_SCHEMA_VERIFIED\\s*\\}\\}/)
+  assert.match(workflow, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED:\s*\$\{\{\s*vars\.SUPABASE_PRODUCTION_SCHEMA_VERIFIED\s*\}\}/)
   assert.match(workflow, /HEALTHCHECK_TOKEN.*minimum 32 characters/)
   assert.match(workflow, /leave the variable unset/)
   assert.match(workflow, /Deployment prerequisites are missing[^\n]*\n\s*exit 1/)
