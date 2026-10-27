@@ -163,25 +163,7 @@ jobs:
           fi
           unzip -t "$archive"
           unzip -q "$archive" -d "$GITHUB_WORKSPACE/kaggle-output/unpacked"
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          root = Path(os.environ["GITHUB_WORKSPACE"]) / "kaggle-output" / "unpacked"
-          reports = sorted(root.rglob("metrics.json"))
-          if not reports:
-              raise SystemExit("No metrics.json files found; refusing to publish unvalidated artifacts.")
-          summary = {}
-          for path in reports:
-              try:
-                  summary[str(path.relative_to(root))] = json.loads(path.read_text(encoding="utf-8"))
-              except Exception as exc:
-                  raise SystemExit(f"Invalid metrics file: {path.name}") from exc
-          output = root.parent / "metrics-summary.json"
-          output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-          print(f"Validated {len(reports)} metrics report(s).")
-          PY
+          python ml/validate_training_artifacts.py "$GITHUB_WORKSPACE/kaggle-output/unpacked" --summary "$GITHUB_WORKSPACE/kaggle-output/metrics-summary.json"
 
       - name: Upload reproducible training artifacts
         uses: actions/upload-artifact@v7
@@ -203,8 +185,14 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${HF_WRITE_TOKEN:-}" ]]; then
-            echo "::error::Publishing requires the HF_WRITE_TOKEN GitHub secret with write permission limited to the target model repo."
-            exit 1
+            echo "::warning::HF_WRITE_TOKEN is not configured. The validated Kaggle artifact remains uploaded, but Hugging Face publication is skipped."
+            echo "publication=skipped-no-write-token" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Hugging Face publication"
+              echo ""
+              echo "Skipped: `HF_WRITE_TOKEN` is missing. Training artifacts and metrics were preserved, but no model weights were published."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           if [[ ! "$HF_MODEL_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
             echo "::error::Provide a valid Hugging Face repo ID in owner/model-name format."
