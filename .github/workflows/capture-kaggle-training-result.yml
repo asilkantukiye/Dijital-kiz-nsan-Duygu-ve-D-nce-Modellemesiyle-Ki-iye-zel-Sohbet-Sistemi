@@ -121,7 +121,7 @@ jobs:
                       "validation_rows": sentiment.get("validation_rows"),
                       "test_rows": sentiment.get("test_rows"),
                       "test_metrics": metrics,
-                      "baseline": sentiment.get("baseline", {}).get("test_metrics"),
+                      "baseline": metrics.get("majority_class_baseline"),
                   },
                   "qwen": {
                       "base_model": qwen.get("base_model"),
@@ -136,7 +136,9 @@ jobs:
 
               token = os.environ.get("HF_WRITE_TOKEN", "").strip()
               repo_id = os.environ["HF_MODEL_REPO"].strip()
-              if not token:
+              if qwen["finetuned_model_test_loss"] >= qwen["base_model_test_loss"]:
+                  report["hugging_face_publication"] = "blocked_no_test_loss_improvement"
+              elif not token:
                   report["hugging_face_publication"] = "blocked_missing_HF_WRITE_TOKEN"
               else:
                   try:
