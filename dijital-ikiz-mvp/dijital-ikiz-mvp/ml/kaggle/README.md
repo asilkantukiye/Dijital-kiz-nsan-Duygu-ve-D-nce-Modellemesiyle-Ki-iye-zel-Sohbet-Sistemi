@@ -1,15 +1,29 @@
 # Kaggle model eğitimi
 
-Tek notebook: `ml/kaggle/dijital_ikiz_training.ipynb`.
+Tek notebook: ml/kaggle/dijital_ikiz_training.ipynb.
 
-## Akış
+## Otomatik eğitim ve artefakt akışı
 
-1. GitHub Actions → **Prepare Kaggle Model Training** → Run workflow.
-2. [Kaggle notebook'unu aç](https://www.kaggle.com/code/asilkantkiye/dijital-ikiz-training).
-3. Kaggle sağ panelinde **Settings → Internet = On**; erişimin varsa **Accelerator = GPU**.
-4. **Run All** çalıştır. Bu defterin interneti API metadata'sından garanti edilemiyor; önceki günlükte `pypi.org` DNS hatası görüldüğü için internet ayarı arayüzden açılmalıdır.
-5. Eğitim bitince GitHub Actions → **Download Kaggle Model Artifacts** → Run workflow.
-6. `kaggle-model-artifacts` artifact'ini indir. ZIP tüm görev modelleri ve `metrics.json` raporlarını; `metrics-summary.json` metriklerin özetini içerir.
+GitHub Actions → **Kaggle End-to-End Model Training** → **Run workflow** adımlarını main dalında çalıştır. İş akışı Kaggle metadata'sını oluşturur, GPU ve Internet seçeneğini etkinleştirir, notebook'u Kaggle'a göndererek çalıştırır, bitiş durumunu bekler, model paketini indirir ve metrics.json dosyalarını doğrular.
+
+Workflow girdileri:
+
+- **Kaggle notebook ID:** Varsayılan `asilkantkiye/dijital-ikiz-training`; hesabındaki gerçek notebook ID farklıysa `owner/slug` biçiminde düzelt.
+- **Publish Qwen LoRA adapter:** Varsayılan kapalıdır. Yalnızca model artefaktları ve lisanslar incelendikten sonra aç.
+- **Hugging Face repo ID:** Yayımlama seçildiyse `owner/model-name` biçiminde gir. Yeni depo özel (private) oluşturulur.
+
+### Gerekli GitHub Actions Secrets
+
+- `KAGGLE_API_TOKEN` (önerilen) veya uyumlu mevcut token adı `KAGGLE_KULLANABILEGIN_TOKEN`; eski kimlik doğrulaması için `KAGGLE_USERNAME` ve `KAGGLE_KEY` de desteklenir. Token değerini loglama ya da kaynak koda yazma.
+- Hugging Face'e otomatik yükleme isteniyorsa, hedef model deposuna yazma yetkisiyle sınırlandırılmış `HF_WRITE_TOKEN` secret'ı gerekir. Bu, web uygulamasının inference token'ından ayrı tutulmalıdır.
+
+Başarılı çalıştırmada `kaggle-digital-twin-model-artifacts` adlı GitHub Actions artefaktı, Kaggle'dan alınmış ZIP paketini ve `metrics-summary.json` dosyasını içerir. Eğitim veya veri doğrulaması başarısız olursa artefakt/model yayımlama adımları devam etmez.
+
+### Hugging Face yayımlama sınırı
+
+Bu adım Qwen3-4B için LoRA adaptörünü, tokenizer dosyalarını ve gerçek eğitim metriklerini yükler; **tam birleşik model üretmez ve canlı inference servisi başlatmaz**. Web uygulamasının özel adaptörü kullanabilmesi için daha sonra uyumlu model sunumu kurulmalı ve doğrulanmalıdır. Hugging Face Hub'a dosya yüklemek tek başına ücretsiz/sürekli çalışan model API'si sağlamaz.
+
+Eski manuel Kaggle yolu gerekirse yedek olarak kullanılabilir. Bu otomatik akış Kaggle API token'ının ilgili notebook üzerinde çalıştırma yetkisine ve Kaggle hesabında uygun GPU kotasına bağlıdır.
 
 ## Eğitilen görevler
 
@@ -19,4 +33,4 @@ Tek notebook: `ml/kaggle/dijital_ikiz_training.ipynb`.
 
 VAD/BF CSV'leri eklenmezse bu görevler atlanır; polarite pilotu yine çalışır. Aynı katılımcı ve normalize edilmiş yinelenen metinler farklı split'lere dağıtılmaz. Eksik/yer tutucu kaynak ve lisans alanları reddedilir.
 
-Bu defterin statik CI kontrolü gerçek eğitimi çalıştırmaz. Metrikler ancak Kaggle'da Run All başarıyla bittiğinde oluşur. Polarite doğruluğu VAD veya Big Five doğruluğu değildir; proje raporuna yalnızca gerçek sonuçları ekle.
+Notebook'un statik CI kontrolü gerçek eğitimi çalıştırmaz. Yeni GitHub Actions akışı Kaggle eğitimini başlatır; metrikler yalnızca Kaggle çalışması başarıyla bitip artefaktlar doğrulandıktan sonra üretilmiş kabul edilir. İş akışını çalıştırmak için main dalında Actions → Kaggle End-to-End Model Training → Run workflow yolunu kullan. Polarite doğruluğu VAD veya Big Five doğruluğu değildir; proje raporuna yalnızca gerçek sonuçları ekle.
