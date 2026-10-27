@@ -194,3 +194,19 @@ test('production readiness rejects Upstash endpoint query strings', () => {
   assert.equal(status.ready, false)
   assert.equal(status.configured.rateLimit, false)
 })
+
+test('production readiness rejects Upstash endpoints with a non-root path', () => {
+  const status = buildHealthStatus({
+    supabaseUrl: 'https://project.example.supabase.co',
+    supabasePublishableKey: 'publishable-placeholder',
+    huggingfaceToken: 'secret-placeholder',
+    upstashRedisRestUrl: 'https://region-12345.upstash.io/rest/v1',
+    upstashRedisRestToken: 'private-test-token',
+    rateLimitKeySalt: 's'.repeat(32),
+    nodeEnv: 'production'
+  })
+
+  assert.equal(status.ready, false)
+  assert.equal(status.configured.rateLimit, false)
+  assert.doesNotMatch(JSON.stringify(status), /private-test-token|s{32}/)
+})
