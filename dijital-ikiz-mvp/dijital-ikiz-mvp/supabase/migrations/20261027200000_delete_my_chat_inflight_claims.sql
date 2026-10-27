@@ -206,9 +206,9 @@ GRANT EXECUTE ON FUNCTION public.persist_my_memory_at_generation(
 -- Replace the original three-argument function with a backward-compatible
 -- fourth parameter that defaults to NULL. Older SQL callers can still use
 -- three arguments; the web route supplies the generation it observed.
-DROP FUNCTION public.claim_chat_request_server(uuid, text, uuid);
+DROP FUNCTION IF EXISTS public.claim_chat_request_server(uuid, text, uuid);
 
-CREATE FUNCTION public.claim_chat_request_server(
+CREATE OR REPLACE FUNCTION public.claim_chat_request_server(
   p_user_id uuid,
   p_request_hash text,
   p_owner_token uuid,
