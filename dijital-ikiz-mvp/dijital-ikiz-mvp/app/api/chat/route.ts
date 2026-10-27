@@ -7,7 +7,7 @@ import {
   normalizeProfile,
   profileToSystemPrompt
 } from '@/lib/twin'
-import { qwenChat } from '@/lib/huggingface'
+import { ChatProviderError, qwenChat } from '@/lib/huggingface'
 import { formatMemoryContext, persistMemories, retrieveMemories } from '@/lib/memory'
 import { MAX_CHAT_MESSAGE_LENGTH, sanitizeChatText, validateChatPayload } from '@/lib/chat-validation'
 import { readJsonBodyLimited } from '@/lib/request-body'
@@ -351,9 +351,29 @@ export async function POST(req: Request) {
     })
   } catch (error: unknown) {
     await releaseClaim()
-    console.error('Chat API request failed; diagnostic details omitted.')
+
+    if (error instanceof ChatProviderError) {
+      console.warn('Chat provider request failed.', { code: error.code })
+      return NextResponse.json(
+        { error: error.publicMessage, code: error.code },
+        {
+          status: error.status,
+          headers: {
+            'Cache-Control': 'no-store',
+            ...(error.status === 503 ? { 'Retry-After': '10' } : {})
+          }
+        }
+      )
+    }
+
+    console.error('Chat API request failed.', {
+      category: error instanceof Error ? error.name : 'UnknownError'
+    })
     return NextResponse.json(
-      { error: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' },
+      {
+        error: 'Sohbet isteği şu anda tamamlanamadı. Lütfen tekrar deneyin.',
+        code: 'CHAT_REQUEST_FAILED'
+      },
       {
         status: 500,
         headers: {
