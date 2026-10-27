@@ -95,13 +95,14 @@ Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata ç
 
 ### Üretim sohbet rate-limit yapılandırması
 
-Üretimde sohbet endpoint'i, kullanıcı ve proje genelindeki istek hacmini sınırlamak için Upstash Redis REST kullanır. Bu, model maliyetini azaltan bir korumadır; sağlayıcı harcaması için kesin bir para bütçesi/tavanı değildir. Üretim ortamında aşağıdaki üç değişken zorunludur:
+Üretim sohbeti önce geçerli Upstash Redis REST ayarı varsa onu kullanır; yoksa proje zaten kullandığı Supabase PostgreSQL üzerindeki atomik `consume_chat_rate_limit` RPC'sine düşer. Böylece ayrı bir Redis sağlayıcısını zorunlu kılmadan dağıtık limit uygulanabilir. Her iki backend de aynı UTC zaman pencerelerinde kullanıcı başına 20 istek/dakika, proje genelinde 120 istek/dakika ve 1000 istek/gün sınırlarını uygular. Sayaç tablosu RLS ile korunur; doğrudan erişim yalnızca `service_role` içindir ve RPC yalnızca sunucudan çağrılır.
+
+`RATE_LIMIT_KEY_SALT` her dağıtım ortamında en az 32 karakterlik benzersiz gizli değer olmalıdır; kullanıcı kimlikleri Redis anahtarına veya DB sayacına ham biçimde gönderilmez, HMAC-SHA256 özeti kullanılır. Üretim ortamında rate-limit backend'i, salt veya server key yapılandırması eksik/erişilemezse sohbet API'si modele istek göndermeden `503` döndürür. Upstash seçilirse aşağıdaki iki ek değişken kullanılır:
 
 - `UPSTASH_REDIS_REST_URL`: HTTPS ile başlayan Upstash REST endpoint'i (`*.upstash.io`).
 - `UPSTASH_REDIS_REST_TOKEN`: Upstash panelinden alınan REST token'ı; yalnızca sunucu ortamında tut.
-- `RATE_LIMIT_KEY_SALT`: en az 32 karakterlik özel rastgele gizli değer. Üretmek için yerel terminalde `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"` çalıştır; değeri repoya veya sohbete koyma.
 
-Varsayılan limitler: kullanıcı başına 20 istek/dakika, tüm proje için 120 istek/dakika ve 1000 istek/UTC günü. Bunlar başlangıç mühendislik sınırlarıdır; gerçek kullanıcı hacmi ve Hugging Face fiyat/harcama limitlerine göre izlenip ayarlanmalıdır. Limit servisi üretimde eksik/erişilemezse sohbet API'si ücretli model çağrısı yapmaz ve `503` döndürür. Geliştirme ortamında değişkenler boşken yalnızca yerel testler için süreç içi sayaç kullanılabilir; bu sayaç dağıtık koruma değildir.
+Bu sınırlar başlangıç mühendislik değerleridir, kesin bir parasal harcama tavanı değildir. Geliştirme ortamında tüm dağıtık backend ayarları boşken yalnızca test amacıyla süreç içi sayaç kullanılabilir; bu sayaç dağıtık koruma değildir.
 
 ### Üretim tarayıcı güvenliği
 
