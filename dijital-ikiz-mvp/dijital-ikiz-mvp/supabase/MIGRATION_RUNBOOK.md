@@ -35,6 +35,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 14. 20261023230500_aud_05_validate_embedding_integrity.sql
 15. 20261023231000_aud_06_chat_deduplication_window.sql
 16. 20261025170000_stage6_foreign_key_indexes.sql
+17. 20261027183000_stage6_180_day_retention_cleanup.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
@@ -180,3 +181,12 @@ CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A
 ## AUD-06: completed chat deduplication replay window
 
 `20261023231000_aud_06_chat_deduplication_window.sql` sets the completed-response replay window to 10 seconds. A database trigger applies the TTL atomically when a claim transitions to `completed`, and already-completed rows are shortened based on their original `updated_at`. The five-minute processing lease is deliberately unchanged: identical requests that arrive while inference is active remain `in_progress` and do not start a second model call. The PostgreSQL idempotency integration test asserts the completed cache expiry is positive and no more than 10 seconds.
+
+
+## Stage 6: enforce the 180-day user-content retention window
+
+`20261027183000_stage6_180_day_retention_cleanup.sql` installs `pg_cron`, adds retention indexes, and schedules `public.purge_expired_user_content()` hourly at minute 17 UTC. It removes user messages and memory items older than 180 days, completed/failed chat-idempotency rows past their replay expiry, processing claims whose lease has been expired for over one hour, and rate-limit counters whose window ended more than two days ago.
+
+The cleanup is bounded: each invocation processes at most 20 batches of 1,000 rows per category and uses a transaction-scoped advisory lock to prevent concurrent cleanup runs. `backlog_remaining` reports whether eligible rows remain, so a large backlog is drained by subsequent hourly executions. The function is `SECURITY DEFINER` with a fixed search path; direct execution is revoked from `PUBLIC`, `anon`, and `authenticated`, and granted to `service_role`. Cron runs as the scheduling database owner.
+
+The retention rule is based on record creation time for messages and memories, not last-read time. It does not delete accounts, current twin profiles, experiment definitions, or evaluation metadata. Before applying to a populated database, inspect eligible row counts and ensure the retention policy has been disclosed to users. Verify the `cron.job` entry exists and invoke the function once; the function returns only counts and a backlog flag, never user content.
