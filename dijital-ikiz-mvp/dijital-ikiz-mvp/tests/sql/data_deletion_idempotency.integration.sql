@@ -56,6 +56,28 @@ BEGIN
 END
 $delete_inflight$;
 
+-- A delayed memory embedding must not create a memory after deletion.
+DO $stale_memory_write$
+DECLARE
+  rejected boolean := false;
+  probe_embedding extensions.vector(384) :=
+    ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384);
+BEGIN
+  BEGIN
+    PERFORM public.persist_my_memory_at_generation(
+      0, 'preference', 'Kullanıcı tercihi: geç kalan bellek', 0.5,
+      probe_embedding, NULL
+    );
+  EXCEPTION WHEN SQLSTATE 'P0409' THEN
+    rejected := true;
+  END;
+
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'a delayed memory upsert with the pre-deletion generation was accepted';
+  END IF;
+END
+$stale_memory_write$;
+
 RESET ROLE;
 SET LOCAL ROLE service_role;
 
@@ -155,4 +177,43 @@ BEGIN
 END
 $stale_worker_rejected$;
 
+-- A new post-deletion chat generation may persist memory for its own fresh message.
+DO $seed_post_delete_source$
+DECLARE
+  source_id uuid;
+BEGIN
+  INSERT INTO public.messages (user_id, role, variant, content)
+  VALUES (
+    '11111111-1111-4111-8111-111111111111',
+    'user', 'baseline', 'fresh post-deletion message'
+  )
+  RETURNING id INTO source_id;
+
+  PERFORM set_config('app.audit_post_delete_source_id', source_id::text, true);
+END
+$seed_post_delete_source$;
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+
+DO $current_generation_memory_write$
+DECLARE
+  source_id uuid := current_setting('app.audit_post_delete_source_id')::uuid;
+  probe_embedding extensions.vector(384) :=
+    ('[' || array_to_string((ARRAY[1::real] || array_fill(0::real, ARRAY[383])), ',') || ']')::extensions.vector(384);
+BEGIN
+  PERFORM public.persist_my_memory_at_generation(
+    1, 'preference', 'Kullanıcı tercihi: yeni nesil bellek', 0.5,
+    probe_embedding, source_id
+  );
+
+  IF (SELECT count(*) FROM public.memory_items
+      WHERE user_id = '11111111-1111-4111-8111-111111111111'
+        AND content = 'Kullanıcı tercihi: yeni nesil bellek') <> 1 THEN
+    RAISE EXCEPTION 'current-generation memory write did not persist exactly once';
+  END IF;
+END
+$current_generation_memory_write$;
+
+RESET ROLE;
 ROLLBACK;
