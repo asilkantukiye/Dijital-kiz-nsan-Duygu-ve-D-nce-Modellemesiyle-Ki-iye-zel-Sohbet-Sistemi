@@ -12,8 +12,15 @@ CREATE TABLE IF NOT EXISTS public.chat_user_data_generations (
 
 ALTER TABLE public.chat_user_data_generations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.chat_user_data_generations FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.chat_user_data_generations TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.chat_user_data_generations TO service_role;
 GRANT USAGE ON SCHEMA public TO service_role;
+
+DROP POLICY IF EXISTS "users read own chat data generation" ON public.chat_user_data_generations;
+CREATE POLICY "users read own chat data generation"
+  ON public.chat_user_data_generations
+  FOR SELECT TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
 
 ALTER TABLE public.chat_request_deduplication
   ADD COLUMN IF NOT EXISTS generation integer NOT NULL DEFAULT 0
@@ -56,6 +63,100 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_chat_data_generation_server(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_chat_data_generation_server(uuid) TO service_role;
+
+-- Memory writes happen after the model response is committed and therefore need
+-- the same generation lock. This invoker RPC makes a normal preference upsert
+-- atomic with respect to deletion, while RLS keeps its SELECT to the caller's row.
+CREATE OR REPLACE FUNCTION public.persist_my_memory_at_generation(
+  p_generation integer,
+  p_memory_type text,
+  p_content text,
+  p_importance real,
+  p_embedding extensions.vector(384),
+  p_source_message_id uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public, extensions
+AS $
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_generation integer;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF p_generation IS NULL OR p_generation < 0 THEN
+    RAISE EXCEPTION 'Invalid chat data generation';
+  END IF;
+
+  IF p_memory_type IS NULL OR p_memory_type NOT IN ('preference', 'communication') THEN
+    RAISE EXCEPTION 'Invalid memory type';
+  END IF;
+
+  IF p_content IS NULL OR char_length(btrim(p_content)) NOT BETWEEN 2 AND 240 THEN
+    RAISE EXCEPTION 'Invalid memory content';
+  END IF;
+
+  IF p_importance IS NULL OR p_importance NOT BETWEEN 0 AND 1 THEN
+    RAISE EXCEPTION 'Invalid memory importance';
+  END IF;
+
+  IF p_embedding IS NULL
+     OR extensions.vector_dims(p_embedding) <> 384
+     OR extensions.vector_norm(p_embedding) <= 0
+     OR extensions.vector_norm(p_embedding) >= 'Infinity'::real THEN
+    RAISE EXCEPTION 'Invalid memory embedding';
+  END IF;
+
+  SELECT generation
+  INTO v_generation
+  FROM public.chat_user_data_generations
+  WHERE user_id = v_user_id
+  FOR SHARE;
+
+  IF v_generation IS NULL OR v_generation <> p_generation THEN
+    RAISE EXCEPTION 'Memory write invalidated by data deletion'
+      USING ERRCODE = 'P0409';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.messages
+    WHERE id = p_source_message_id
+      AND user_id = v_user_id
+      AND role = 'user'
+  ) THEN
+    RAISE EXCEPTION 'Memory source message is not owned by the caller';
+  END IF;
+
+  INSERT INTO public.memory_items (
+    user_id, memory_type, content, importance, embedding,
+    source_message_id, updated_at
+  )
+  VALUES (
+    v_user_id, p_memory_type, btrim(p_content), p_importance, p_embedding,
+    p_source_message_id, clock_timestamp()
+  )
+  ON CONFLICT (user_id, content) DO UPDATE
+    SET memory_type = EXCLUDED.memory_type,
+        importance = EXCLUDED.importance,
+        embedding = EXCLUDED.embedding,
+        source_message_id = EXCLUDED.source_message_id,
+        updated_at = EXCLUDED.updated_at;
+
+  RETURN true;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.persist_my_memory_at_generation(
+  integer, text, text, real, extensions.vector, uuid
+) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.persist_my_memory_at_generation(
+  integer, text, text, real, extensions.vector, uuid
+) TO authenticated;
 
 -- Replace the original three-argument function with a backward-compatible
 -- fourth parameter that defaults to NULL. Older SQL callers can still use
