@@ -15,6 +15,57 @@ REVOKE ALL ON TABLE public.chat_user_data_generations FROM PUBLIC, anon, authent
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.chat_user_data_generations TO service_role;
 GRANT USAGE ON SCHEMA public TO service_role;
 
+-- A DB-side RLS guard also protects writes from an older Vercel instance during
+-- deployment. The generation function locks the same row used by the delete RPC.
+ALTER TABLE public.memory_items
+  ADD COLUMN IF NOT EXISTS data_generation integer NOT NULL DEFAULT 0
+  CHECK (data_generation >= 0);
+
+CREATE OR REPLACE FUNCTION public.current_my_chat_data_generation()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_generation integer;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+
+  INSERT INTO public.chat_user_data_generations (user_id, generation)
+  VALUES (v_user_id, 0)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT generation
+  INTO v_generation
+  FROM public.chat_user_data_generations
+  WHERE user_id = v_user_id
+  FOR SHARE;
+
+  IF v_generation IS NULL THEN
+    RAISE EXCEPTION 'Chat generation record is unavailable';
+  END IF;
+
+  RETURN v_generation;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.current_my_chat_data_generation() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.current_my_chat_data_generation() TO authenticated;
+
+DROP POLICY IF EXISTS "users own memory items" ON public.memory_items;
+CREATE POLICY "users own memory items"
+  ON public.memory_items
+  FOR ALL TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK (
+    (SELECT auth.uid()) = user_id
+    AND data_generation = public.current_my_chat_data_generation()
+  );
+
 ALTER TABLE public.chat_request_deduplication
   ADD COLUMN IF NOT EXISTS generation integer NOT NULL DEFAULT 0
   CHECK (generation >= 0);
@@ -127,18 +178,19 @@ BEGIN
 
   INSERT INTO public.memory_items (
     user_id, memory_type, content, importance, embedding,
-    source_message_id, updated_at
+    source_message_id, updated_at, data_generation
   )
   VALUES (
     v_user_id, p_memory_type, btrim(p_content), p_importance, p_embedding,
-    p_source_message_id, clock_timestamp()
+    p_source_message_id, clock_timestamp(), p_generation
   )
   ON CONFLICT (user_id, content) DO UPDATE
     SET memory_type = EXCLUDED.memory_type,
         importance = EXCLUDED.importance,
         embedding = EXCLUDED.embedding,
         source_message_id = EXCLUDED.source_message_id,
-        updated_at = EXCLUDED.updated_at;
+        updated_at = EXCLUDED.updated_at,
+        data_generation = EXCLUDED.data_generation;
 
   RETURN true;
 END;
