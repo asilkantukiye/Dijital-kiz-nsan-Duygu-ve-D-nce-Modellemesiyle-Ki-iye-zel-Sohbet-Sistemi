@@ -20,7 +20,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 
 - Giriş ekranı kaldırılır; istemci anonim Supabase oturumu oluşturur. API kullanıcı kimliğini sunucu tarafından doğrulamaya devam eder ve RLS koruması korunur.
 - Tek Kaggle notebook'u kullanılır: Türkçe polarite + Qwen3-4B QLoRA talimat ince ayarı; VAD ve Big Five ayrı hedefler olarak yalnızca uygun etiketli CSV sağlanırsa çalışır.
-- Train/validation/test ayrımı katılımcı ve normalize edilmiş metin sızıntısını engeller.
+- Polarite pilotunda normalize edilmiş birebir metin çakışmaları eğitim bölümünden çıkarılır ve sabit tohumlu train/validation/test alt örnekleri kullanılır. Bu birleşik duygu veri kümesinde participant_id bulunmadığından katılımcı bazlı sızıntı denetlenemez; aynı kaynak veya benzer metin türünden örnekler farklı split'lerde bulunabilir. VAD/Big Five CSV'lerinde participant_id varsa tüm katılımcı kayıtları tek split'te tutulmalıdır.
 - Her görev kendi metriklerini, veri sürümünü/hash'ini, ortam bilgilerini ve bilimsel sınırlılıklarını ayrı `metrics.json` ile raporlar.
 - `.github/workflows/kaggle-end-to-end-training.yml` manuel olarak başlatıldığında GitHub Actions Kaggle notebook'unu GPU ve Internet açık şekilde gönderip çalıştırır, sonucu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını kontrol eder. Önceki manuel **Prepare Kaggle Model Training** + Kaggle **Run All** yolu yedek olarak kalır.
 - İsteğe bağlı Hugging Face yayımlama adımı, ölçüm dosyaları olan Qwen3-4B LoRA adaptörünü özel bir Hub deposuna yükler. Bu işlem tam birleştirilmiş model veya çalışan inference endpoint'i oluşturmaz; Vercel uygulamasının mevcut `HF_MODEL` ayarını otomatik değiştirmez. Gerçek metrik oluşmadan model yayımlama adımı çalışmaz.
@@ -29,13 +29,15 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 
 ## Aşama 2 — gerçek bilimsel veri ve model doğrulama
 
-1. **Polarite pilotu çalıştırıldı.** Sabitlenmiş `winvoker/turkish-sentiment-analysis-dataset` revizyonundaki gerçek test ölçümü accuracy 0,9407, macro-F1 0,9407, weighted-F1 0,9407; çoğunluk sınıfı baseline accuracy 0,3333 ve macro-F1 0,1667. Kaynak sayfasındaki CC BY-SA 4.0 beyanı ve birleşik veri alt kaynaklarının şartları dağıtım öncesi ayrıca denetlenmeli.
+1. **Polarite pilotu çalıştırıldı, ancak sonuç ön pilot olarak ele alınmalı.** Sabitlenmiş `winvoker/turkish-sentiment-analysis-dataset` revizyonundaki test ölçümü accuracy 0,9407, macro-F1 0,9407, weighted-F1 0,9407; çoğunluk sınıfı baseline accuracy 0,3333 ve macro-F1 0,1667. Dataset README'si nötr sınıfta Wikipedia ve rastgele metin örnekleri olduğunu belirtiyor; bu kaynak/tür ipuçları skoru yükseltebilir. Kaynak-tutulan veya bağımsız doğal sohbet test kümesi ve TF-IDF + LogisticRegression karşılaştırması olmadan bu sonucu genelleştirilmiş duygu doğruluğu olarak sunma. CC BY-SA 4.0 beyanı ve alt kaynak şartları ayrıca denetlenmeli.
 2. **Qwen3-4B QLoRA pilotu çalıştırıldı.** `TFLai/Turkish-Alpaca` revizyonu `90f9589` için temel model test loss 2,3596, ince ayarlı model test loss 1,4867 oldu. Test kaybı iyileşmesi sohbet kalitesi veya kişilik/duygu başarısı kanıtı değildir; veri alt kaynakları ve lisans şartları ayrıca incelenmeli.
 3. VAD için her örneği açık yönergeyle puanlayan yeterli ve izinli Türkçe veri oluşturulur; mümkünse iki bağımsız değerlendirici ve uyum analizi eklenir.
 4. Big Five için metinden kişilik etiketi tahmin edilmez; gerekli katılımcı onamı ve Türkçe geçerliği/kullanım şartı doğrulanmış ölçek skorları kullanılır.
 5. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
 
 **Durdurma kuralı:** Doğrulanmış uygun veri yoksa o görev eğitilmiş gibi gösterilmez; etiketi uydurulmuş ya da lisans durumu belirsiz veri eklenmez.
+
+**Kaynak geçerliliği kapısı:** Veri kümesinin açıklaması sınıflar arasında farklı kaynak/genre dağılımı olabileceğini veya nötr sınıfın Wikipedia/rastgele metin içerdiğini söylüyorsa, aynı kaynaktan alınan rastgele test split'i tek başına yeterli değildir. En az bir source-heldout veya bağımsız gerçek sohbet değerlendirmesi gereklidir; bu tamamlanana kadar skorlar yalnızca bu pilot korpus için raporlanır.
 
 ### Mevcut ölçüm ve kalan kanıtlar
 
