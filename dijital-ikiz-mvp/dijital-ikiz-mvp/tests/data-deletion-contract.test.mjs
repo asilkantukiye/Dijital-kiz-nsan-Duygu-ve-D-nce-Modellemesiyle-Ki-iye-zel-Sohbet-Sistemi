@@ -60,7 +60,10 @@ test('data deletion invalidates in-flight chat claims and rejects stale generati
     path.join(projectDirectory, 'tests', 'sql', 'data_deletion_idempotency.integration.sql'),
     'utf8'
   )
-  const chatRoute = await readFile(routePath, 'utf8')
+  const chatRoute = await readFile(
+    path.join(projectDirectory, 'app', 'api', 'chat', 'route.ts'),
+    'utf8'
+  )
   const memoryService = await readFile(path.join(projectDirectory, 'lib', 'memory.ts'), 'utf8')
 
   assert.match(raceMigration, /create table if not exists public\.chat_user_data_generations/i)
