@@ -1,0 +1,32 @@
+name: Temporary runtime prerequisite check
+
+on:
+  push:
+    branches: ["ops/runtime-prereq-check-20261027"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report presence only (never print secret values)
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_INFERENCE_TOKEN: ${{ secrets.HF_INFERENCE_TOKEN }}
+          SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
+        run: |
+          set -euo pipefail
+          for key in VERCEL_TOKEN HEALTHCHECK_TOKEN HF_WRITE_TOKEN HF_TOKEN HF_INFERENCE_TOKEN SCHEMA_VERIFIED; do
+            value="${!key:-}"
+            if [[ -n "$value" ]]; then
+              printf '%s=present\n' "$key"
+            else
+              printf '%s=missing\n' "$key"
+            fi
+          done
