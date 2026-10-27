@@ -27,7 +27,7 @@ test('the guarded run publishes only validated Qwen LoRA artifacts to a private 
   assert.match(workflow, /inputs\.hf_model_repo \|\| vars\.HF_MODEL_REPO \|\| 'hasankb00\/dijital-ikiz-qwen3-4b-lora'/)
   assert.match(workflow, /repo_info\.private/)
   assert.match(workflow, /api\.upload_folder\(/)
-  assert.match(workflow, /github\.event_name == 'push'.*\[run-kaggle-training\]/)
+  assert.match(workflow, /github\.event_name == 'push'.*\[publish-model\]/)
 })
 
 test('manual training remains available without placing credentials in source', async () => {
