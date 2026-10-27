@@ -1,0 +1,86 @@
+{
+  "workflow_run_id": 40562948791,
+  "workflow_run_url": "https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40562948791",
+  "commit": "2f89c59ce98aedac736b4e17d514a563ce8448b1",
+  "training_conclusion": "success",
+  "artifact_validation": "passed",
+  "hugging_face_publication": "blocked_missing_HF_WRITE_TOKEN",
+  "model_repository": "hasankb00/dijital-ikiz-qwen3-4b-lora",
+  "metrics": {
+    "sentiment": {
+      "train_rows": 15000,
+      "validation_rows": 3000,
+      "test_rows": 3000,
+      "test_metrics": {
+        "accuracy": 0.9406666666666667,
+        "f1_macro": 0.9407044475434101,
+        "f1_weighted": 0.9407044475434101,
+        "majority_class_baseline": {
+          "majority_class": "positive",
+          "accuracy": 0.3333333333333333,
+          "f1_macro": 0.16666666666666666
+        },
+        "per_class": {
+          "negative": {
+            "precision": 0.9302809573361083,
+            "recall": 0.894,
+            "f1-score": 0.9117797042325344,
+            "support": 1000.0
+          },
+          "neutral": {
+            "precision": 0.9979919678714859,
+            "recall": 0.994,
+            "f1-score": 0.9959919839679359,
+            "support": 1000.0
+          },
+          "positive": {
+            "precision": 0.8954937679769894,
+            "recall": 0.934,
+            "f1-score": 0.9143416544297601,
+            "support": 1000.0
+          },
+          "accuracy": 0.9406666666666667,
+          "macro avg": {
+            "precision": 0.9412555643948611,
+            "recall": 0.9406666666666667,
+            "f1-score": 0.9407044475434101,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9412555643948611,
+            "recall": 0.9406666666666667,
+            "f1-score": 0.9407044475434101,
+            "support": 3000.0
+          }
+        },
+        "confusion_matrix_negative_neutral_positive": [
+          [
+            894,
+            1,
+            105
+          ],
+          [
+            2,
+            994,
+            4
+          ],
+          [
+            65,
+            1,
+            934
+          ]
+        ]
+      },
+      "baseline": null
+    },
+    "qwen": {
+      "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+      "train_rows_encoded": 1498,
+      "validation_rows_encoded": 150,
+      "test_rows_encoded": 250,
+      "base_model_test_loss": 2.3596193673782504,
+      "finetuned_model_test_loss": 1.4867305695467503,
+      "test_loss_improvement": 0.8728887978315001
+    }
+  }
+}
