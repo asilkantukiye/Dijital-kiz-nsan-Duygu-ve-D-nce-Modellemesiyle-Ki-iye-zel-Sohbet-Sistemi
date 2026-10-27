@@ -1,95 +1,185 @@
-name: Temporary Kaggle status check
+name: Kaggle Training Evidence Check
 
 on:
   push:
     branches: ["ops/kaggle-status-check-20261027"]
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: kaggle-training-evidence-check
+  cancel-in-progress: false
 
 jobs:
   status:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v7
         with:
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
-      - name: Query Kaggle kernel status without printing credentials
+          ref: ops/kaggle-status-check-20261027
+
+      - name: Check Kaggle status and actual model outputs
+        id: diagnose
         env:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_KULLANABILEGIN_TOKEN || secrets.KAGGLE_KULLANABILECEGIN_TOKEN || secrets.KAGGLE_API_TOKEN }}
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KERNEL_ID: asilkantkiye/dijital-ikiz-training
+        shell: bash
+        run: |
+          set -uo pipefail
+          python -m pip install --quiet "kaggle>=2.2.4,<3" || true
+          mkdir -p .github/status "$RUNNER_TEMP/kaggle-evidence"
+          export EVIDENCE_DIR="$RUNNER_TEMP/kaggle-evidence"
+          export REPORT_PATH="$GITHUB_WORKSPACE/.github/status/kaggle-kernel-status.json"
+
+          if [[ -z "${KAGGLE_API_TOKEN:-}" ]] && { [[ -z "${KAGGLE_USERNAME:-}" ]] || [[ -z "${KAGGLE_KEY:-}" ]]; }; then
+            export DIAGNOSTIC_STATUS="blocked_missing_kaggle_credentials"
+            export STATUS_OUTPUT="Kaggle API token or Kaggle username/key secrets are missing."
+            export STATUS_CODE="1"
+          else
+            status_code=0
+            status_output="$(kaggle kernels status "$KERNEL_ID" 2>&1)" || status_code=$?
+            normalized="$(printf '%s' "$status_output" | tr '[:upper:]' '[:lower:]')"
+            export STATUS_CODE="$status_code"
+            export STATUS_OUTPUT="$status_output"
+            if [[ "$status_code" -ne 0 ]]; then
+              export DIAGNOSTIC_STATUS="kaggle_status_query_failed"
+            elif [[ "$normalized" == *"kernelworkerstatus.complete"* ]] || [[ "$normalized" =~ (^|[^a-z])complete([^a-z]|$) ]]; then
+              export DIAGNOSTIC_STATUS="kaggle_complete_checking_artifacts"
+              output_code=0
+              kaggle kernels output "$KERNEL_ID" --path "$EVIDENCE_DIR" --force >"$RUNNER_TEMP/kaggle-output.log" 2>&1 || output_code=$?
+              export OUTPUT_CODE="$output_code"
+            elif [[ "$normalized" == *"kernelworkerstatus.error"* || "$normalized" == *"failed"* || "$normalized" == *"cancelled"* || "$normalized" == *"canceled"* || "$normalized" == *"aborted"* ]]; then
+              export DIAGNOSTIC_STATUS="kaggle_training_failed"
+            else
+              export DIAGNOSTIC_STATUS="kaggle_pending_or_running"
+            fi
+          fi
+
+          if [[ -z "${OUTPUT_CODE:-}" ]]; then export OUTPUT_CODE="-1"; fi
+          python - <<'PY'
+          import json, math, os, pathlib, zipfile
+          root = pathlib.Path(os.environ["EVIDENCE_DIR"])
+          report_path = pathlib.Path(os.environ["REPORT_PATH"])
+          status_text = os.environ.get("STATUS_OUTPUT", "")
+          for marker in ("KAGGLE_API_TOKEN", "KAGGLE_KEY", "HF_WRITE_TOKEN", "hf_"):
+              if marker and marker in status_text:
+                  status_text = "[diagnostic output redacted]"
+                  break
+          report = {
+              "kernel_id": os.environ["KERNEL_ID"],
+              "status": os.environ["DIAGNOSTIC_STATUS"],
+              "status_exit_code": int(os.environ.get("STATUS_CODE", "1")),
+              "status_message": status_text[:1000],
+              "output_download_exit_code": int(os.environ.get("OUTPUT_CODE", "-1")),
+              "artifacts": {"archive_found": False, "zip_integrity": False, "metrics_validated": False},
+              "metrics": {},
+          }
+          archives = sorted(root.rglob("dijital-ikiz-model-artifacts.zip"))
+          if archives:
+              archive = archives[0]
+              report["artifacts"]["archive_found"] = archive.stat().st_size > 0
+              try:
+                  with zipfile.ZipFile(archive) as z:
+                      bad = z.testzip()
+                      names = set(z.namelist())
+                      report["artifacts"]["zip_integrity"] = bad is None
+                      def pick(*ends):
+                          for name in names:
+                              if any(name == e or name.endswith("/" + e) for e in ends):
+                                  return name
+                          return None
+                      sentiment_metrics_path = pick("sentiment/metrics.json")
+                      sentiment_config_path = pick("sentiment/model/config.json")
+                      sentiment_weight = pick("sentiment/model/model.safetensors", "sentiment/model/pytorch_model.bin")
+                      qwen_metrics_path = pick("qwen-lora/metrics.json")
+                      qwen_config_path = pick("qwen-lora/adapter/adapter_config.json")
+                      qwen_weight = pick("qwen-lora/adapter/adapter_model.safetensors", "qwen-lora/adapter/adapter_model.bin")
+                      report["artifacts"].update({
+                          "sentiment_metrics": bool(sentiment_metrics_path),
+                          "sentiment_model_config": bool(sentiment_config_path),
+                          "sentiment_model_weights": bool(sentiment_weight),
+                          "qwen_metrics": bool(qwen_metrics_path),
+                          "qwen_adapter_config": bool(qwen_config_path),
+                          "qwen_adapter_weights": bool(qwen_weight),
+                      })
+                      if sentiment_metrics_path and qwen_metrics_path:
+                          sentiment = json.loads(z.read(sentiment_metrics_path))
+                          qwen = json.loads(z.read(qwen_metrics_path))
+                          metrics = sentiment.get("test_metrics")
+                          if not isinstance(metrics, dict):
+                              raise ValueError("sentiment test_metrics missing")
+                          for key in ("accuracy", "f1_macro", "f1_weighted"):
+                              val = metrics.get(key)
+                              if not isinstance(val, (int, float)) or not math.isfinite(val) or not 0 <= val <= 1:
+                                  raise ValueError("invalid sentiment metric " + key)
+                          for key in ("base_model_test_loss", "finetuned_model_test_loss", "validation_loss"):
+                              val = qwen.get(key)
+                              if not isinstance(val, (int, float)) or not math.isfinite(val) or val < 0:
+                                  raise ValueError("invalid Qwen metric " + key)
+                          for key in ("train_rows_encoded", "validation_rows_encoded", "test_rows_encoded"):
+                              val = qwen.get(key)
+                              if not isinstance(val, int) or val < 1:
+                                  raise ValueError("invalid Qwen row count " + key)
+                          if qwen.get("base_model") != "Qwen/Qwen3-4B-Instruct-2507":
+                              raise ValueError("unexpected Qwen base model")
+                          if not all(report["artifacts"][k] for k in (
+                              "sentiment_model_config", "sentiment_model_weights",
+                              "qwen_adapter_config", "qwen_adapter_weights"
+                          )):
+                              raise ValueError("required model weights/configs missing")
+                          report["metrics"] = {
+                              "sentiment": {
+                                  "train_rows": sentiment.get("train_rows"),
+                                  "validation_rows": sentiment.get("validation_rows"),
+                                  "test_rows": sentiment.get("test_rows"),
+                                  "test_metrics": metrics,
+                                  "baseline": sentiment.get("baseline", {}).get("test_metrics"),
+                              },
+                              "qwen": {
+                                  "base_model": qwen.get("base_model"),
+                                  "train_rows_encoded": qwen["train_rows_encoded"],
+                                  "validation_rows_encoded": qwen["validation_rows_encoded"],
+                                  "test_rows_encoded": qwen["test_rows_encoded"],
+                                  "base_model_test_loss": qwen["base_model_test_loss"],
+                                  "finetuned_model_test_loss": qwen["finetuned_model_test_loss"],
+                                  "validation_loss": qwen["validation_loss"],
+                                  "test_loss_improvement": qwen.get("test_loss_improvement"),
+                              },
+                          }
+                          report["artifacts"]["metrics_validated"] = True
+                          report["status"] = "kaggle_complete_metrics_and_weights_validated"
+                      else:
+                          report["status"] = "kaggle_complete_but_required_metrics_missing"
+              except Exception as exc:
+                  report["status"] = "artifact_validation_failed"
+                  report["artifact_validation_error"] = type(exc).__name__ + ": " + str(exc)[:500]
+          report_path.parent.mkdir(parents=True, exist_ok=True)
+          report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit sanitized diagnostic report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "${KAGGLE_API_TOKEN:-}" ]] && { [[ -z "${KAGGLE_USERNAME:-}" ]] || [[ -z "${KAGGLE_KEY:-}" ]]; }; then
-            echo "::error::No Kaggle credential available"
-            exit 1
+          mkdir -p .github/status
+          if [[ ! -s .github/status/kaggle-kernel-status.json ]]; then
+            printf '{"status":"diagnostic_workflow_failed_before_report","workflow_run":"%s"}\n' "$GITHUB_RUN_ID" > .github/status/kaggle-kernel-status.json
           fi
-          python -m pip install --quiet "kaggle>=2.2.4,<3"
-          KERNEL_ID=asilkantkiye/dijital-ikiz-training
-          status_code=0
-          status_output="$(kaggle kernels status "$KERNEL_ID" 2>&1)" || status_code=$?
-          printf 'Kaggle kernel status: %s\n' "$status_output"
-
-          output_dir="$RUNNER_TEMP/kaggle-diagnostic-output"
-          mkdir -p "$output_dir"
-          output_code=0
-          kaggle kernels output "$KERNEL_ID" --path "$output_dir" --force >"$RUNNER_TEMP/kaggle-output-command.log" 2>&1 || output_code=$?
-          if [[ "$output_code" -ne 0 ]]; then
-            echo "Kaggle output download returned non-zero; printing sanitized error details:"
-            sed -E 's/(token|key|password)[^[:space:]]*/[redacted]/Ig' "$RUNNER_TEMP/kaggle-output-command.log" | tail -n 30
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/status/kaggle-kernel-status.json
+          if git diff --cached --quiet; then
+            echo "No diagnostic report changes to commit."
+            exit 0
           fi
-          echo "Output file listing:"
-          find "$output_dir" -maxdepth 4 -type f -printf '%P (%s bytes)\n' | head -n 100
-
-          python - "$output_dir" <<'PY'
-          import json, pathlib, sys
-          root = pathlib.Path(sys.argv[1])
-          metrics = sorted(root.rglob("metrics.json"))
-          print(f"metrics_files={len(metrics)}")
-          for path in metrics:
-              try:
-                  value = json.loads(path.read_text(encoding="utf-8"))
-              except Exception as exc:
-                  print(f"{path.name}: invalid JSON ({type(exc).__name__})")
-                  continue
-              print(json.dumps({
-                  "file": str(path.relative_to(root)),
-                  "task": value.get("task"),
-                  "model": value.get("model") or value.get("base_model"),
-                  "train_rows": value.get("train_rows") or value.get("train_rows_encoded"),
-                  "validation_rows": value.get("validation_rows") or value.get("validation_rows_encoded"),
-                  "test_rows": value.get("test_rows") or value.get("test_rows_encoded"),
-                  "test_metrics": value.get("test_metrics"),
-                  "base_model_test_loss": value.get("base_model_test_loss"),
-                  "finetuned_model_test_loss": value.get("finetuned_model_test_loss"),
-                  "test_loss_improvement": value.get("test_loss_improvement")
-              }, ensure_ascii=False))
-          PY
-
-          for log_file in "$output_dir"/*.log; do
-            [[ -f "$log_file" ]] || continue
-            echo "Sanitized training log excerpts from $(basename "$log_file"):"
-            grep -Eai 'Traceback|Exception|Error:|ERROR|OutOfMemory|CUDA|RuntimeError|ValueError|TypeError|metrics_path|test_metrics|base_model_test_loss|finetuned_model_test_loss|test_loss_improvement|Qwen LoRA step=|Epoch [0-9]|train_loss|eval_loss|accuracy|f1_macro|KernelWorkerStatus' "$log_file" | tail -n 220 | sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,})/[redacted-credential]/g' || true
-          done
-
-          logs_code=0
-          kaggle kernels logs "$KERNEL_ID" >"$RUNNER_TEMP/kaggle-kernel-logs.txt" 2>&1 || logs_code=$?
-          echo "Sanitized training diagnostics (if Kaggle has published logs):"
-          if [[ -s "$RUNNER_TEMP/kaggle-kernel-logs.txt" ]]; then
-            grep -Eai 'Traceback|Exception|Error:|ERROR|OutOfMemory|CUDA|RuntimeError|ValueError|TypeError|metrics_path|test_metrics|base_model_test_loss|finetuned_model_test_loss|test_loss_improvement|Qwen LoRA step=|Epoch [0-9]|train_loss|eval_loss|accuracy|f1_macro' "$RUNNER_TEMP/kaggle-kernel-logs.txt" | tail -n 180 | sed -E 's/(hf_[A-Za-z0-9]{25,}|kaggle_[A-Za-z0-9]{25,})/[redacted-credential]/g' || true
-          else
-            echo "No log content returned yet."
-          fi
-          if [[ "$logs_code" -ne 0 ]]; then
-            echo "Kaggle logs endpoint returned non-zero; status/output checks above remain authoritative."
-          fi
-
-          if [[ "$status_code" -ne 0 ]]; then
-            exit "$status_code"
-          fi
+          git commit -m "chore(ml): record current Kaggle training evidence"
+          git push origin HEAD:ops/kaggle-status-check-20261027
