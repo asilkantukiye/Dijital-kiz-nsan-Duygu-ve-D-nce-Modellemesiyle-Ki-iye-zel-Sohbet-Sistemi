@@ -38,6 +38,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 17. 20261027171525_supabase_backed_chat_rate_limit.sql
 18. 20261027181135_stage6_180_day_retention_cleanup.sql
 19. 20261027181851_stage6_retention_inactivity_semantics.sql
+20. 20261027182100_stage6_retention_index_cleanup.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
