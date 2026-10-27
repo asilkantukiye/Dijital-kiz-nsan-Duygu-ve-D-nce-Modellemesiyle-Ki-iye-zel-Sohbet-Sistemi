@@ -2,6 +2,7 @@
 -- expire memory only after 180 days of inactivity; preserve chat history until user deletion.
 
 DROP INDEX IF EXISTS public.messages_retention_created_at_idx;
+DROP INDEX IF EXISTS public.memory_items_retention_created_at_idx;
 
 CREATE INDEX IF NOT EXISTS memory_items_retention_updated_at_idx
   ON public.memory_items (updated_at);
