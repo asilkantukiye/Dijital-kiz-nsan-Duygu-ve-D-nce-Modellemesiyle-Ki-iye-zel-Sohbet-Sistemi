@@ -24,7 +24,7 @@ test('the guarded run publishes only validated Qwen LoRA artifacts to a private 
   assert.match(workflow, /kaggle kernels push --path ml\/kaggle --accelerator NvidiaTeslaT4/)
   assert.match(workflow, /kaggle kernels status "\$KERNEL_ID"/)
   assert.match(workflow, /No metrics\.json files found; refusing to publish unvalidated artifacts/)
-  assert.match(workflow, /inputs\.hf_model_repo \|\| vars\.HF_MODEL_REPO \|\| 'hasankb00\/dijital-ikiz-qwen3-4b-lora-pilot'/)
+  assert.match(workflow, /inputs\.hf_model_repo \|\| vars\.HF_MODEL_REPO \|\| 'hasankb00\/dijital-ikiz-qwen3-4b-lora'/)
   assert.match(workflow, /repo_info\.private/)
   assert.match(workflow, /api\.upload_folder\(/)
   assert.match(workflow, /github\.event_name == 'push'.*\[run-kaggle-training\]/)
