@@ -160,9 +160,10 @@ jobs:
           unzip -q "$archive" -d "$GITHUB_WORKSPACE/kaggle-output/unpacked"
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
-          root = Path("..") / ".." / ".." / "kaggle-output" / "unpacked"
+          root = Path(os.environ["GITHUB_WORKSPACE"]) / "kaggle-output" / "unpacked"
           reports = sorted(root.rglob("metrics.json"))
           if not reports:
               raise SystemExit("No metrics.json files found; refusing to publish unvalidated artifacts.")
