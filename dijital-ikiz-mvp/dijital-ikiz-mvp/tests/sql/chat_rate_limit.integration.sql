@@ -104,7 +104,7 @@ DECLARE
   decision record;
 BEGIN
   SELECT * INTO decision
-  FROM public.consume_chat_rate_limit(repeat('c', 64), '2026-10-27T18:00:00Z'::timestamptz);
+  FROM public.consume_chat_rate_limit(repeat('c', 64), '2026-10-27T18:01:00Z'::timestamptz);
   IF decision.allowed IS DISTINCT FROM false OR decision.reason IS DISTINCT FROM 'global-day' THEN
     RAISE EXCEPTION 'global-day limit did not block request 1001';
   END IF;
