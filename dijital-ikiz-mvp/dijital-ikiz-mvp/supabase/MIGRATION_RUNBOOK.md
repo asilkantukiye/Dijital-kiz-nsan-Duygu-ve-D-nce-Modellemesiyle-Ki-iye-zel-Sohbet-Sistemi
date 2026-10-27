@@ -39,6 +39,7 @@ Aşağıdaki sıralama dosya adlarına göredir. Gerçek projede her birinin uyg
 18. 20261027181135_stage6_180_day_retention_cleanup.sql
 19. 20261027181851_stage6_retention_inactivity_semantics.sql
 20. 20261027182055_stage6_retention_index_cleanup.sql
+21. 20261027200000_delete_my_chat_inflight_claims.sql
 
 Migration'lar bu sırayla eksik olanlardan başlayarak uygulanmalıdır. Mevcut proje geçmişindeki applied/pending durumuna göre karar ver; her dosyayı sırf listede olduğu için yeniden uygulamak zorunlu değildir. Canlı migration geçmişi dosya önekleriyle farklı sürüm numaraları gösteriyorsa önce kayıtları dosya adları ve şema etkileriyle eşleştir; geçmişi körlemesine repair etme.
 
@@ -193,3 +194,19 @@ CI içindeki `tests/sql/memory_source_ownership.integration.sql`, geçerli A→A
 The cleanup runs hourly at minute 17 UTC. Each invocation processes at most 20 batches of 1,000 rows per category and uses a transaction-scoped advisory lock to prevent overlapping cleanup runs. `backlog_remaining` reports whether eligible rows remain so a large backlog drains across later runs. The function is `SECURITY DEFINER` with a fixed search path; direct execution is revoked from `PUBLIC`, `anon`, and `authenticated`, and granted to `service_role`. Cron runs as the scheduling database owner.
 
 The inactivity cutoff is based on memory `updated_at` and `last_used_at`; a memory that has been used recently is not removed merely because it was created over 180 days ago. Conversation history remains until the user explicitly deletes it. The job does not delete accounts, current twin profiles, experiment definitions, or evaluation metadata.
+
+
+## Stage 6: chat silme ve devam eden istek yarışı
+
+`20261027200000_delete_my_chat_inflight_claims.sql`, sohbet verisi silinirken model üretimi hâlâ sürmekte olan bir isteğin silme sonrasında yeniden mesaj/profil kaydetmesini önlemek için kullanıcı başına bir `chat_user_data_generations` sayacı kullanır.
+
+- `/api/chat` sunucu tarafında kullanıcının mevcut generation değerini alır ve claim RPC'sine gönderir.
+- Claim RPC generation satırına `FOR SHARE` kilidi alır; veriler silinirken aynı satır artırıldığı için claim ve silme işlemi sıralanır.
+- `delete_my_chat_data()` aynı veritabanı transaction'ında önce generation değerini artırır ve yalnızca mevcut kullanıcının idempotency kayıtlarını kaldırır; sonra bellek, profil ve mesajları siler.
+- Silmeden önce generation okumuş ama daha sonra claim almaya çalışan eski istek `P0409` ile reddedilir. Daha önce claim almış fakat üretimi sonradan tamamlanan eski istek, claim satırı artık bulunmadığından kaydetme aşamasında başarısız olur.
+- Generation satırı bilerek korunur. Bu satır silinip sayaç sıfırlanırsa eski bir isteğin generation değeri tekrar geçerli hâle gelebilir.
+- `delete_my_chat_request_claims_for_current_user()` SECURITY DEFINER olmak zorundadır; argüman kabul etmez, `auth.uid()` ile güncel kullanıcıyı belirler, `search_path = pg_catalog, public` ile sınırlandırılır ve yalnızca authenticated/anon olmayan roller için uygun izinlerle açılır. Kullanıcı kimliği veya başka kullanıcının kimliği parametre olarak alınmaz.
+
+Migration sonrası `tests/sql/data_deletion_idempotency.integration.sql` şu davranışları test eder: silmenin iki aktif claim'i kaldırması, aynı kullanıcı için eski generation ile yeni claim'in reddedilmesi, eski claim üzerinden geç gelen model yanıtının yazılamaması, güncel generation ile yeni bir claim'in çalışması ve başka bir kullanıcının claim'inin korunması. Test tüm fixture'ları transaction sonunda geri alır.
+
+Canlı projede migration öncesi yedek ve migration geçmişi kontrolü yap; doğru migration sırasını doğrulamadan uygulama. CI testi tek başına canlı Supabase migration'ının uygulanmış olduğunu kanıtlamaz.
