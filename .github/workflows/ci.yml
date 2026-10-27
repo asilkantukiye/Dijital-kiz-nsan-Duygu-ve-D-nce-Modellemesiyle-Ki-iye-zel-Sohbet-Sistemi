@@ -87,6 +87,9 @@ jobs:
             --file supabase/migrations/20261023231000_aud_06_chat_deduplication_window.sql \
             --file supabase/migrations/20261025170000_stage6_foreign_key_indexes.sql \
             --file supabase/migrations/20261027171525_supabase_backed_chat_rate_limit.sql \
+            --file supabase/migrations/20261027181135_stage6_180_day_retention_cleanup.sql \
+            --file supabase/migrations/20261027181851_stage6_retention_inactivity_semantics.sql \
+            --file supabase/migrations/20261027182055_stage6_retention_index_cleanup.sql \
             --file tests/sql/migration_catalog.integration.sql \
             --file tests/sql/chat_rate_limit.integration.sql \
             --file tests/sql/persist_chat_turn.integration.sql \
@@ -96,7 +99,8 @@ jobs:
             --file tests/sql/memory_preference_update.integration.sql \
             --file tests/sql/security_rpc.integration.sql \
             --file tests/sql/memory_source_ownership.integration.sql \
-            --file tests/sql/memory_embedding_integrity.integration.sql
+            --file tests/sql/memory_embedding_integrity.integration.sql \
+            --file tests/sql/retention_cleanup.integration.sql
 
       - name: Test embedding integrity against PostgreSQL
         env:
