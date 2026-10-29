@@ -301,7 +301,7 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
         provenance = {
             "schema_version": 1,
             "source_training_run_id": int(args.run_id),
-            "source_training_workflow": "Kaggle End-to-End Model Training",
+            "source_training_workflow": "Trigger Kaggle End-to-End Model Training",
             "source_artifact_name": "kaggle-digital-twin-model-artifacts",
             "source_artifact_digest": source_artifact_digest,
             "base_model": EXPECTED_BASE_MODEL,
