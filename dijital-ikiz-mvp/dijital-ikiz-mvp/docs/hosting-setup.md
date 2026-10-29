@@ -21,7 +21,8 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` — gizli sunucu anahtarı; `NEXT_PUBLIC_` öneki ekleme.
 - `HF_TOKEN` — gizli değer; Vercel'e doğrudan gir, sohbete veya GitHub dosyasına yazma.
-- `HF_MODEL` — `Qwen/Qwen3-4B-Instruct-2507`
+- `HF_MODEL` — mevcut varsayılan `Qwen/Qwen3-4B-Instruct-2507`; seçilen serving endpoint'inin beklediği model kimliği olmalı.
+- `HF_CHAT_COMPLETIONS_URL` — isteğe bağlı tam OpenAI-uyumlu URL. Yalnızca `https://router.huggingface.co/v1/chat/completions` veya `https://<endpoint>.endpoints.huggingface.cloud/v1/chat/completions` kabul edilir. Bu ayar tek başına LoRA yüklemez; arka uç endpoint'inin adapter'ı gerçekten servis ettiğini doğrulamak gerekir.
 - `UPSTASH_REDIS_REST_URL` — **Production için zorunlu** HTTPS Upstash REST endpoint'i.
 - `UPSTASH_REDIS_REST_TOKEN` — **Production için zorunlu** gizli REST token'ı; URL ile birlikte tanımla.
 - `RATE_LIMIT_KEY_SALT` — en az 32 rastgele karakter; yalnızca sunucu tarafında tut.
@@ -29,6 +30,10 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
 Production'da rate limit yalnızca Upstash Redis üzerinden uygulanır; Supabase RPC veya süreç içi belleğe düşen bir geri dönüş yoktur. İki Upstash değişkeninden biri eksik/bozuksa Production build gate durur. Redis dağıtım sonrasında erişilemezse sohbet API'si model çağrısından önce `503` ve `Retry-After` ile kapalı kalır; bu davranış güvenliği korur. Değerleri GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. `HF_TOKEN`'ı Hugging Face token ayarlarından üret. Gizli değerleri repoya commit etme.
+
+### LoRA serving notu
+
+`HF_CHAT_COMPLETIONS_URL` boşsa uygulama Hugging Face Router'ı kullanır; `HF_MODEL=Qwen/Qwen3-4B-Instruct-2507` ayarı taban modeli seçer. LoRA adapter deposunu yayımlamak, Router'ın adapter'ı çalıştırdığı anlamına gelmez. Adapter'ın gerçekten yüklendiği ve sohbet API'siyle uyumlu bir serving endpoint'i kurulup smoke test ile doğrulanana kadar uygulama fine-tuned LoRA kullanıyor diye raporlanmamalıdır. Özel Inference Endpoint kurmak ücret doğurabilir; çalışma başlamadan önce maliyet ekranında instance, minimum replica ve scale-to-zero ayarlarını kontrol edin. Kod değişikliği bu servisi otomatik oluşturmaz veya başlatmaz.
 
 ## C. GitHub Actions için Vercel Secrets
 
