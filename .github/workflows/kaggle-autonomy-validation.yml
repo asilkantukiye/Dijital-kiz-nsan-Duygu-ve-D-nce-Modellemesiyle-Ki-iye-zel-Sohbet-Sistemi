@@ -64,7 +64,7 @@ jobs:
           pilot = pilot_path.read_text(encoding="utf-8")
           if "workflow_call:" not in pilot or "workflow_dispatch:" not in pilot:
               raise SystemExit("Autonomous workflow needs both reusable and manual triggers.")
-          submit_parts = pilot.split("- name: Submit notebook and start Kaggle training", 1)
+          submit_parts = pilot.rsplit("- name: Submit notebook and start Kaggle training", 1)
           if len(submit_parts) != 2:
               raise SystemExit("Kaggle submit/run step missing.")
           submit = submit_parts[1].split("\n      - name:", 1)[0]
