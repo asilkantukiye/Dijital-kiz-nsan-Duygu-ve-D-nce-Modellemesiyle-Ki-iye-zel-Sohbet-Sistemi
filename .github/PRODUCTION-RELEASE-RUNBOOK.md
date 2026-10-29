@@ -12,6 +12,7 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | --- | --- | --- | --- |
 | VERCEL_TOKEN | GitHub Actions secret | Yes | Least-privilege token for the Vercel team/project |
 | HF_TOKEN | GitHub Actions secret and Vercel Production env | Yes | Hugging Face read/inference token used by the application and deep health probe |
+| HF_CHAT_COMPLETIONS_URL | Vercel Production env | Optional | Full OpenAI-compatible HTTPS URL on `router.huggingface.co` or `*.endpoints.huggingface.cloud`; if blank, the serverless router remains the default |
 | HF_WRITE_TOKEN | GitHub Actions secret only | Required for model publication and Production release | Hugging Face write token scoped to the target model repository/namespace |
 | HEALTHCHECK_TOKEN | GitHub Actions secret and Vercel Production env | Yes | Random secret, minimum 32 characters, used by /api/health/deep |
 | RATE_LIMIT_KEY_SALT | Vercel Production env | Yes | Random secret, minimum 32 characters, used to derive rate-limit identity digests |
@@ -25,6 +26,8 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | SUPABASE_PRODUCTION_SCHEMA_VERIFIED | GitHub repository variable | Yes | Must be exactly true only after live migration/RLS/RPC checks pass |
 
 The app needs HF_TOKEN; the publishing workflow separately needs HF_WRITE_TOKEN. A read/inference token is not a substitute for a write token. The HF_WRITE_TOKEN owner must have write permission to the selected OWNER/REPO. The verified existing target is the private repository hasankb00/dijital-ikiz-qwen3-4b-lora; the live check found only .gitattributes in it. The requested asilkantukiye/dijital-ikiz-qwen3-4b-lora repository was not found under that namespace. The publishing workflow defaults to the existing repo; use a different workflow input only when HF_WRITE_TOKEN has write permission to that destination.
+
+**Model-serving boundary:** `HF_MODEL=Qwen/Qwen3-4B-Instruct-2507` selects the base model, not the LoRA adapter. Publishing an adapter to the Hub does not by itself make the web app use it. `HF_CHAT_COMPLETIONS_URL` can point to a trusted OpenAI-compatible Hugging Face Inference Endpoint after it has been created and tested; it cannot create that endpoint or load an adapter by itself. A dedicated endpoint may incur hourly/minute-based charges, so do not create one without an explicit budget decision. Never switch `HF_MODEL` to the adapter repo until its serving route is confirmed to support that adapter and an authenticated chat smoke test passes.
 
 ## Configure secrets without exposing values
 

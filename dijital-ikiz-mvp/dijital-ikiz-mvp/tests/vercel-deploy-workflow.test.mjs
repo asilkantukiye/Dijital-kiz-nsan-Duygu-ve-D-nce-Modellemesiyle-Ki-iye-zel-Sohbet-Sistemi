@@ -193,6 +193,25 @@ test('README documents how to configure the deploy workflow and verify deploymen
 })
 
 
+test('custom Hugging Face chat endpoint is optional, allowlisted, and covered by unit tests', async () => {
+  const [provider, envGate, envExample, readme, runbook] = await Promise.all([
+    readFile(path.join(projectDirectory, 'lib', 'huggingface.ts'), 'utf8'),
+    readFile(path.join(projectDirectory, 'scripts', 'check-production-env.mjs'), 'utf8'),
+    readFile(path.join(projectDirectory, '.env.local.example'), 'utf8'),
+    readFile(readmePath, 'utf8'),
+    readFile(path.join(repositoryDirectory, '.github', 'PRODUCTION-RELEASE-RUNBOOK.md'), 'utf8')
+  ])
+
+  assert.match(provider, /resolveChatCompletionsUrl/)
+  assert.match(provider, /url\.hostname === 'router\.huggingface\.co'/)
+  assert.match(provider, /\.endpoints\.huggingface\.cloud/)
+  assert.match(provider, /fetch\(chatCompletionsUrl/)
+  assert.match(envGate, /HF_CHAT_COMPLETIONS_URL/)
+  assert.match(envExample, /HF_CHAT_COMPLETIONS_URL=/)
+  assert.match(readme, /LoRA adapter'ının Hugging Face Hub'a yüklenmesi, serverless Router'ın adapter'ı otomatik yüklemesi anlamına gelmez/)
+  assert.match(runbook, /HF_CHAT_COMPLETIONS_URL/)
+})
+
 test('production smoke test checks missing deep-health token is hidden', async () => {
   const smoke = await readFile(path.join(projectDirectory, 'tests', 'production-smoke.mjs'), 'utf8')
 

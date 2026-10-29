@@ -18,6 +18,35 @@ test('Production gate accepts all required Production variables including both U
   assert.deepEqual(result, { ok: true, issues: [] });
 });
 
+test('Production gate accepts a trusted optional Hugging Face Inference Endpoint URL', () => {
+  const result = validateProductionEnvironment({
+    ...validEnv,
+    HF_CHAT_COMPLETIONS_URL: 'https://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions'
+  });
+  assert.deepEqual(result, { ok: true, issues: [] });
+});
+
+test('Production gate rejects untrusted or malformed optional chat endpoint URLs', () => {
+  const invalidUrls = [
+    'http://router.huggingface.co/v1/chat/completions',
+    'https://attacker.example/v1/chat/completions',
+    'https://router.huggingface.co/v1/chat/completions?token=leak',
+    'https://router.huggingface.co/chat/completions',
+    'https://user:password@router.huggingface.co/v1/chat/completions',
+    'https://router.huggingface.co:8443/v1/chat/completions',
+    'https://router.huggingface.co.attacker.example/v1/chat/completions'
+  ];
+
+  for (const endpoint of invalidUrls) {
+    const result = validateProductionEnvironment({
+      ...validEnv,
+      HF_CHAT_COMPLETIONS_URL: endpoint
+    });
+    assert.equal(result.ok, false, endpoint);
+    assert.ok(result.issues.some(issue => issue.includes('HF_CHAT_COMPLETIONS_URL')), endpoint);
+  }
+});
+
 test('Production gate rejects each absent required variable', () => {
   for (const key of Object.keys(validEnv)) {
     const env = { ...validEnv };

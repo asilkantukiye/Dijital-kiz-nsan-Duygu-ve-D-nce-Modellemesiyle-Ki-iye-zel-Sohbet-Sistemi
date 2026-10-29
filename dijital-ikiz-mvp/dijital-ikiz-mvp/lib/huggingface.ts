@@ -6,6 +6,42 @@ const DEFAULT_EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
 const EMBEDDING_TIMEOUT_MS = 15_000
 const EMBEDDING_MAX_ATTEMPTS = 2
 
+const DEFAULT_CHAT_COMPLETIONS_URL = 'https://router.huggingface.co/v1/chat/completions'
+const CHAT_COMPLETIONS_PATH = '/v1/chat/completions'
+
+/**
+ * The server-side HF token must never be sent to an arbitrary URL.
+ * Only the Hugging Face router and dedicated HF Inference Endpoint hosts are allowed.
+ * The variable must be the full OpenAI-compatible chat-completions URL.
+ */
+export function resolveChatCompletionsUrl(value?: string): string | null {
+  const configured = value?.trim()
+  if (!configured) return DEFAULT_CHAT_COMPLETIONS_URL
+
+  try {
+    const url = new URL(configured)
+    const trustedHost = url.hostname === 'router.huggingface.co' ||
+      url.hostname.endsWith('.endpoints.huggingface.cloud')
+
+    if (
+      url.protocol !== 'https:' ||
+      !trustedHost ||
+      url.port ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== CHAT_COMPLETIONS_PATH
+    ) {
+      return null
+    }
+
+    return url.origin + CHAT_COMPLETIONS_PATH
+  } catch {
+    return null
+  }
+}
+
 function backoffMs(attempt: number) {
   return attempt === 1 ? 350 : 700
 }
@@ -164,6 +200,7 @@ export async function qwenChat(
 ) {
   const token = process.env.HF_TOKEN?.trim()
   const model = process.env.HF_MODEL || 'Qwen/Qwen3-4B-Instruct-2507'
+  const chatCompletionsUrl = resolveChatCompletionsUrl(process.env.HF_CHAT_COMPLETIONS_URL)
   const timeoutMessage = 'AI_PROVIDER_TIMEOUT_INTERNAL'
 
   if (!token) {
@@ -171,6 +208,14 @@ export async function qwenChat(
       'AI_NOT_CONFIGURED',
       503,
       'Yapay zekâ hizmeti şu anda kullanıma hazır değil. Lütfen biraz sonra tekrar deneyin.'
+    )
+  }
+
+  if (!chatCompletionsUrl) {
+    throw new ChatProviderError(
+      'AI_NOT_CONFIGURED',
+      503,
+      'Yapay zekâ uç nokta ayarı geçersiz. Servis yapılandırması kontrol edilmelidir.'
     )
   }
 
@@ -183,7 +228,7 @@ export async function qwenChat(
       completion = await withAbortTimeout(
         timeoutMs,
         async (signal) => {
-          const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
+          const response = await fetch(chatCompletionsUrl, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${token}`,
