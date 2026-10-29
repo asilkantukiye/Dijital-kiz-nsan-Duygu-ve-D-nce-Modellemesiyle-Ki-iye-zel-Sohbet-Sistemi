@@ -23,9 +23,8 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | PRODUCTION_SMOKE_TEST_EMAIL | GitHub Actions secret only | Yes for deploy workflow | Dedicated, confirmed, low-privilege Supabase test account email |
 | PRODUCTION_SMOKE_TEST_PASSWORD | GitHub Actions secret only | Yes for deploy workflow | Password for the dedicated smoke-test account |
 | SUPABASE_PRODUCTION_SCHEMA_VERIFIED | GitHub repository variable | Yes | Must be exactly true only after live migration/RLS/RPC checks pass |
-| HF_MODEL_REPO | GitHub repository variable | Optional | Override the default hasankb00/dijital-ikiz-qwen3-4b-lora destination |
 
-The app needs HF_TOKEN; the publishing workflow separately needs HF_WRITE_TOKEN. A read/inference token is not a substitute for a write token. The HF_WRITE_TOKEN owner must have write permission to the selected OWNER/REPO. The default target is the private repository requested for this release. If the account token belongs to a different Hugging Face namespace, set the workflow input to a repository in that namespace instead.
+The app needs HF_TOKEN; the publishing workflow separately needs HF_WRITE_TOKEN. A read/inference token is not a substitute for a write token. The HF_WRITE_TOKEN owner must have write permission to the selected OWNER/REPO. The verified existing target is the private repository hasankb00/dijital-ikiz-qwen3-4b-lora; the live check found only .gitattributes in it. The requested asilkantukiye/dijital-ikiz-qwen3-4b-lora repository was not found under that namespace. The publishing workflow defaults to the existing repo; use a different workflow input only when HF_WRITE_TOKEN has write permission to that destination.
 
 ## Configure secrets without exposing values
 
