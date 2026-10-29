@@ -111,6 +111,7 @@ jobs:
             --file tests/sql/memory_rls.integration.sql \
             --file tests/sql/memory_preference_update.integration.sql \
             --file tests/sql/security_rpc.integration.sql \
+            --file tests/sql/internal_security_boundary.integration.sql \
             --file tests/sql/data_deletion_idempotency.integration.sql \
             --file tests/sql/memory_source_ownership.integration.sql \
             --file tests/sql/memory_embedding_integrity.integration.sql \

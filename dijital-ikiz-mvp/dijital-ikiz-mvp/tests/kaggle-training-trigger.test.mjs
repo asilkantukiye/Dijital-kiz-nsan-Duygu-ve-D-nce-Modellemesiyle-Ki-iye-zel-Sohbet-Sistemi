@@ -15,7 +15,10 @@ test('Kaggle training can only auto-run from a specially tagged main commit', as
   assert.match(workflow, /paths:[\s\S]*\.github\/workflows\/kaggle-end-to-end-training\.yml[\s\S]*ml\/kaggle\/dijital_ikiz_training\.ipynb/)
   assert.match(workflow, /github\.event_name == 'workflow_dispatch'/)
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[run-kaggle-training\]'\)/)
-  assert.match(workflow, /INPUT_KERNEL_ID: \$\{\{ inputs\.kaggle_kernel_id \|\| vars\.KAGGLE_KERNEL_ID \|\| 'asilkantkiye\/dijital-ikiz-training' \}\}/)
+  assert.match(workflow, /INPUT_KERNEL_ID: \$\{\{ inputs\.kaggle_kernel_id \|\| vars\.KAGGLE_KERNEL_ID \|\| '' \}\}/)
+  assert.match(workflow, /kernel_id = requested or f"\{username\}\/dijital-ikiz-training"/)
+  assert.match(workflow, /Kaggle notebook owner does not match the authenticated account/)
+  assert.match(workflow, /from kagglehub\.auth import whoami/)
 })
 
 test('the guarded run publishes only validated Qwen LoRA artifacts to a private model repository', async () => {
