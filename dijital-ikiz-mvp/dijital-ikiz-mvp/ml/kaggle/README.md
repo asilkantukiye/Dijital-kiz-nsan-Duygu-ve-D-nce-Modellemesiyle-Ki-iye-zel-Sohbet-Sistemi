@@ -17,9 +17,9 @@ Workflow girdileri:
 ### Gerekli GitHub Actions Secrets
 
 - Mevcut kurulumla geriye dönük uyum için `KAGGLE_KULLANABILEGIN_TOKEN`; ayrıca `KAGGLE_KULLANABILECEGIN_TOKEN` veya `KAGGLE_API_TOKEN` da desteklenir. Eski kimlik doğrulaması için `KAGGLE_USERNAME` ve `KAGGLE_KEY` de desteklenir. Secret adları GitHub kuralları nedeniyle ASCII harf/rakam/alt çizgi kullanmalıdır. Token değerini loglama ya da kaynak koda yazma.
-- Hugging Face'e otomatik yükleme isteniyorsa, hedef model deposuna yazma yetkisiyle sınırlandırılmış `HF_WRITE_TOKEN` secret'ı gerekir. Bu, web uygulamasının inference token'ından ayrı tutulmalıdır.
+- `HF_WRITE_TOKEN` GitHub Actions Secret'ı, GitHub tarafında ek yayınlama ve SHA-256 doğrulama adımı için isteğe bağlıdır. Bu, web uygulamasının inference token'ından ayrı tutulmalıdır. Token Kaggle Notebook Secrets'ta varsa notebook'un kendisi doğrudan yayınlama yapabilir.
 
-**Önemli:** GitHub Actions, Kaggle arayüzündeki Notebook Secrets alanını okuyamaz. Otomatik hattın Kaggle notebook'unu başlatması için Kaggle API tokenı yukarıdaki adlardan biriyle **GitHub Actions Secrets** içinde olmalıdır. `HF_WRITE_TOKEN` de GitHub Secrets'ta bulunmalıdır; çünkü bu iş akışında Hugging Face yayını GitHub runner'ında yapılır. Yalnızca notebook'u Kaggle arayüzünden elle çalıştırıp oradan HF'ye yayın yapacaksan `HF_WRITE_TOKEN` ayrıca Kaggle Notebook Secrets'ta tanımlanır. Aynı secret adını kullanmak, bu iki ayrı kasayı birbirine bağlamaz.
+**Önemli:** GitHub Actions, Kaggle arayüzündeki Notebook Secrets alanını okuyamaz. Otomatik hattın Kaggle notebook'unu başlatması için Kaggle API tokenı yukarıdaki adlardan biriyle **GitHub Actions Secrets** içinde olmalıdır. Hugging Face yayımlaması iki yoldan çalışabilir: `HF_WRITE_TOKEN` Kaggle Notebook Secrets'ta varsa notebook model yayınını kendi içinde dener; aynı token GitHub Actions Secrets'ta da varsa GitHub tarafındaki doğrulanmış publisher ek bir yayınlama/doğrulama adımı çalıştırır. İki secret kasası birbirine otomatik bağlanmaz.
 
 Başarılı çalıştırmada `kaggle-digital-twin-model-artifacts` adlı GitHub Actions artefaktı, Kaggle'dan alınmış ZIP paketini ve `metrics-summary.json` dosyasını içerir. Eğitim veya veri doğrulaması başarısız olursa artefakt/model yayımlama adımları devam etmez.
 
