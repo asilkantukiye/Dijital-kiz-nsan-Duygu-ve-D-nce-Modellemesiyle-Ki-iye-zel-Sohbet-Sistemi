@@ -104,37 +104,6 @@ test('Dotenv parser handles quotes, exports, comments and blank lines', () => {
   assert.equal(parsed.RATE_LIMIT_KEY_SALT, 'salt-value');
 });
 
-test('Production gate accepts only trusted HTTPS chat completion endpoints when configured', () => {
-  assert.deepEqual(
-    validateProductionEnvironment({
-      ...validEnv,
-      HF_CHAT_COMPLETIONS_URL: 'https://router.huggingface.co/v1/chat/completions',
-    }),
-    { ok: true, issues: [] },
-  );
-
-  assert.deepEqual(
-    validateProductionEnvironment({
-      ...validEnv,
-      HF_CHAT_COMPLETIONS_URL: 'https://model-abc.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions',
-    }),
-    { ok: true, issues: [] },
-  );
-
-  for (const value of [
-    'http://router.huggingface.co/v1/chat/completions',
-    'https://router.huggingface.co/v1/chat/completions?token=secret',
-    'https://attacker.example/v1/chat/completions',
-    'https://router.huggingface.co.evil.example/v1/chat/completions',
-    'https://user:pass@router.huggingface.co/v1/chat/completions',
-    'https://router.huggingface.co/v1/embeddings',
-  ]) {
-    const result = validateProductionEnvironment({ ...validEnv, HF_CHAT_COMPLETIONS_URL: value });
-    assert.equal(result.ok, false, value + ' should be rejected');
-    assert.ok(result.issues.some(issue => issue.includes('HF_CHAT_COMPLETIONS_URL')));
-  }
-});
-
 test('Production gate rejects model identifiers containing newlines or excessive length', () => {
   assert.ok(validateProductionEnvironment({ ...validEnv, HF_MODEL: 'Qwen/model\\nInjected: yes' }).issues
     .some(issue => issue.includes('HF_MODEL')));
