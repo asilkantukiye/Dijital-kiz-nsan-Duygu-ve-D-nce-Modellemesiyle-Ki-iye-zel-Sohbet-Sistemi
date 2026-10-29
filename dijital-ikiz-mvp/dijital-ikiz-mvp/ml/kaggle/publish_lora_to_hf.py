@@ -248,7 +248,28 @@ def main() -> int:
         for source in tokenizer.iterdir():
             if source.is_file():
                 copy_file(source, release / source.name)
-        copy_file(qwen_metrics_path, release / "training-metrics.json")
+        aggregate_metrics_path = extracted / "training-metrics.json"
+        require(aggregate_metrics_path.is_file(),
+                "Consolidated training-metrics.json is missing from the Kaggle artifact.")
+        aggregate_metrics = read_json(aggregate_metrics_path)
+        aggregate_qwen = aggregate_metrics.get("tasks", {}).get("qwen_lora", {})
+        require(aggregate_qwen.get("base_model") == EXPECTED_BASE_MODEL,
+                "Consolidated metrics identify an unexpected Qwen base model.")
+        require(aggregate_metrics.get("status") == "completed_metrics_validated",
+                "Consolidated training metrics are not marked validated.")
+        aggregate_metrics["publication"] = {
+            "repository": repo_id,
+            "visibility_required": "private",
+            "status": "publishing",
+            "loss_improvement_gate_passed": True,
+            "github_workflow_run_id": int(args.run_id),
+            "source_artifact_digest": source_artifact_digest,
+            "method": "GitHub Actions validated Kaggle artifact publisher",
+        }
+        (release / "training-metrics.json").write_text(
+            json.dumps(aggregate_metrics, ensure_ascii=False, indent=2) + "\\n",
+            encoding="utf-8",
+        )
 
         readme = f"""---
 base_model: {EXPECTED_BASE_MODEL}
@@ -325,6 +346,42 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
                 "Hugging Face post-upload privacy check",
             )
             require(bool(after.private), "Hugging Face repository privacy verification failed after upload.")
+
+            aggregate_metrics["publication"] = {
+                "repository": repo_id,
+                "visibility_required": "private",
+                "status": "published_private",
+                "verified": True,
+                "loss_improvement_gate_passed": True,
+                "published_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "github_workflow_run_id": int(args.run_id),
+                "source_artifact_digest": source_artifact_digest,
+                "method": "GitHub Actions validated Kaggle artifact publisher",
+            }
+            (release / "training-metrics.json").write_text(
+                json.dumps(aggregate_metrics, ensure_ascii=False, indent=2) + "\\n",
+                encoding="utf-8",
+            )
+            final_manifest = build_manifest(release)
+            verify_local_manifest(release, final_manifest)
+            (release / "artifact-manifest.json").write_text(
+                json.dumps(final_manifest, indent=2, sort_keys=True) + "\\n",
+                encoding="utf-8",
+            )
+            retry_with_backoff(
+                lambda: api.upload_folder(
+                    repo_id=repo_id,
+                    repo_type="model",
+                    folder_path=str(release),
+                    commit_message=f"Record verified publication provenance for run {args.run_id}",
+                ),
+                "Hugging Face publication manifest update",
+            )
+            after = retry_with_backoff(
+                lambda: api.repo_info(repo_id=repo_id, repo_type="model"),
+                "Hugging Face final repository privacy check",
+            )
+            require(bool(after.private), "Hugging Face repository privacy verification failed after finalization.")
             published_files = set(retry_with_backoff(
                 lambda: api.list_repo_files(repo_id=repo_id, repo_type="model"),
                 "Hugging Face remote file inventory",
@@ -342,6 +399,7 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
             weights[0].name,
             "tokenizer_config.json",
             "training-metrics.json",
+            "scientific-validation-report.md",
             "artifact-manifest.json",
             "source-artifact-provenance.json",
             "README.md",
@@ -350,7 +408,7 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
                 "Uploaded repository is missing required adapter files.")
 
         verify_remote_manifest(
-            api, repo_id, token, manifest, hf_hub_download,
+            api, repo_id, token, final_manifest, hf_hub_download,
             expected_manifest_sha256=sha256(release / "artifact-manifest.json"),
         )
 
