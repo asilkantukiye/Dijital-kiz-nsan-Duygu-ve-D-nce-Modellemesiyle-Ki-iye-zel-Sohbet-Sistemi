@@ -75,6 +75,8 @@ async function probe(
  *
  * Hugging Face's whoami endpoint validates token authentication only. It does
  * not perform inference, incur an inference call, or guarantee model availability.
+ * Production readiness requires a healthy Upstash Redis REST endpoint; a missing
+ * or failed Redis probe is reported as unavailable rather than silently bypassed.
  */
 export async function probeUpstreams(
   environment: DeepHealthEnvironment,
@@ -139,19 +141,7 @@ export async function probeUpstreams(
           return false
         }
       })()
-    : supabaseUrl && environment.supabaseServiceRoleKey?.trim()
-      ? probe(
-          fetcher,
-          new URL('/rest/v1/chat_rate_limit_counters?select=scope&limit=0', supabaseUrl),
-          {
-            method: 'GET',
-            headers: {
-              apikey: environment.supabaseServiceRoleKey.trim(),
-              Authorization: `Bearer ${environment.supabaseServiceRoleKey.trim()}`
-            }
-          }
-        )
-      : Promise.resolve(false)
+    : Promise.resolve(false)
 
   const [supabase, huggingface, rateLimit] = await Promise.all([
     supabasePromise,
