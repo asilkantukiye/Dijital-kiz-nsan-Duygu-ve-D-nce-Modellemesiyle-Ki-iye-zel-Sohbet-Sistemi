@@ -23,6 +23,8 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+          PRODUCTION_SMOKE_TEST_EMAIL: ${{ secrets.PRODUCTION_SMOKE_TEST_EMAIL }}
+          PRODUCTION_SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_TEST_PASSWORD }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
           WORKFLOW_REF: ${{ github.ref }}
         run: |
@@ -38,6 +40,12 @@ jobs:
           fi
           if [[ ${#HEALTHCHECK_TOKEN} -lt 32 ]]; then
             missing+=("HEALTHCHECK_TOKEN (GitHub Actions secret, minimum 32 characters)")
+          fi
+          if [[ -z "$PRODUCTION_SMOKE_TEST_EMAIL" ]]; then
+            missing+=("PRODUCTION_SMOKE_TEST_EMAIL (dedicated confirmed Supabase smoke-test account)")
+          fi
+          if [[ -z "$PRODUCTION_SMOKE_TEST_PASSWORD" ]]; then
+            missing+=("PRODUCTION_SMOKE_TEST_PASSWORD (dedicated smoke-test account password)")
           fi
           if [[ "$SUPABASE_PRODUCTION_SCHEMA_VERIFIED" != "true" ]]; then
             missing+=("SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true (repository variable)")
@@ -68,6 +76,8 @@ jobs:
               echo "Never put either token in source code, workflow logs, issues, or chat."
               echo ""
               echo "Add HEALTHCHECK_TOKEN as a GitHub Actions secret (at least 32 random characters) and configure the identical value as a Vercel Production environment variable. The post-deploy probe will fail closed if the values do not match."
+              echo ""
+              echo "Add PRODUCTION_SMOKE_TEST_EMAIL and PRODUCTION_SMOKE_TEST_PASSWORD for a dedicated, confirmed, low-privilege Supabase test user. The workflow runs an authenticated baseline chat request and expects HTTP 200; it also verifies anonymous chat is rejected with HTTP 401. These credentials are GitHub Actions secrets only and are never written to Vercel or logs."
               echo ""
               echo "Set repository variable **SUPABASE_PRODUCTION_SCHEMA_VERIFIED** to exactly **true** only after the baseline schema and all required migrations are applied to the intended Supabase project, and RLS policies plus required RPC permissions/functions are verified. Follow supabase/MIGRATION_RUNBOOK.md."
               echo ""
@@ -374,6 +384,15 @@ jobs:
             echo "- The configured distributed rate-limit backend passed its live probe (Upstash or Supabase PostgreSQL)."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Run authenticated smoke tests on the staged production artifact
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+          PRODUCTION_SMOKE_TEST_EMAIL: ${{ secrets.PRODUCTION_SMOKE_TEST_EMAIL }}
+          PRODUCTION_SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_TEST_PASSWORD }}
+          VERCEL_ENV_FILE: .vercel/.env.production.local
+        run: node tests/production-smoke.mjs
+
   promote:
     needs: [preflight, validate, stage]
     if: ${{ github.ref == 'refs/heads/main' && needs.preflight.outputs.ready == 'true' && needs.validate.result == 'success' && needs.stage.result == 'success' }}
@@ -404,6 +423,25 @@ jobs:
           DEPLOYMENT_URL: ${{ needs.stage.outputs.url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@63.1.2 promote "$DEPLOYMENT_URL" --yes --scope "help-70c6"
+
+      - name: Link Vercel project for live production smoke test
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope "help-70c6"
+
+      - name: Pull Production environment for the authenticated smoke test
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 pull --yes --environment=production --scope "help-70c6"
+
+      - name: Verify production chat and upstreams through the public domain
+        env:
+          BASE_URL: https://dijital-ikiz-insan.vercel.app
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+          PRODUCTION_SMOKE_TEST_EMAIL: ${{ secrets.PRODUCTION_SMOKE_TEST_EMAIL }}
+          PRODUCTION_SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_TEST_PASSWORD }}
+          VERCEL_ENV_FILE: .vercel/.env.production.local
+        run: node tests/production-smoke.mjs
 
       - name: Verify health through the production domain
         shell: bash

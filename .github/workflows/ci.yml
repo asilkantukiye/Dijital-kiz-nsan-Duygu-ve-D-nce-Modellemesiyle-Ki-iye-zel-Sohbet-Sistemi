@@ -53,6 +53,9 @@ jobs:
       - name: Compile ML Python sources
         run: python -m compileall -q ml
 
+      - name: Syntax-check production smoke script
+        run: node --check tests/production-smoke.mjs
+
       - name: Validate Kaggle notebook syntax
         run: python ml/kaggle/validate_notebook.py
 

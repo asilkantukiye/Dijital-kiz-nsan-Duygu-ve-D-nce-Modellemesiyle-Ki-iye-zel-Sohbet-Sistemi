@@ -1,0 +1,120 @@
+name: Publish Kaggle Qwen LoRA
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Kaggle End-to-End Model Training run ID
+        required: true
+        type: string
+        default: "40562948791"
+      model_repo:
+        description: Private Hugging Face model repository (OWNER/REPO)
+        required: true
+        type: string
+        default: "hasankb00/dijital-ikiz-qwen3-4b-lora"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: publish-qwen-lora-${{ inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Verify successful source training run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+          EXPECTED_REPO: ${{ inputs.model_repo }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::Kaggle run ID must be numeric."
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::model_repo must be OWNER/REPO."
+            exit 1
+          fi
+          gh run view "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --json conclusion,headBranch,headSha,workflowName,url \
+            > "$RUNNER_TEMP/source-run.json"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/source-run.json', 'utf8'));
+          const errors = [];
+          if (run.conclusion !== 'success') errors.push('source training run is not successful');
+          if (run.headBranch !== 'main') errors.push('source training run is not from main');
+          if (run.workflowName !== 'Kaggle End-to-End Model Training') errors.push('source is not the expected Kaggle training workflow');
+          if (!/^[a-f0-9]{40}$/i.test(run.headSha || '')) errors.push('source commit SHA is missing');
+          if (errors.length) {
+            console.error('Source-run verification failed: ' + errors.join('; ') + '.');
+            process.exit(1);
+          }
+          console.log(JSON.stringify({
+            source_run_id: Number(process.env.SOURCE_RUN_ID),
+            source_workflow: run.workflowName,
+            source_branch: run.headBranch,
+            source_commit: run.headSha,
+            source_url: run.url,
+            repository: process.env.EXPECTED_REPO,
+            secrets_included: false
+          }, null, 2));
+          NODE
+
+      - name: Download the training artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          destination="$RUNNER_TEMP/kaggle-model-artifact"
+          mkdir -p "$destination"
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name kaggle-digital-twin-model-artifacts \
+            --dir "$destination"
+          if ! find "$destination" -type f -name dijital-ikiz-model-artifacts.zip -print -quit | grep -q .; then
+            echo "::error::The requested training run does not contain dijital-ikiz-model-artifacts.zip."
+            exit 1
+          fi
+          echo "Kaggle artifact downloaded; archive contents will be validated before publication."
+
+      - name: Install the Hugging Face publisher dependency
+        run: python -m pip install --disable-pip-version-check "huggingface_hub>=0.34,<2"
+
+      - name: Validate files and publish the private LoRA adapter
+        env:
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+          MODEL_REPO: ${{ inputs.model_repo }}
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ml/kaggle/publish_lora_to_hf.py \
+            --artifact-dir "$RUNNER_TEMP/kaggle-model-artifact" \
+            --repo-id "$MODEL_REPO" \
+            --run-id "$SOURCE_RUN_ID" \
+            | tee "$RUNNER_TEMP/hf-publish-result.json"
+
+          {
+            echo "## Hugging Face LoRA publication"
+            echo ""
+            cat "$RUNNER_TEMP/hf-publish-result.json"
+          } >> "$GITHUB_STEP_SUMMARY"
