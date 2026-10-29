@@ -10,14 +10,16 @@ Bu sürüm ayrıca yalnızca ana dala gelen ve commit başlığında `[run-kaggl
 
 Workflow girdileri:
 
-- **Kaggle notebook ID:** Varsayılan `asilkantkiye/dijital-ikiz-training`; hesabındaki gerçek notebook ID farklıysa `owner/slug` biçiminde düzelt.
-- **Publish Qwen LoRA adapter:** Varsayılan kapalıdır. Yalnızca model artefaktları ve lisanslar incelendikten sonra aç.
-- **Hugging Face repo ID:** Yayımlama seçildiyse `owner/model-name` biçiminde gir. Yeni depo özel (private) oluşturulur.
+- **Kaggle notebook ID:** Varsayılan olarak doğrulanmış Kaggle hesabı adıyla `hesap-adı/dijital-ikiz-training` kullanılır. Mevcut notebook slug farklıysa gerçek `owner/slug` değerini gir.
+- **Publish Qwen LoRA adapter:** Varsayılan açıktır; eğitim tamamlanıp kalite kapıları geçilirse özel Hugging Face deposuna yayınlanır.
+- **Hugging Face repo ID:** Varsayılan `hasankb00/dijital-ikiz-qwen3-4b-lora`. Bu, GitHub proje deposundan farklı bir model deposudur.
 
 ### Gerekli GitHub Actions Secrets
 
 - Mevcut kurulumla geriye dönük uyum için `KAGGLE_KULLANABILEGIN_TOKEN`; ayrıca `KAGGLE_KULLANABILECEGIN_TOKEN` veya `KAGGLE_API_TOKEN` da desteklenir. Eski kimlik doğrulaması için `KAGGLE_USERNAME` ve `KAGGLE_KEY` de desteklenir. Secret adları GitHub kuralları nedeniyle ASCII harf/rakam/alt çizgi kullanmalıdır. Token değerini loglama ya da kaynak koda yazma.
 - Hugging Face'e otomatik yükleme isteniyorsa, hedef model deposuna yazma yetkisiyle sınırlandırılmış `HF_WRITE_TOKEN` secret'ı gerekir. Bu, web uygulamasının inference token'ından ayrı tutulmalıdır.
+
+**Önemli:** GitHub Actions, Kaggle arayüzündeki Notebook Secrets alanını okuyamaz. Otomatik hattın Kaggle notebook'unu başlatması için Kaggle API tokenı yukarıdaki adlardan biriyle **GitHub Actions Secrets** içinde olmalıdır. `HF_WRITE_TOKEN` de GitHub Secrets'ta bulunmalıdır; çünkü bu iş akışında Hugging Face yayını GitHub runner'ında yapılır. Yalnızca notebook'u Kaggle arayüzünden elle çalıştırıp oradan HF'ye yayın yapacaksan `HF_WRITE_TOKEN` ayrıca Kaggle Notebook Secrets'ta tanımlanır. Aynı secret adını kullanmak, bu iki ayrı kasayı birbirine bağlamaz.
 
 Başarılı çalıştırmada `kaggle-digital-twin-model-artifacts` adlı GitHub Actions artefaktı, Kaggle'dan alınmış ZIP paketini ve `metrics-summary.json` dosyasını içerir. Eğitim veya veri doğrulaması başarısız olursa artefakt/model yayımlama adımları devam etmez.
 
