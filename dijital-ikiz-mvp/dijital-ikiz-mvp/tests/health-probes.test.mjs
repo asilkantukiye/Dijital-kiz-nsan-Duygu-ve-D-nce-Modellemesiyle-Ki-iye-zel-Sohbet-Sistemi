@@ -95,6 +95,7 @@ test('Upstash URLs containing credentials, query strings, custom paths, or non-H
     'http://region-12345.upstash.io',
     'https://user:password@region-12345.upstash.io',
     'https://region-12345.upstash.io/?token=oops',
+    'https://region-12345.upstash.io:8443',
     'https://region-12345.upstash.io/custom',
     'https://region-12345.upstash.io.attacker.example'
   ]) {
