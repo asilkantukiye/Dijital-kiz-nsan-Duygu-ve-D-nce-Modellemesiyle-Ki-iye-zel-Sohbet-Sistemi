@@ -350,6 +350,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
             SUPABASE_SERVICE_ROLE_KEY \
             HF_TOKEN \
+            HF_MODEL \
+            HF_EMBEDDING_MODEL \
             RATE_LIMIT_KEY_SALT \
             HEALTHCHECK_TOKEN \
             UPSTASH_REDIS_REST_URL \

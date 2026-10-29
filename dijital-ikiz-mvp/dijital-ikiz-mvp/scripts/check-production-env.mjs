@@ -9,6 +9,8 @@ const REQUIRED_KEYS = [
   'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'HF_TOKEN',
+  'HF_MODEL',
+  'HF_EMBEDDING_MODEL',
   'RATE_LIMIT_KEY_SALT',
   'HEALTHCHECK_TOKEN',
   'UPSTASH_REDIS_REST_URL',
@@ -128,6 +130,13 @@ export function validateProductionEnvironment(env) {
 
   if (env.HF_TOKEN?.trim() && env.HF_TOKEN.trim().length < 20) {
     issues.push('HF_TOKEN is too short');
+  }
+
+  for (const key of ['HF_MODEL', 'HF_EMBEDDING_MODEL']) {
+    const value = env[key]?.trim() || '';
+    if (value && (value.length > 512 || /[\r\n]/u.test(value))) {
+      issues.push(key + ' is invalid');
+    }
   }
 
   const chatEndpointUrl = env.HF_CHAT_COMPLETIONS_URL?.trim() || '';

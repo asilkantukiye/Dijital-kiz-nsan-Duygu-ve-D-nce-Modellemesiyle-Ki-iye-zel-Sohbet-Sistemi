@@ -43,6 +43,8 @@ test('missing deployment prerequisites are explained without exposing secret val
     'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
     'HF_TOKEN',
+    'HF_MODEL',
+    'HF_EMBEDDING_MODEL',
     'UPSTASH_REDIS_REST_URL',
     'UPSTASH_REDIS_REST_TOKEN',
     'RATE_LIMIT_KEY_SALT',
@@ -273,6 +275,7 @@ test('production deployment is manual, uses a pinned CLI, and never passes the t
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
 })
+
 
 test('README warns that the production Environment must be protected explicitly', async () => {
   const readme = await readFile(readmePath, 'utf8')
