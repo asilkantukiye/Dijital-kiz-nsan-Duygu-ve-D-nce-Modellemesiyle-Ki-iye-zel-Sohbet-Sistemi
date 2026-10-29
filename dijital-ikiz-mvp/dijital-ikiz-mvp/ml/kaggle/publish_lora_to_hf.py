@@ -343,6 +343,7 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
             "tokenizer_config.json",
             "training-metrics.json",
             "artifact-manifest.json",
+            "source-artifact-provenance.json",
             "README.md",
         }
         require(required_remote.issubset(published_files),
