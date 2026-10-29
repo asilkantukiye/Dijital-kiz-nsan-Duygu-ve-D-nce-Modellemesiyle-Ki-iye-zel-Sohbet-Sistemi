@@ -155,7 +155,7 @@ jobs:
           if code_cells < 5 or python_cells < 5:
               raise SystemExit(f"Unexpectedly few Python code cells: {code_cells}")
           workflow = Path("../../.github/workflows/kaggle-sentiment-pilot.yml").read_text(encoding="utf-8")
-          parts = workflow.split("- name: Submit notebook and start Kaggle training", 1)
+          parts = workflow.rsplit("- name: Submit notebook and start Kaggle training", 1)
           if len(parts) != 2:
               raise SystemExit("Workflow is missing its Kaggle submit/run step.")
           submit_step = parts[1].split("\n      - name:", 1)[0]
