@@ -87,6 +87,37 @@ class BlindReviewTests(unittest.TestCase):
                 self.assertEqual({row["variant"] for row in key_rows}, {"personalized", "baseline"})
                 self.assertEqual({row["participant_id"] for row in key_rows}, {"must-not-leak"})
 
+    def test_same_seed_reproduces_identical_blind_packet_and_condition_key(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            review_one = root / "review-one.csv"
+            key_one = root / "key-one.csv"
+            review_two = root / "review-two.csv"
+            key_two = root / "key-two.csv"
+
+            prepare_blind_review(paired_rows(), review_one, key_one, seed=73)
+            prepare_blind_review(paired_rows(), review_two, key_two, seed=73)
+
+            self.assertEqual(review_one.read_bytes(), review_two.read_bytes())
+            self.assertEqual(key_one.read_bytes(), key_two.read_bytes())
+
+    def test_different_seeds_change_randomized_blind_packet(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            review_one = root / "review-one.csv"
+            key_one = root / "key-one.csv"
+            review_two = root / "review-two.csv"
+            key_two = root / "key-two.csv"
+
+            prepare_blind_review(paired_rows(), review_one, key_one, seed=11)
+            prepare_blind_review(paired_rows(), review_two, key_two, seed=99)
+
+            # Order and A/B labels are randomized; no sensitive IDs are used as case IDs.
+            self.assertNotEqual(review_one.read_bytes(), review_two.read_bytes())
+            for row in read_csv(review_one):
+                self.assertRegex(row["case_id"], r"^[0-9a-f]{32}$")
+                self.assertNotIn("case-source", row["case_id"])
+
     def test_rejects_pair_with_missing_variant(self):
         rows = [paired_rows()[0]]
         with tempfile.TemporaryDirectory() as temporary:
