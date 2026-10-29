@@ -229,19 +229,14 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY \
             HF_TOKEN \
             RATE_LIMIT_KEY_SALT \
-            HEALTHCHECK_TOKEN; do
+            HEALTHCHECK_TOKEN \
+            UPSTASH_REDIS_REST_URL \
+            UPSTASH_REDIS_REST_TOKEN; do
             if ! grep -Fq -- "$key" "$env_file"; then
               missing+=("$key")
             fi
           done
 
-          has_upstash_url=false
-          has_upstash_token=false
-          grep -Fq -- "UPSTASH_REDIS_REST_URL" "$env_file" && has_upstash_url=true
-          grep -Fq -- "UPSTASH_REDIS_REST_TOKEN" "$env_file" && has_upstash_token=true
-          if [[ "$has_upstash_url" != "$has_upstash_token" ]]; then
-            missing+=("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must both be set or both be absent")
-          fi
 
           if (( ${#missing[@]} > 0 )); then
             printf '::error::Missing required Vercel Production variable names: %s\n' "${missing[*]}"
@@ -385,7 +380,7 @@ jobs:
             echo ""
             echo "- Supabase Auth HTTP probe passed."
             echo "- Hugging Face token authentication passed; this probe does not perform model inference."
-            echo "- The configured distributed rate-limit backend passed its live probe (Upstash or Supabase PostgreSQL)."
+            echo "- The configured Upstash Redis REST limiter passed its live PING probe."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run authenticated smoke tests on the staged production artifact
