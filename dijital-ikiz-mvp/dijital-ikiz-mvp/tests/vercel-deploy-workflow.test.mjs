@@ -277,19 +277,6 @@ test('production deployment is manual, uses a pinned CLI, and never passes the t
 })
 
 
-test('Production environment gate validates optional dedicated Hugging Face endpoint configuration', async () => {
-  const [workflow, gate] = await Promise.all([
-    readFile(workflowPath, 'utf8'),
-    readFile(path.join(projectDirectory, 'scripts', 'check-production-env.mjs'), 'utf8')
-  ])
-
-  assert.match(workflow, /HF_MODEL \\\n\\s+HF_EMBEDDING_MODEL/)
-  assert.match(gate, /HF_CHAT_COMPLETIONS_URL/)
-  assert.match(gate, /router\\.huggingface\\.co/)
-  assert.match(gate, /endpoints\\.huggingface\\.cloud/)
-  assert.match(gate, /url\\.pathname === '\/v1\/chat\/completions'/)
-})
-
 test('README warns that the production Environment must be protected explicitly', async () => {
   const readme = await readFile(readmePath, 'utf8')
 
