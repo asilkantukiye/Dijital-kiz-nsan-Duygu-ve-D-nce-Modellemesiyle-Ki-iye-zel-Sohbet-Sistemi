@@ -134,7 +134,7 @@ export function validateProductionEnvironment(env) {
 
   for (const key of ['HF_MODEL', 'HF_EMBEDDING_MODEL']) {
     const value = env[key]?.trim() || '';
-    if (value && (value.length > 512 || /[\\r\\n]/u.test(value))) {
+    if (value && (value.length > 512 || /[\r\n]/u.test(value))) {
       issues.push(key + ' is invalid');
     }
   }
