@@ -32,7 +32,7 @@ jobs:
           SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
-          HF_MODEL_REPO: hasankb00/dijital-ikiz-qwen3-4b-lora
+          HF_MODEL_REPO: asilkantukiye/dijital-ikiz-qwen3-4b-lora
         shell: bash
         run: |
           set -euo pipefail
