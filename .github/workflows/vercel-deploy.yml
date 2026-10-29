@@ -22,6 +22,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           PRODUCTION_SMOKE_TEST_EMAIL: ${{ secrets.PRODUCTION_SMOKE_TEST_EMAIL }}
           PRODUCTION_SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_TEST_PASSWORD }}
@@ -37,6 +38,9 @@ jobs:
           fi
           if [[ -z "$HF_TOKEN" ]]; then
             missing+=("HF_TOKEN (Hugging Face inference/read token in GitHub Actions Secrets)")
+          fi
+          if [[ ${#HF_WRITE_TOKEN} -lt 20 ]]; then
+            missing+=("HF_WRITE_TOKEN (Hugging Face write token; model publication is a release prerequisite)")
           fi
           if [[ ${#HEALTHCHECK_TOKEN} -lt 32 ]]; then
             missing+=("HEALTHCHECK_TOKEN (GitHub Actions secret, minimum 32 characters)")
