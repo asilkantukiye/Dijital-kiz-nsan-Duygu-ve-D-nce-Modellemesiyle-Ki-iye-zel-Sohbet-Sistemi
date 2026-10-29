@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import csv
 import random
-import uuid
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -98,7 +97,10 @@ def prepare_blind_review(
     key_rows: list[dict[str, str]] = []
 
     for _pair_id, variants in pairs:
-        case_id = uuid.uuid4().hex
+        # Derive opaque case IDs from the seeded RNG so the entire review packet,
+        # including the condition key, is reproducible when an explicit seed is supplied.
+        # The ID contains no source pair/participant identifier.
+        case_id = f"{rng.getrandbits(128):032x}"
         condition_order = [
             ("personalized", variants["personalized"]),
             ("baseline", variants["baseline"]),
