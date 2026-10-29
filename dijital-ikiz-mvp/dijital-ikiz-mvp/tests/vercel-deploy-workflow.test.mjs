@@ -50,7 +50,8 @@ test('missing deployment prerequisites are explained without exposing secret val
   assert.ok(workflow.includes('for prerequisite in "${missing[@]}"; do'))
   assert.doesNotMatch(workflow, /echo "- `VERCEL_TOKEN`"/)
   assert.match(workflow, /Missing prerequisites mean no production deployment was attempted/)
-  assert.match(workflow, /Never put either token in source code, workflow logs, issues, or chat/)
+  assert.match(workflow, /Never put any token in source code, workflow logs, issues, or chat/)
+  assert.match(workflow, /HF_WRITE_TOKEN.*model publication is a release prerequisite/)
   assert.match(workflow, /HEALTHCHECK_TOKEN.*minimum 32 characters/)
   assert.match(workflow, /leave the variable unset/)
   assert.match(workflow, /Deployment prerequisites are missing[^\n]*\n\s*exit 1/)
@@ -166,7 +167,7 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /SUPABASE_SERVICE_ROLE_KEY/)
   assert.match(readme, /RATE_LIMIT_KEY_SALT/)
   assert.match(readme, /HEALTHCHECK_TOKEN/)
-  assert.match(readme, /Supabase Auth, Hugging Face token kimliği ve yapılandırılmış dağıtık rate-limit backend'i/)
+  assert.match(readme, /Supabase Auth, Hugging Face token kimliği ve Upstash Redis REST `PING` kontrol edilir/)
 })
 
 

@@ -29,7 +29,7 @@ test('deep probe checks Supabase Auth, Hugging Face identity, and Redis PING', a
   assert.ok(calls.every((call) => call.init.signal.aborted === false))
 })
 
-test('deep health probes the Supabase limiter table when Upstash is not configured', async () => {
+test('deep health fails the limiter check when Upstash is not configured', async () => {
   const calls = []
   const result = await probeUpstreams({
     supabaseUrl: environment.supabaseUrl,
@@ -40,21 +40,15 @@ test('deep health probes the Supabase limiter table when Upstash is not configur
     calls.push({ url: String(url), init })
     if (String(url).includes('/auth/v1/health')) return new Response('ok', { status: 200 })
     if (String(url).includes('/api/whoami-v2')) return new Response('{}', { status: 200 })
-    if (String(url).includes('/rest/v1/chat_rate_limit_counters?select=scope&limit=0')) {
-      assert.equal(init.headers.apikey, 'server-role-test-key')
-      assert.equal(init.headers.Authorization, 'Bearer server-role-test-key')
-      return new Response('[]', { status: 200 })
-    }
     return new Response('unexpected', { status: 500 })
   })
 
   assert.deepEqual(result, {
-    ok: true,
-    providers: { supabase: true, huggingface: true, rateLimit: true }
+    ok: false,
+    providers: { supabase: true, huggingface: true, rateLimit: false }
   })
-  assert.equal(calls.length, 3)
+  assert.equal(calls.length, 2)
 })
-
 test('provider failures become booleans and fail the aggregate health check', async () => {
   const result = await probeUpstreams(environment, async (url) => {
     if (String(url).includes('/auth/v1/health')) throw new Error('private internal detail')
@@ -101,6 +95,7 @@ test('Upstash URLs containing credentials, query strings, custom paths, or non-H
     'http://region-12345.upstash.io',
     'https://user:password@region-12345.upstash.io',
     'https://region-12345.upstash.io/?token=oops',
+    'https://region-12345.upstash.io:8443',
     'https://region-12345.upstash.io/custom',
     'https://region-12345.upstash.io.attacker.example'
   ]) {

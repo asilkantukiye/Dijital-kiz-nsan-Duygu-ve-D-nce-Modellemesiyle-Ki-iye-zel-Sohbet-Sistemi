@@ -34,6 +34,18 @@ jobs:
           ref: main
           persist-credentials: false
 
+      - name: Gate model publication on a write credential
+        env:
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ${#HF_WRITE_TOKEN} -lt 20 ]]; then
+            echo "::error::HF_WRITE_TOKEN is missing or too short; model publication blocked before artifact download."
+            exit 1
+          fi
+          echo "Write credential is present; its value is never printed."
+
       - name: Verify successful source training run
         env:
           GH_TOKEN: ${{ github.token }}

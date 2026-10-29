@@ -12,14 +12,14 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | --- | --- | --- | --- |
 | VERCEL_TOKEN | GitHub Actions secret | Yes | Least-privilege token for the Vercel team/project |
 | HF_TOKEN | GitHub Actions secret and Vercel Production env | Yes | Hugging Face read/inference token used by the application and deep health probe |
-| HF_WRITE_TOKEN | GitHub Actions secret only | For model publishing | Hugging Face write token scoped to the target model repository/namespace |
+| HF_WRITE_TOKEN | GitHub Actions secret only | Required for model publication and Production release | Hugging Face write token scoped to the target model repository/namespace |
 | HEALTHCHECK_TOKEN | GitHub Actions secret and Vercel Production env | Yes | Random secret, minimum 32 characters, used by /api/health/deep |
 | RATE_LIMIT_KEY_SALT | Vercel Production env | Yes | Random secret, minimum 32 characters, used to derive rate-limit identity digests |
 | SUPABASE_SERVICE_ROLE_KEY | Vercel Production env | Yes | Server-only Supabase key; never prefix with NEXT_PUBLIC_ |
 | NEXT_PUBLIC_SUPABASE_URL | Vercel Production env | Yes | Supabase project URL |
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | Vercel Production env | Yes | Supabase public/publishable key |
-| UPSTASH_REDIS_REST_URL | Vercel Production env | Optional pair | Upstash REST URL; configure with its token or leave both absent to use the Supabase PostgreSQL limiter |
-| UPSTASH_REDIS_REST_TOKEN | Vercel Production env | Optional pair | Upstash REST token |
+| UPSTASH_REDIS_REST_URL | Vercel Production env | Required | Upstash REST URL; Production readiness blocks unless its token is also present |
+| UPSTASH_REDIS_REST_TOKEN | Vercel Production env | Required | Upstash REST token; Production readiness blocks unless its URL is also present |
 | PRODUCTION_SMOKE_TEST_EMAIL | GitHub Actions secret only | Yes for deploy workflow | Dedicated, confirmed, low-privilege Supabase test account email |
 | PRODUCTION_SMOKE_TEST_PASSWORD | GitHub Actions secret only | Yes for deploy workflow | Password for the dedicated smoke-test account |
 | SUPABASE_PRODUCTION_SCHEMA_VERIFIED | GitHub repository variable | Yes | Must be exactly true only after live migration/RLS/RPC checks pass |
@@ -88,7 +88,7 @@ Set/verify environment names in Vercel without printing values:
     npx vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope help-70c6
     npx vercel@63.1.2 env ls production --scope help-70c6
 
-The required Production names are NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN, RATE_LIMIT_KEY_SALT, and HEALTHCHECK_TOKEN. UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must either both be present and valid or both be absent; when both are absent the live Supabase PostgreSQL rate-limit fallback must pass its deep probe.
+The required Production names are NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN, RATE_LIMIT_KEY_SALT, and HEALTHCHECK_TOKEN. UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are both required in Production and must be valid. If either is missing, the environment gate stops the build. If Redis returns an error or times out, `/api/chat` fails closed with HTTP 503 and `Retry-After`, while `/api/health/deep` reports 503. Production does not fall back to a process-local limiter or silently bypass rate limiting.
 
 Launch only from the latest main ref (never from a feature or stale branch):
 
@@ -108,7 +108,7 @@ The deploy workflow stays manual on purpose. It validates, stages a Production b
 | POST /api/chat without a valid Supabase session | 401 | Correct auth boundary; an unauthenticated 200 is a security failure |
 | POST /api/chat with valid test-user session, valid JSON and working providers | 200 with non-empty reply | Real end-to-end chat, inference and atomic message persistence passed |
 | POST /api/chat with invalid payload | 400 or 413 | Request validation rejected it |
-| POST /api/chat when rate-limit service is unavailable | 503 with Retry-After | Fail-closed temporary fallback; no unsafe bypass |
+| POST /api/chat when rate-limit service is unavailable | 503 with Retry-After | Fail-closed response; no unsafe bypass |
 | POST /api/chat when Hugging Face is unavailable or times out | 502/503 | Provider failure is surfaced as a controlled error instead of a fake success |
 | POST /api/chat when database write path is unavailable | 503 or 500 depending on the failing boundary | No claim of successful saved chat; inspect the sanitized code/log correlation |
 
@@ -133,7 +133,7 @@ Do not deliberately disable Production credentials to test 503 behavior. Exercis
 | Supabase service-role/write RPC unavailable | Controlled failure; atomic write means no partial user/assistant pair is accepted as success |
 | Rate-limit store unavailable | 503 / fail closed, never silently fall back to per-process memory |
 | Wrong deep-health token | 404, no provider details returned |
-| Partial Upstash configuration | Production readiness/deep health must fail; configure both values or remove both to use PostgreSQL fallback |
+| Missing or partial Upstash configuration | Production build gate fails; if Redis fails after deployment, chat fails closed with HTTP 503 and Retry-After |
 | Duplicate simultaneous request | One owner does model work; concurrent duplicate receives replay/wait behavior or a controlled conflict, not two persisted turns |
 
 ## Release decision

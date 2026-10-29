@@ -37,6 +37,7 @@ function isValidUpstashRestUrl(value?: string) {
     const url = new URL(value)
     return url.protocol === 'https:' &&
       url.hostname.endsWith('.upstash.io') &&
+      !url.port &&
       !url.username &&
       !url.password &&
       !url.search &&
@@ -60,12 +61,7 @@ export function buildHealthStatus(environment: HealthEnvironment): HealthStatus 
     environment.upstashRedisRestToken?.trim() &&
     validSalt
   )
-  const supabaseRateLimit = Boolean(
-    isValidSupabaseUrl(environment.supabaseUrl) &&
-    environment.supabaseServiceRoleKey?.trim() &&
-    validSalt
-  )
-  const rateLimit = upstashRateLimit || supabaseRateLimit
+  const rateLimit = upstashRateLimit
 
   return {
     ok: true,

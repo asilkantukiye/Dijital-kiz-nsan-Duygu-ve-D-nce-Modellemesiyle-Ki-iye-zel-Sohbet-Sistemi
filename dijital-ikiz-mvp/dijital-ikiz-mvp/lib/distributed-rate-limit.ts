@@ -1,5 +1,4 @@
 import { createHmac } from 'node:crypto'
-import { isValidSupabaseUrl } from './supabase-url.ts'
 
 const USER_LIMIT = 20
 const GLOBAL_MINUTE_LIMIT = 120
@@ -24,8 +23,6 @@ export type ChatRateLimitEnvironment = {
   UPSTASH_REDIS_REST_URL?: string
   UPSTASH_REDIS_REST_TOKEN?: string
   RATE_LIMIT_KEY_SALT?: string
-  NEXT_PUBLIC_SUPABASE_URL?: string
-  SUPABASE_SERVICE_ROLE_KEY?: string
 }
 
 type RateLimitOptions = {
@@ -128,10 +125,12 @@ function validUpstashUrl(value?: string): URL | null {
     if (
       url.protocol !== 'https:' ||
       !url.hostname.endsWith('.upstash.io') ||
+      url.port ||
       url.username ||
       url.password ||
       url.search ||
-      url.hash
+      url.hash ||
+      (url.pathname !== '/' && url.pathname !== '')
     ) {
       return null
     }
@@ -142,10 +141,9 @@ function validUpstashUrl(value?: string): URL | null {
 }
 
 /**
- * Production must have a distributed rate-limit store. A local Map is used
- * only when running explicitly outside production and no Upstash setting was
- * supplied. Missing/partial configuration or a backend error fails closed so
- * callers never spend on model inference without a valid limiter decision.
+ * Production requires a healthy Upstash REST limiter. A local Map is used
+ * only when running outside production with no limiter configuration. Missing
+ * credentials, partial configuration or a Redis error fails closed before inference.
  */
 export async function enforceChatRateLimit(
   userId: string,
@@ -157,8 +155,6 @@ export async function enforceChatRateLimit(
   const rawUrl = environment.UPSTASH_REDIS_REST_URL?.trim()
   const token = environment.UPSTASH_REDIS_REST_TOKEN?.trim()
   const salt = environment.RATE_LIMIT_KEY_SALT?.trim()
-  const supabaseUrlValue = environment.NEXT_PUBLIC_SUPABASE_URL?.trim()
-  const supabaseServiceRoleKey = environment.SUPABASE_SERVICE_ROLE_KEY?.trim()
   const hasAnyConfiguration = Boolean(rawUrl || token || salt)
 
   if (!hasAnyConfiguration && environment.NODE_ENV !== 'production') {
@@ -167,11 +163,12 @@ export async function enforceChatRateLimit(
 
   if (!userId || !salt || salt.length < 32) return unavailable()
 
-  const userDigest = createHmac('sha256', salt).update(userId).digest('hex')
   const url = validUpstashUrl(rawUrl)
+  if (!url || !token) return unavailable()
 
-  if (url && token) {
-    const dayKey = now.toISOString().slice(0, 10)
+  const userDigest = createHmac('sha256', salt).update(userId).digest('hex')
+
+  const dayKey = now.toISOString().slice(0, 10)
   const keys = [
     'dijital-ikiz:{chat}:user:' + userDigest,
     'dijital-ikiz:{chat}:global:minute',
@@ -251,84 +248,4 @@ export async function enforceChatRateLimit(
     // Do not log endpoint credentials, provider payloads, or raw user IDs.
     return unavailable()
   }
-  }
-
-  // Production can use the existing Supabase database as an atomic distributed
-  // limiter when Upstash is not provisioned. The RPC is service_role-only.
-  if (
-    isValidSupabaseUrl(supabaseUrlValue) &&
-    supabaseServiceRoleKey &&
-    userId
-  ) {
-    try {
-      const fetcher = options.fetcher ?? fetch
-      const response = await fetcher(
-        new URL('/rest/v1/rpc/consume_chat_rate_limit', supabaseUrlValue!),
-        {
-          method: 'POST',
-          headers: {
-            apikey: supabaseServiceRoleKey,
-            Authorization: 'Bearer ' + supabaseServiceRoleKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            p_user_digest: userDigest,
-            p_now: now.toISOString()
-          }),
-          cache: 'no-store',
-          redirect: 'error',
-          signal: AbortSignal.timeout(REST_TIMEOUT_MS)
-        }
-      )
-
-      if (!response.ok) return unavailable()
-
-      const payload: unknown = await response.json()
-      const row = Array.isArray(payload) ? payload[0] : payload
-      if (!row || typeof row !== 'object') return unavailable()
-
-      const result = row as {
-        allowed?: unknown
-        retry_after_seconds?: unknown
-        reason?: unknown
-      }
-      const retryAfterSeconds = Number(result.retry_after_seconds)
-      if (
-        typeof result.allowed !== 'boolean' ||
-        !Number.isInteger(retryAfterSeconds) ||
-        retryAfterSeconds < 0 ||
-        typeof result.reason !== 'string'
-      ) {
-        return unavailable()
-      }
-
-      if (result.allowed && result.reason === 'allowed' && retryAfterSeconds === 0) {
-        return {
-          allowed: true,
-          unavailable: false,
-          retryAfterSeconds: 0,
-          reason: 'allowed'
-        }
-      }
-
-      if (
-        !result.allowed &&
-        (result.reason === 'user' || result.reason === 'global-minute' || result.reason === 'global-day')
-      ) {
-        return {
-          allowed: false,
-          unavailable: false,
-          retryAfterSeconds: Math.max(1, retryAfterSeconds),
-          reason: result.reason
-        }
-      }
-
-      return unavailable()
-    } catch {
-      // Do not log provider payloads, service keys, or raw user IDs.
-      return unavailable()
-    }
-  }
-
-  return unavailable()
 }

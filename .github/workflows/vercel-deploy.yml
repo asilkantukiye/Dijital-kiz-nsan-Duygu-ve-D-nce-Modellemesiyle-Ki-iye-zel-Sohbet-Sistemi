@@ -22,6 +22,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
           HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           PRODUCTION_SMOKE_TEST_EMAIL: ${{ secrets.PRODUCTION_SMOKE_TEST_EMAIL }}
           PRODUCTION_SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_TEST_PASSWORD }}
@@ -37,6 +38,9 @@ jobs:
           fi
           if [[ -z "$HF_TOKEN" ]]; then
             missing+=("HF_TOKEN (Hugging Face inference/read token in GitHub Actions Secrets)")
+          fi
+          if [[ ${#HF_WRITE_TOKEN} -lt 20 ]]; then
+            missing+=("HF_WRITE_TOKEN (Hugging Face write token; model publication is a release prerequisite)")
           fi
           if [[ ${#HEALTHCHECK_TOKEN} -lt 32 ]]; then
             missing+=("HEALTHCHECK_TOKEN (GitHub Actions secret, minimum 32 characters)")
@@ -72,8 +76,8 @@ jobs:
                 echo "- $prerequisite"
               done
               echo ""
-              echo "Add VERCEL_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
-              echo "Never put either token in source code, workflow logs, issues, or chat."
+              echo "Add VERCEL_TOKEN and HF_WRITE_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
+              echo "HF_WRITE_TOKEN must have write access to hasankb00/dijital-ikiz-qwen3-4b-lora. Never put any token in source code, workflow logs, issues, or chat."
               echo ""
               echo "Add HEALTHCHECK_TOKEN as a GitHub Actions secret (at least 32 random characters) and configure the identical value as a Vercel Production environment variable. The post-deploy probe will fail closed if the values do not match."
               echo ""
@@ -229,19 +233,14 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY \
             HF_TOKEN \
             RATE_LIMIT_KEY_SALT \
-            HEALTHCHECK_TOKEN; do
+            HEALTHCHECK_TOKEN \
+            UPSTASH_REDIS_REST_URL \
+            UPSTASH_REDIS_REST_TOKEN; do
             if ! grep -Fq -- "$key" "$env_file"; then
               missing+=("$key")
             fi
           done
 
-          has_upstash_url=false
-          has_upstash_token=false
-          grep -Fq -- "UPSTASH_REDIS_REST_URL" "$env_file" && has_upstash_url=true
-          grep -Fq -- "UPSTASH_REDIS_REST_TOKEN" "$env_file" && has_upstash_token=true
-          if [[ "$has_upstash_url" != "$has_upstash_token" ]]; then
-            missing+=("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must both be set or both be absent")
-          fi
 
           if (( ${#missing[@]} > 0 )); then
             printf '::error::Missing required Vercel Production variable names: %s\n' "${missing[*]}"
@@ -254,6 +253,10 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@63.1.2 pull --yes --environment=production --scope "help-70c6"
+
+      - name: Verify actual Production environment values before build
+        shell: bash
+        run: node scripts/check-production-env.mjs .vercel/.env.production.local
 
       - name: Build the Production artifact
         env:
@@ -371,7 +374,7 @@ jobs:
               process.exit(1);
             }
 
-            console.log("Deep health passed for Supabase Auth, Hugging Face token authentication, and the distributed rate-limit backend.");
+            console.log("Deep health passed for Supabase Auth, Hugging Face token authentication, and Upstash Redis REST PING.");
           });
           '
 
@@ -381,7 +384,7 @@ jobs:
             echo ""
             echo "- Supabase Auth HTTP probe passed."
             echo "- Hugging Face token authentication passed; this probe does not perform model inference."
-            echo "- The configured distributed rate-limit backend passed its live probe (Upstash or Supabase PostgreSQL)."
+            echo "- The configured Upstash Redis REST limiter passed its live PING probe."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run authenticated smoke tests on the staged production artifact
