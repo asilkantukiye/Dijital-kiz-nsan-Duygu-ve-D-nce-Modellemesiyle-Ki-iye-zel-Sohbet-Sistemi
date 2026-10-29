@@ -201,6 +201,27 @@ test('production smoke test checks missing deep-health token is hidden', async (
   assert.match(smoke, /disclosed internal provider or diagnostic details/)
 })
 
+test('Kaggle model publication verifies GitHub artifact digest and records provenance', async () => {
+  const [publishWorkflow, publisher, deployWorkflow] = await Promise.all([
+    readFile(path.join(repositoryDirectory, '.github', 'workflows', 'publish-kaggle-lora.yml'), 'utf8'),
+    readFile(path.join(projectDirectory, 'ml', 'kaggle', 'publish_lora_to_hf.py'), 'utf8'),
+    readFile(workflowPath, 'utf8')
+  ])
+
+  assert.match(publishWorkflow, /actions\/runs\/\$SOURCE_RUN_ID\/artifacts/)
+  assert.match(publishWorkflow, /artifact\.digest/)
+  assert.match(publishWorkflow, /actions\/artifacts\/\$artifact_id\/zip/)
+  assert.match(publishWorkflow, /actual_digest.*expected_digest/)
+  assert.match(publishWorkflow, /source-artifact-digest "\$source_digest"/)
+  assert.match(publishWorkflow, /unsafe path/)
+  assert.match(publishWorkflow, /symlinks are not allowed/)
+  assert.match(publisher, /source-artifact-provenance\.json/)
+  assert.match(publisher, /validate_source_artifact_digest/)
+  assert.match(deployWorkflow, /source-artifact-provenance\.json/)
+  assert.match(deployWorkflow, /source_artifact_digest/)
+  assert.match(deployWorkflow, /model repository.*source artifact provenance/s)
+})
+
 test('Production deployment verifies the private published LoRA before staging', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
