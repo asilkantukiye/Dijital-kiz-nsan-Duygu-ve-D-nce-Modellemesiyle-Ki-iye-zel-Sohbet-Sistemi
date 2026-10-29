@@ -3,7 +3,6 @@ import { isValidSupabaseUrl } from './supabase-url.ts'
 export type DeepHealthEnvironment = {
   supabaseUrl?: string
   supabasePublishableKey?: string
-  supabaseServiceRoleKey?: string
   huggingfaceToken?: string
   upstashRedisRestUrl?: string
   upstashRedisRestToken?: string
