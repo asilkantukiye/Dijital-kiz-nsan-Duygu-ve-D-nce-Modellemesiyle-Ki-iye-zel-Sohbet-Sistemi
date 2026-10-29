@@ -43,6 +43,8 @@ test('missing deployment prerequisites are explained without exposing secret val
     'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
     'HF_TOKEN',
+    'HF_MODEL',
+    'HF_EMBEDDING_MODEL',
     'UPSTASH_REDIS_REST_URL',
     'UPSTASH_REDIS_REST_TOKEN',
     'RATE_LIMIT_KEY_SALT',
@@ -272,6 +274,20 @@ test('production deployment is manual, uses a pinned CLI, and never passes the t
   assert.doesNotMatch(workflow, /--token\s+["']?\$\{\{\s*secrets\.VERCEL_TOKEN/)
   assert.doesNotMatch(workflow, /--token\s+["']?\$VERCEL_TOKEN/)
   assert.match(workflow, /VERCEL_TOKEN:\s*\$\{\{\s*secrets\.VERCEL_TOKEN\s*\}\}/)
+})
+
+
+test('Production environment gate validates optional dedicated Hugging Face endpoint configuration', async () => {
+  const [workflow, gate] = await Promise.all([
+    readFile(workflowPath, 'utf8'),
+    readFile(path.join(projectDirectory, 'scripts', 'check-production-env.mjs'), 'utf8')
+  ])
+
+  assert.match(workflow, /HF_MODEL \\\n\\s+HF_EMBEDDING_MODEL/)
+  assert.match(gate, /HF_CHAT_COMPLETIONS_URL/)
+  assert.match(gate, /router\\.huggingface\\.co/)
+  assert.match(gate, /endpoints\\.huggingface\\.cloud/)
+  assert.match(gate, /url\\.pathname === '\/v1\/chat\/completions'/)
 })
 
 test('README warns that the production Environment must be protected explicitly', async () => {
