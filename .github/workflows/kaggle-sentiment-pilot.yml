@@ -155,8 +155,12 @@ jobs:
           if code_cells < 5 or python_cells < 5:
               raise SystemExit(f"Unexpectedly few Python code cells: {code_cells}")
           workflow = Path("../../.github/workflows/kaggle-sentiment-pilot.yml").read_text(encoding="utf-8")
-          if "--no-run" in workflow:
-              raise SystemExit("Autonomous Kaggle workflow must not use --no-run.")
+          parts = workflow.split("- name: Submit notebook and start Kaggle training", 1)
+          if len(parts) != 2:
+              raise SystemExit("Workflow is missing its Kaggle submit/run step.")
+          submit_step = parts[1].split("\\n      - name:", 1)[0]
+          if "kaggle kernels push" not in submit_step or "--no-run" in submit_step:
+              raise SystemExit("Kaggle submit step must push the notebook without disabling execution.")
           if "kaggle kernels status" not in workflow or "kaggle kernels output" not in workflow:
               raise SystemExit("Workflow must poll Kaggle status and collect the completed output.")
           print(f"Notebook JSON validated; compiled {python_cells} Python cells and verified autonomous CLI commands.")
