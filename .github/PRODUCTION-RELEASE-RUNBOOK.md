@@ -18,8 +18,8 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | SUPABASE_SERVICE_ROLE_KEY | Vercel Production env | Yes | Server-only Supabase key; never prefix with NEXT_PUBLIC_ |
 | NEXT_PUBLIC_SUPABASE_URL | Vercel Production env | Yes | Supabase project URL |
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | Vercel Production env | Yes | Supabase public/publishable key |
-| UPSTASH_REDIS_REST_URL | Vercel Production env | Optional pair | Upstash REST URL; configure with its token or leave both absent to use the Supabase PostgreSQL limiter |
-| UPSTASH_REDIS_REST_TOKEN | Vercel Production env | Optional pair | Upstash REST token |
+| UPSTASH_REDIS_REST_URL | Vercel Production env | Required | Upstash REST URL; Production readiness blocks unless its token is also present |
+| UPSTASH_REDIS_REST_TOKEN | Vercel Production env | Required | Upstash REST token; Production readiness blocks unless its URL is also present |
 | PRODUCTION_SMOKE_TEST_EMAIL | GitHub Actions secret only | Yes for deploy workflow | Dedicated, confirmed, low-privilege Supabase test account email |
 | PRODUCTION_SMOKE_TEST_PASSWORD | GitHub Actions secret only | Yes for deploy workflow | Password for the dedicated smoke-test account |
 | SUPABASE_PRODUCTION_SCHEMA_VERIFIED | GitHub repository variable | Yes | Must be exactly true only after live migration/RLS/RPC checks pass |
@@ -88,7 +88,7 @@ Set/verify environment names in Vercel without printing values:
     npx vercel@63.1.2 link --yes --project dijital-ikiz-insan --scope help-70c6
     npx vercel@63.1.2 env ls production --scope help-70c6
 
-The required Production names are NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN, RATE_LIMIT_KEY_SALT, and HEALTHCHECK_TOKEN. UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must either both be present and valid or both be absent; when both are absent the live Supabase PostgreSQL rate-limit fallback must pass its deep probe.
+The required Production names are NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN, RATE_LIMIT_KEY_SALT, and HEALTHCHECK_TOKEN. UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are both required in Production and must be valid. If either is missing, the environment gate stops the build. If Redis returns an error or times out, `/api/chat` fails closed with HTTP 503 and `Retry-After`, while `/api/health/deep` reports 503. Production does not fall back to a process-local limiter or silently bypass rate limiting.
 
 Launch only from the latest main ref (never from a feature or stale branch):
 
@@ -133,7 +133,7 @@ Do not deliberately disable Production credentials to test 503 behavior. Exercis
 | Supabase service-role/write RPC unavailable | Controlled failure; atomic write means no partial user/assistant pair is accepted as success |
 | Rate-limit store unavailable | 503 / fail closed, never silently fall back to per-process memory |
 | Wrong deep-health token | 404, no provider details returned |
-| Partial Upstash configuration | Production readiness/deep health must fail; configure both values or remove both to use PostgreSQL fallback |
+| Missing or partial Upstash configuration | Production build gate fails; if Redis fails after deployment, chat fails closed with HTTP 503 and Retry-After |
 | Duplicate simultaneous request | One owner does model work; concurrent duplicate receives replay/wait behavior or a controlled conflict, not two persisted turns |
 
 ## Release decision
