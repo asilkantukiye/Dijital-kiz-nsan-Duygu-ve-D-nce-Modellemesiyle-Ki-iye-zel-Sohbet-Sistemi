@@ -7,6 +7,8 @@ const validEnv = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_' + 'x'.repeat(32),
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-' + 'x'.repeat(48),
   HF_TOKEN: 'hf_' + 'x'.repeat(40),
+  HF_MODEL: 'Qwen/Qwen3-4B-Instruct-2507',
+  HF_EMBEDDING_MODEL: 'intfloat/multilingual-e5-small',
   RATE_LIMIT_KEY_SALT: 's'.repeat(40),
   HEALTHCHECK_TOKEN: 'h'.repeat(40),
   UPSTASH_REDIS_REST_URL: 'https://region-12345.upstash.io',
@@ -100,4 +102,42 @@ test('Dotenv parser handles quotes, exports, comments and blank lines', () => {
   assert.equal(parsed.HF_TOKEN, 'hf_abc123');
   assert.equal(parsed.HEALTHCHECK_TOKEN, 'health secret');
   assert.equal(parsed.RATE_LIMIT_KEY_SALT, 'salt-value');
+});
+
+test('Production gate accepts only trusted HTTPS chat completion endpoints when configured', () => {
+  assert.deepEqual(
+    validateProductionEnvironment({
+      ...validEnv,
+      HF_CHAT_COMPLETIONS_URL: 'https://router.huggingface.co/v1/chat/completions',
+    }),
+    { ok: true, issues: [] },
+  );
+
+  assert.deepEqual(
+    validateProductionEnvironment({
+      ...validEnv,
+      HF_CHAT_COMPLETIONS_URL: 'https://model-abc.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions',
+    }),
+    { ok: true, issues: [] },
+  );
+
+  for (const value of [
+    'http://router.huggingface.co/v1/chat/completions',
+    'https://router.huggingface.co/v1/chat/completions?token=secret',
+    'https://attacker.example/v1/chat/completions',
+    'https://router.huggingface.co.evil.example/v1/chat/completions',
+    'https://user:pass@router.huggingface.co/v1/chat/completions',
+    'https://router.huggingface.co/v1/embeddings',
+  ]) {
+    const result = validateProductionEnvironment({ ...validEnv, HF_CHAT_COMPLETIONS_URL: value });
+    assert.equal(result.ok, false, value + ' should be rejected');
+    assert.ok(result.issues.some(issue => issue.includes('HF_CHAT_COMPLETIONS_URL')));
+  }
+});
+
+test('Production gate rejects model identifiers containing newlines or excessive length', () => {
+  assert.ok(validateProductionEnvironment({ ...validEnv, HF_MODEL: 'Qwen/model\\nInjected: yes' }).issues
+    .some(issue => issue.includes('HF_MODEL')));
+  assert.ok(validateProductionEnvironment({ ...validEnv, HF_EMBEDDING_MODEL: 'x'.repeat(513) }).issues
+    .some(issue => issue.includes('HF_EMBEDDING_MODEL')));
 });
