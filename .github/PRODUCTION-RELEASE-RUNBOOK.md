@@ -12,7 +12,7 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | --- | --- | --- | --- |
 | VERCEL_TOKEN | GitHub Actions secret | Yes | Least-privilege token for the Vercel team/project |
 | HF_TOKEN | GitHub Actions secret and Vercel Production env | Yes | Hugging Face read/inference token used by the application and deep health probe |
-| HF_WRITE_TOKEN | GitHub Actions secret only | For model publishing | Hugging Face write token scoped to the target model repository/namespace |
+| HF_WRITE_TOKEN | GitHub Actions secret only | Required for model publication and Production release | Hugging Face write token scoped to the target model repository/namespace |
 | HEALTHCHECK_TOKEN | GitHub Actions secret and Vercel Production env | Yes | Random secret, minimum 32 characters, used by /api/health/deep |
 | RATE_LIMIT_KEY_SALT | Vercel Production env | Yes | Random secret, minimum 32 characters, used to derive rate-limit identity digests |
 | SUPABASE_SERVICE_ROLE_KEY | Vercel Production env | Yes | Server-only Supabase key; never prefix with NEXT_PUBLIC_ |
