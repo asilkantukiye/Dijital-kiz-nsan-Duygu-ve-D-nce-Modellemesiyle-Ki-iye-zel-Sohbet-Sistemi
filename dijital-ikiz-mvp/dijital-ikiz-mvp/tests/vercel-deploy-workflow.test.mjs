@@ -211,7 +211,7 @@ test('Kaggle model publication verifies GitHub artifact digest and records prove
   assert.match(publishWorkflow, /actions\/runs\/\$SOURCE_RUN_ID\/artifacts/)
   assert.match(publishWorkflow, /artifact\.digest/)
   assert.match(publishWorkflow, /actions\/artifacts\/\$artifact_id\/zip/)
-  assert.match(publishWorkflow, /actual_digest.*expected_digest/)
+  assert.match(publishWorkflow, /actual_digest.*expected_digest/s)
   assert.match(publishWorkflow, /source-artifact-digest "\$source_digest"/)
   assert.match(publishWorkflow, /unsafe path/)
   assert.match(publishWorkflow, /symlinks are not allowed/)
@@ -219,7 +219,7 @@ test('Kaggle model publication verifies GitHub artifact digest and records prove
   assert.match(publisher, /validate_source_artifact_digest/)
   assert.match(deployWorkflow, /source-artifact-provenance\.json/)
   assert.match(deployWorkflow, /source_artifact_digest/)
-  assert.match(deployWorkflow, /model repository.*source artifact provenance/s)
+  assert.match(deployWorkflow, /source artifact provenance is missing or invalid/)
 })
 
 test('Production deployment verifies the private published LoRA before staging', async () => {
