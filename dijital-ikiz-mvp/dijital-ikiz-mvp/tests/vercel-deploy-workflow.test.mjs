@@ -208,7 +208,7 @@ test('custom Hugging Face chat endpoint is optional, allowlisted, and covered by
   assert.match(provider, /fetch\(chatCompletionsUrl/)
   assert.match(envGate, /HF_CHAT_COMPLETIONS_URL/)
   assert.match(envExample, /HF_CHAT_COMPLETIONS_URL=/)
-  assert.match(readme, /LoRA adapter deposuna yayımlanması, serverless Router'ın adapter'ı otomatik yüklemesi anlamına gelmez/)
+  assert.match(readme, /LoRA adapter'ının Hugging Face Hub'a yüklenmesi, serverless Router'ın adapter'ı otomatik yüklemesi anlamına gelmez/)
   assert.match(runbook, /HF_CHAT_COMPLETIONS_URL/)
 })
 
