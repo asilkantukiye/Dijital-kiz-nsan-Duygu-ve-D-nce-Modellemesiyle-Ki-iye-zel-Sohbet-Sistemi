@@ -25,7 +25,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 - `.github/workflows/kaggle-end-to-end-training.yml` manuel olarak başlatıldığında GitHub Actions Kaggle notebook'unu GPU ve Internet açık şekilde gönderip çalıştırır, sonucu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını kontrol eder. Önceki manuel **Prepare Kaggle Model Training** + Kaggle **Run All** yolu yedek olarak kalır.
 - İsteğe bağlı Hugging Face yayımlama adımı, ölçüm dosyaları olan Qwen3-4B LoRA adaptörünü özel bir Hub deposuna yükler. Bu işlem tam birleştirilmiş model veya çalışan inference endpoint'i oluşturmaz; Vercel uygulamasının mevcut `HF_MODEL` ayarını otomatik değiştirmez. Gerçek metrik oluşmadan model yayımlama adımı çalışmaz.
 
-**Doğrulanan durum (27.10.2026):** [Kaggle run 40562948791](https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40562948791) başarıyla tamamlandı; artefakt doğrulaması geçti. Polarite için 15.000/3.000/3.000, Qwen için 1.498/150/250 kodlanmış train/validation/test örneği raporlandı. Eğitim sonuçları `docs/kaggle-training-results-2026-10-27.md` dosyasında. Canlıya alma ve kullanıcı değerlendirmesi hâlâ ayrı kapılardır.
+**Doğrulanan durum (29.10.2026):** [Kaggle run 40897581853](https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40897581853) başarıyla tamamlandı; artefakt digest doğrulandı. Polarite için 15.000/3.000/3.000, Qwen için 1.498/150/250 kodlanmış train/validation/test örneği raporlandı. [Yayınlama run 40915013003](https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/40915013003) ikinci denemede başarılı oldu; özel LoRA, `training-metrics.json` ve `scientific-validation-report.md` Hugging Face'e yüklendi. Canlıya alma ve kontrollü kullanıcı değerlendirmesi hâlâ ayrı kapılardır.
 
 ## Aşama 2 — gerçek bilimsel veri ve model doğrulama
 
@@ -43,8 +43,8 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 
 - Gerçek Kaggle ölçümleri: `docs/kaggle-training-results-2026-10-27.md`.
 - Polarite/Qwen eğitim çıktıları doğrulandı; VAD ve Big Five bu koşuda etiketli, izin/lisansı doğrulanmış CSV olmadığı için çalıştırılmadı.
-- Hugging Face'e Qwen LoRA yükleme `HF_WRITE_TOKEN` olmadığı için tamamlanmadı. Mevcut özel depoların bulunması, ağırlıkların depoya yüklendiği anlamına gelmez.
-- Vercel canlıya alma bu revizyonda doğrulanmış değildir: son denemelerde dağıtım platformu 24 saatlik build sınırı bildirdi ve üretim şema koruma değişkeni ayrıca yetkili GitHub Actions erişimi istiyor.
+- Qwen LoRA özel Hugging Face deposuna yüklendi ve yayınlama job'ı dosya/manifest/rapor kontrolüyle başarılı oldu. Bu, uygulamaya inference entegrasyonu yapıldığı anlamına gelmez; uygulamanın `HF_MODEL` ayarı hâlen temel Qwen modelidir.
+- Vercel production dağıtımı, environment variable'lar ve canlı sağlık kontrolü bu denetimde yetki erişimi nedeniyle doğrulanamadı; canlıya alma tamamlanmış kabul edilmemelidir.
 - Genel sohbet ve kişiselleştirilmiş sohbet için kullanıcı/uzman kör değerlendirmesi, önceden belirlenmiş kalite ölçütleri ve istatistiksel A/B sonucu hâlâ gereklidir.
 
 ## Aşama 3 — entegrasyon ve TÜBİTAK kanıt dosyası
@@ -68,3 +68,8 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 - https://tubitak.gov.tr/tr/yarismalar/2204-a-lise-ogrencileri-arastirma-projeleri-yarismasi
 - https://tubitak.gov.tr/sites/default/files/2026-09/lise_proje_rehberi_2027_onaya_sunulan.pdf
 - https://tubitak.gov.tr/sites/default/files/2026-09/Ek-1b_2204_A_cagri_metni_2026-2027_17.08.2026_onaya_sunulan_v2.pdf
+
+
+## 29.10.2026 TÜBİTAK uyum denetimi
+
+Ayrıntılı çağrı şartları, kanıt durumu, rapordaki uyumsuzluklar ve önerilen deney planı `docs/tubitak-2027-compliance-review.md` belgesinde yer alır. En önemli yöntem kararı: olumlu/nötr/olumsuz polarite test skoru, VAD başarısı, Big Five başarısı veya kişiye özgü sohbet başarısı yerine kullanılamaz. Bu görevler ayrı etiketler, ayrı testler ve ayrı metrikler gerektirir.
