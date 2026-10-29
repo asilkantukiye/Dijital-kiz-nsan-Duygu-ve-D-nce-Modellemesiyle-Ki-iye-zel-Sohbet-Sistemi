@@ -64,6 +64,11 @@ jobs:
           pilot = pilot_path.read_text(encoding="utf-8")
           if "workflow_call:" not in pilot or "workflow_dispatch:" not in pilot:
               raise SystemExit("Autonomous workflow needs both reusable and manual triggers.")
+          expected_condition = "if: " + "$" + "{{ github.ref == 'refs/heads/main' }}"
+          if expected_condition not in pilot:
+              raise SystemExit("Reusable Kaggle workflow must allow a push caller on main; github.event_name is inherited from the caller.")
+          if "github.event_name == 'workflow_call'" in pilot:
+              raise SystemExit("Do not gate a reusable workflow on github.event_name == workflow_call; the caller event is inherited.")
           submit_parts = pilot.rsplit("- name: Submit notebook and start Kaggle training", 1)
           if len(submit_parts) != 2:
               raise SystemExit("Kaggle submit/run step missing.")

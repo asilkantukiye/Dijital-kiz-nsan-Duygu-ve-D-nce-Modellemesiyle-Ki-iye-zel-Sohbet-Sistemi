@@ -6,18 +6,20 @@ Tek notebook: ml/kaggle/dijital_ikiz_training.ipynb.
 
 Manuel yol: GitHub Actions → **Kaggle End-to-End Model Training** → **Run workflow** adımlarını main dalında çalıştır.
 
-Bu sürüm ayrıca yalnızca ana dala gelen ve commit başlığında `[run-kaggle-training]` işaretini taşıyan özel bir tetiklemeyle tek gerçek eğitimi başlatabilir. Bu, sıradan commit'lerin GPU kotasını tüketmesini önlemek içindir. İş akışı Kaggle metadata'sını oluşturur, GPU ve Internet seçeneğini etkinleştirir, notebook'u Kaggle'a göndererek çalıştırır, bitiş durumunu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını doğrular. İşaretlenmiş commit, özel `hasankb00/dijital-ikiz-qwen3-4b-lora-pilot` deposuna doğrulanmış Qwen LoRA artefaktlarını yayımlamayı da dener. Bunun için `HF_WRITE_TOKEN` GitHub Actions secret'ı yazma yetkisine sahip olmalıdır; yoksa eğitim artefaktı yüklenebilir, ancak Hugging Face yayımlama adımı güvenli biçimde başarısız olur.
+Bu sürüm, ana dala gelen ve commit başlığında `[run-kaggle-training]` işaretini taşıyan commit'lerle otomatik eğitim başlatabilir; böylece sıradan commit'ler GPU kotasını tüketmez. Ayrıca GitHub Actions → **Kaggle End-to-End Model Training** → **Run workflow** yoluyla manuel başlatılabilir. İş akışı Kaggle metadata'sını oluşturur, GPU ve Internet seçeneklerini etkinleştirir, notebook'u Kaggle'a gönderip çalıştırır, bitiş durumunu bekler, paketini indirir ve gerçek metrik dosyalarını doğrular. Varsayılan Hugging Face hedefi `hasankb00/dijital-ikiz-qwen3-4b-lora` deposudur. Yayımlama için Kaggle Notebook Secrets'ta `HF_WRITE_TOKEN` bulunabilir; GitHub Actions Secrets'taki aynı isimli token ise bağımsız yayınlama ve SHA-256 doğrulama adımı için isteğe bağlıdır.
 
 Workflow girdileri:
 
-- **Kaggle notebook ID:** Varsayılan `asilkantkiye/dijital-ikiz-training`; hesabındaki gerçek notebook ID farklıysa `owner/slug` biçiminde düzelt.
-- **Publish Qwen LoRA adapter:** Varsayılan kapalıdır. Yalnızca model artefaktları ve lisanslar incelendikten sonra aç.
-- **Hugging Face repo ID:** Yayımlama seçildiyse `owner/model-name` biçiminde gir. Yeni depo özel (private) oluşturulur.
+- **Kaggle notebook ID:** Varsayılan olarak doğrulanmış Kaggle hesabı adıyla `hesap-adı/dijital-ikiz-training` kullanılır. Mevcut notebook slug farklıysa gerçek `owner/slug` değerini gir.
+- **Publish Qwen LoRA adapter:** Varsayılan açıktır; eğitim tamamlanıp kalite kapıları geçilirse özel Hugging Face deposuna yayınlanır.
+- **Hugging Face repo ID:** Varsayılan `hasankb00/dijital-ikiz-qwen3-4b-lora`. Bu, GitHub proje deposundan farklı bir model deposudur.
 
 ### Gerekli GitHub Actions Secrets
 
 - Mevcut kurulumla geriye dönük uyum için `KAGGLE_KULLANABILEGIN_TOKEN`; ayrıca `KAGGLE_KULLANABILECEGIN_TOKEN` veya `KAGGLE_API_TOKEN` da desteklenir. Eski kimlik doğrulaması için `KAGGLE_USERNAME` ve `KAGGLE_KEY` de desteklenir. Secret adları GitHub kuralları nedeniyle ASCII harf/rakam/alt çizgi kullanmalıdır. Token değerini loglama ya da kaynak koda yazma.
-- Hugging Face'e otomatik yükleme isteniyorsa, hedef model deposuna yazma yetkisiyle sınırlandırılmış `HF_WRITE_TOKEN` secret'ı gerekir. Bu, web uygulamasının inference token'ından ayrı tutulmalıdır.
+- `HF_WRITE_TOKEN` GitHub Actions Secret'ı, GitHub tarafında ek yayınlama ve SHA-256 doğrulama adımı için isteğe bağlıdır. Bu, web uygulamasının inference token'ından ayrı tutulmalıdır. Token Kaggle Notebook Secrets'ta varsa notebook'un kendisi doğrudan yayınlama yapabilir.
+
+**Önemli:** GitHub Actions, Kaggle arayüzündeki Notebook Secrets alanını okuyamaz. Otomatik hattın Kaggle notebook'unu başlatması için Kaggle API tokenı yukarıdaki adlardan biriyle **GitHub Actions Secrets** içinde olmalıdır. Hugging Face yayımlaması iki yoldan çalışabilir: `HF_WRITE_TOKEN` Kaggle Notebook Secrets'ta varsa notebook model yayınını kendi içinde dener; aynı token GitHub Actions Secrets'ta da varsa GitHub tarafındaki doğrulanmış publisher ek bir yayınlama/doğrulama adımı çalıştırır. İki secret kasası birbirine otomatik bağlanmaz.
 
 Başarılı çalıştırmada `kaggle-digital-twin-model-artifacts` adlı GitHub Actions artefaktı, Kaggle'dan alınmış ZIP paketini ve `metrics-summary.json` dosyasını içerir. Eğitim veya veri doğrulaması başarısız olursa artefakt/model yayımlama adımları devam etmez.
 
