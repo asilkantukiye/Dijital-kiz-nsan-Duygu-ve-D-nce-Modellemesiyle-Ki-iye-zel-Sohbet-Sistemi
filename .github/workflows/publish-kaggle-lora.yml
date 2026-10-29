@@ -7,7 +7,7 @@ on:
         description: Successful Kaggle End-to-End Model Training run ID
         required: true
         type: string
-        default: "40562948791"
+        default: "40897581853"
       model_repo:
         description: Private Hugging Face model repository (OWNER/REPO)
         required: true
@@ -71,7 +71,7 @@ jobs:
           const errors = [];
           if (run.conclusion !== 'success') errors.push('source training run is not successful');
           if (run.headBranch !== 'main') errors.push('source training run is not from main');
-          if (run.workflowName !== 'Kaggle End-to-End Model Training') errors.push('source is not the expected Kaggle training workflow');
+          if (run.workflowName !== 'Trigger Kaggle End-to-End Model Training') errors.push('source is not the expected Kaggle training workflow');
           if (!/^[a-f0-9]{40}$/i.test(run.headSha || '')) errors.push('source commit SHA is missing');
           if (errors.length) {
             console.error('Source-run verification failed: ' + errors.join('; ') + '.');
