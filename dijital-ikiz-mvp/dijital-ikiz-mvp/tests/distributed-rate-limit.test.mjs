@@ -104,45 +104,27 @@ test('Upstash request uses one atomic EVAL and never sends the raw user ID', asy
   assert.equal(command[5], 'dijital-ikiz:{chat}:global:day:2026-10-22')
 })
 
-test('Supabase RPC is the production fallback when Upstash is not configured', async () => {
-  let requestedUrl = ''
-  let requestInit
-  const userId = 'supabase-fallback-user'
-  const serviceKey = 'server-only-service-role-test-key'
-  const environment = {
-    NODE_ENV: 'production',
-    NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
-    SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-    RATE_LIMIT_KEY_SALT: 'z'.repeat(32)
-  }
-
-  const result = await enforceChatRateLimit(userId, {
-    environment,
-    now: new Date('2026-10-27T12:34:56.000Z'),
-    fetcher: async (url, init) => {
-      requestedUrl = String(url)
-      requestInit = init
-      return new Response(JSON.stringify([{ allowed: true, retry_after_seconds: 0, reason: 'allowed' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+test('Production fails closed when Upstash is absent and returns a retry delay', async () => {
+  let calls = 0
+  const result = await enforceChatRateLimit('upstash-missing-user', {
+    environment: {
+      NODE_ENV: 'production',
+      RATE_LIMIT_KEY_SALT: 'z'.repeat(32)
+    },
+    fetcher: async () => {
+      calls += 1
+      return response([1, 0, 'allowed'])
     }
   })
 
   assert.deepEqual(result, {
-    allowed: true,
-    unavailable: false,
-    retryAfterSeconds: 0,
-    reason: 'allowed'
+    allowed: false,
+    unavailable: true,
+    retryAfterSeconds: 2,
+    reason: 'backend'
   })
-  assert.equal(requestedUrl, 'https://project.supabase.co/rest/v1/rpc/consume_chat_rate_limit')
-  assert.equal(requestInit.method, 'POST')
-  assert.equal(requestInit.headers.apikey, serviceKey)
-  assert.equal(requestInit.headers.Authorization, 'Bearer ' + serviceKey)
-  assert.ok(requestInit.signal instanceof AbortSignal)
-  const body = JSON.parse(requestInit.body)
-  assert.match(body.p_user_digest, /^[0-9a-f]{64}$/)
-  assert.equal(body.p_user_digest.includes(userId), false)
-  assert.equal(body.p_now, '2026-10-27T12:34:56.000Z')
+  assert.equal(calls, 0)
 })
-
 test('Supabase rate-limit fallback fails closed on malformed RPC responses', async () => {
   const environment = {
     NODE_ENV: 'production',
