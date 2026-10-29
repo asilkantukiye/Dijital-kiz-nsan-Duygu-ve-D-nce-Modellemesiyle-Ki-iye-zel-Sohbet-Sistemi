@@ -37,6 +37,7 @@ function isValidUpstashRestUrl(value?: string) {
     const url = new URL(value)
     return url.protocol === 'https:' &&
       url.hostname.endsWith('.upstash.io') &&
+      !url.port &&
       !url.username &&
       !url.password &&
       !url.search &&
