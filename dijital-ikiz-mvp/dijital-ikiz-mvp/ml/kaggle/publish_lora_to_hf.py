@@ -121,7 +121,7 @@ def verify_local_manifest(directory: Path, manifest: dict[str, dict[str, int | s
 
 
 def verify_remote_manifest(api, repo_id: str, token: str, manifest: dict[str, dict[str, int | str]],
-                           hf_hub_download) -> None:
+                           hf_hub_download, expected_manifest_sha256: str | None = None) -> None:
     names = sorted(manifest)
     info = retry_with_backoff(
         lambda: api.get_paths_info(repo_id=repo_id, paths=names, repo_type="model"),
@@ -152,6 +152,16 @@ def verify_remote_manifest(api, repo_id: str, token: str, manifest: dict[str, di
         )
         require(sha256(Path(cached_file)) == expected.get("sha256"),
                 f"Published file SHA-256 mismatch: {name}")
+
+    if expected_manifest_sha256:
+        remote_manifest_path = retry_with_backoff(
+            lambda: hf_hub_download(
+                repo_id=repo_id, filename="artifact-manifest.json", repo_type="model", token=token
+            ),
+            "Hugging Face artifact-manifest SHA-256 verification",
+        )
+        require(sha256(Path(remote_manifest_path)) == expected_manifest_sha256,
+                "Published artifact-manifest.json SHA-256 mismatch.")
 
 
 def main() -> int:
@@ -316,7 +326,10 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
         require(required_remote.issubset(published_files),
                 "Uploaded repository is missing required adapter files.")
 
-        verify_remote_manifest(api, repo_id, token, manifest, hf_hub_download)
+        verify_remote_manifest(
+            api, repo_id, token, manifest, hf_hub_download,
+            expected_manifest_sha256=sha256(release / "artifact-manifest.json"),
+        )
 
         print(json.dumps({
             "result": "published_private",
