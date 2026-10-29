@@ -125,7 +125,8 @@ test('Production fails closed when Upstash is absent and returns a retry delay',
   })
   assert.equal(calls, 0)
 })
-test('Supabase rate-limit fallback fails closed on malformed RPC responses', async () => {
+test('Production does not bypass missing Upstash with Supabase credentials', async () => {
+  let calls = 0
   const environment = {
     NODE_ENV: 'production',
     NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
@@ -133,22 +134,22 @@ test('Supabase rate-limit fallback fails closed on malformed RPC responses', asy
     RATE_LIMIT_KEY_SALT: 'z'.repeat(32)
   }
 
-  for (const payload of [
-    { error: 'missing array' },
-    [{ allowed: 'yes', retry_after_seconds: 0, reason: 'allowed' }],
-    [{ allowed: false, retry_after_seconds: -1, reason: 'user' }],
-    [{ allowed: false, retry_after_seconds: 1, reason: 'unknown' }]
-  ]) {
-    const result = await enforceChatRateLimit('fallback-test-user', {
-      environment,
-      fetcher: async () => new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } })
-    })
-    assert.equal(result.allowed, false)
-    assert.equal(result.unavailable, true)
-    assert.equal(result.reason, 'backend')
-  }
-})
+  const result = await enforceChatRateLimit('fallback-test-user', {
+    environment,
+    fetcher: async () => {
+      calls += 1
+      return response([1, 0, 'allowed'])
+    }
+  })
 
+  assert.deepEqual(result, {
+    allowed: false,
+    unavailable: true,
+    retryAfterSeconds: 2,
+    reason: 'backend'
+  })
+  assert.equal(calls, 0)
+})
 test('per-user and global windows return controlled retry decisions', async () => {
   for (const [redisResult, expectedReason, expectedRetry] of [
     [[0, 18_000, 'user'], 'user', 18],
