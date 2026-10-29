@@ -8,9 +8,9 @@ Bu demo, MVP'nin raporda tanımlanan mimariyi nasıl gerçekleştirdiğini göst
 
 Ana sayfada proje adı ve deneysel sistem uyarısı gösterilir.
 
-## 2. Kullanıcı kaydı
+## 2. Oturum
 
-Yeni kullanıcı ile kayıt/giriş akışı gösterilir.
+Arayüzde e-posta/şifre giriş ekranı bulunmaz. Uygulama anonim Supabase oturumu oluşturur. İlk açılışta oturumun başarıyla kurulduğu ve sohbet ekranının kullanılabilir olduğu gösterilir; kullanıcıya tarayıcı verileri silinirse anonim oturuma erişimin kaybolabileceği açıklanır.
 
 ## 3. İlk sohbet
 
@@ -55,8 +55,8 @@ Açıkça belirtilmelidir:
 
 ## 9. Demo öncesi kontrol
 
-- Supabase SQL uygulanmış.
-- Hugging Face tokenı ortam değişkeninde.
-- Vercel environment variables ayarlanmış.
-- Üretim/preview build başarılı.
-- En az bir test hesabı ve test sohbeti hazır.
+- Gerekli Supabase migration'ları uygulanmış ve RLS kontrol edilmiş.
+- Vercel Production ortamında Supabase, HF, Upstash, rate-limit salt ve health check ayarları tanımlanmış; değerleri rapor veya ekran görüntüsünde ifşa edilmemiş.
+- Son commit için production build/deployment başarılı ve `/api/health` doğrulanmış.
+- İki ayrı test oturumuyla veri izolasyonu, sohbet, yenileme ve silme kontrol edilmiş.
+- Kullanılan model açıkça belirtilmiş: LoRA endpoint'i tamamlanmadıysa demo temel Qwen modelini kullanır; yüklenen adaptörün uygulamada çalıştığı iddia edilmez.
