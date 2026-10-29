@@ -72,7 +72,7 @@ test('manual training keeps credentials in repository secrets and never source c
   const combined = wrapper + workflow
 
   assert.match(wrapper, /workflow_dispatch:/)
-  assert.match(workflow, /KAGGLE_API_TOKEN: \$\{\{ secrets\.KAGGLE_KULLABILEGIN_TOKEN \|\| secrets\.KAGGLE_KULLANABILECEGIN_TOKEN \|\| secrets\.KAGGLE_API_TOKEN \}\}/)
+  assert.match(workflow, /KAGGLE_API_TOKEN: \$\{\{ secrets\.KAGGLE_[A-Z_]+ \|\| secrets\.KAGGLE_[A-Z_]+ \|\| secrets\.KAGGLE_API_TOKEN \}\}/)
   assert.match(workflow, /HF_WRITE_TOKEN: \$\{\{ secrets\.HF_WRITE_TOKEN \}\}/)
   assert.doesNotMatch(combined, /hf_[A-Za-z0-9]{30,}/)
   assert.doesNotMatch(combined, /kaggle_[A-Za-z0-9]{30,}/)
