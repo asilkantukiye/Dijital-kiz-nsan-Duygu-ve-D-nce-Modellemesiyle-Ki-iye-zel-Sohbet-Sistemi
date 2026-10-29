@@ -78,6 +78,20 @@ async function main() {
     '/api/health readiness flags are incomplete.');
   console.log('PASS /api/health: HTTP 200, ok=true, ready=true.');
 
+  const unauthenticatedDeepResponse = await fetch(baseUrl + '/api/health/deep', {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+    cache: 'no-store',
+  });
+  requireCondition(unauthenticatedDeepResponse.status === 404,
+    '/api/health/deep without x-healthcheck-token must return HTTP 404, got ' +
+      unauthenticatedDeepResponse.status + '.');
+  const unauthenticatedDeepBody = await unauthenticatedDeepResponse.text();
+  requireCondition(!/(?:stack trace|supabase|huggingface|upstash|HEALTHCHECK_TOKEN|internal server error)/iu
+    .test(unauthenticatedDeepBody),
+    'Unauthenticated deep health response disclosed internal provider or diagnostic details.');
+  console.log('PASS /api/health/deep security boundary: missing token returned HTTP 404 without provider details.');
+
   const deepResponse = await fetch(baseUrl + '/api/health/deep', {
     headers: { accept: 'application/json', 'x-healthcheck-token': healthToken },
     signal: AbortSignal.timeout(20_000),
