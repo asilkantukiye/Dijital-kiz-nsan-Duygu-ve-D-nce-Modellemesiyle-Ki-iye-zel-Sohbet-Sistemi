@@ -150,7 +150,7 @@ test('production readiness requires a valid distributed rate-limit configuration
   assert.doesNotMatch(JSON.stringify(configured), /private-test-token|x{32}/)
 })
 
-test('production readiness accepts the existing Supabase server key as a distributed limiter backend', () => {
+test('production readiness requires Upstash even when the Supabase server key exists', () => {
   const status = buildHealthStatus({
     supabaseUrl: 'https://project.example.supabase.co',
     supabasePublishableKey: 'publishable-placeholder',
@@ -160,8 +160,8 @@ test('production readiness accepts the existing Supabase server key as a distrib
     nodeEnv: 'production'
   })
 
-  assert.equal(status.ready, true)
-  assert.equal(status.configured.rateLimit, true)
+  assert.equal(status.ready, false)
+  assert.equal(status.configured.rateLimit, false)
   assert.equal(status.configured.serverWriteBoundary, true)
 })
 
