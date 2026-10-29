@@ -41,7 +41,7 @@ test('Production gate rejects an incomplete Upstash pair', () => {
 test('Production gate rejects invalid Upstash URLs', () => {
   const result = validateProductionEnvironment({
     ...validEnv,
-    UPSTASH_REDIS_REST_URL: 'http://example-upstash.upstash.io',
+    UPSTASH_REDIS_REST_URL: 'https://example-upstash.upstash.io:8443',
     UPSTASH_REDIS_REST_TOKEN: 'token-' + 'x'.repeat(20),
   });
   assert.equal(result.ok, false);
