@@ -19,15 +19,16 @@ Vercel projesinde **Settings → Environment Variables** içinde aşağıdaki an
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` — gizli sunucu anahtarı; `NEXT_PUBLIC_` öneki ekleme.
 - `HF_TOKEN` — gizli değer; Vercel'e doğrudan gir, sohbete veya GitHub dosyasına yazma.
 - `HF_MODEL` — `Qwen/Qwen3-4B-Instruct-2507`
-- `UPSTASH_REDIS_REST_URL` — isteğe bağlı Upstash REST endpoint'i (HTTPS); yalnızca Upstash tercih edilirse tanımla.
-- `UPSTASH_REDIS_REST_TOKEN` — isteğe bağlı gizli REST token'ı; Upstash seçilirse URL ile birlikte tanımla.
-- `RATE_LIMIT_KEY_SALT` — en az 32 rastgele karakter; yalnızca sunucu tarafında tut
-- `HEALTHCHECK_TOKEN` — en az 32 rastgele karakter; sadece gizli `/api/health/deep` operasyonel denetimi için
+- `UPSTASH_REDIS_REST_URL` — **Production için zorunlu** HTTPS Upstash REST endpoint'i.
+- `UPSTASH_REDIS_REST_TOKEN` — **Production için zorunlu** gizli REST token'ı; URL ile birlikte tanımla.
+- `RATE_LIMIT_KEY_SALT` — en az 32 rastgele karakter; yalnızca sunucu tarafında tut.
+- `HEALTHCHECK_TOKEN` — en az 32 rastgele karakter; aynı değer GitHub Actions secret ve Vercel Production env içinde olmalı.
 - `HF_EMBEDDING_MODEL` — `intfloat/multilingual-e5-small`
 
-Üretimde dağıtık rate limit zorunludur; Upstash değişkenleri isteğe bağlıdır. Upstash seçilirse URL ve token birlikte tanımlanır. İkisi yoksa Supabase PostgreSQL tabanlı atomik rate-limit migration'ı canlı projede uygulanmış ve `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` olarak doğrulanmış olmalıdır. Bu önkoşul sağlanmıyorsa `/api/health` hazır durumunu onaylamaz ve sohbet API'si model çağrısını başlatmaz. Token veya salt değerini GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. HF_TOKEN'ı Hugging Face hesabının token ayarlarından üret. Gizli değerleri repoya commit etme.
+Production'da rate limit yalnızca Upstash Redis üzerinden uygulanır; Supabase RPC veya süreç içi belleğe düşen bir geri dönüş yoktur. İki Upstash değişkeninden biri eksik/bozuksa Production build gate durur. Redis dağıtım sonrasında erişilemezse sohbet API'si model çağrısından önce `503` ve `Retry-After` ile kapalı kalır; bu davranış güvenliği korur. Değerleri GitHub'a/sohbete yazma. Supabase URL ve publishable key'i Supabase projesinin API/Connect ayarlarından al. `HF_TOKEN`'ı Hugging Face token ayarlarından üret. Gizli değerleri repoya commit etme.
 
 ## C. GitHub Actions için Vercel Secrets
 
