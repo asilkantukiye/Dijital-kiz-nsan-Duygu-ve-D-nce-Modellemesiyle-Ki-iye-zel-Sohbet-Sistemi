@@ -108,7 +108,7 @@ The deploy workflow stays manual on purpose. It validates, stages a Production b
 | POST /api/chat without a valid Supabase session | 401 | Correct auth boundary; an unauthenticated 200 is a security failure |
 | POST /api/chat with valid test-user session, valid JSON and working providers | 200 with non-empty reply | Real end-to-end chat, inference and atomic message persistence passed |
 | POST /api/chat with invalid payload | 400 or 413 | Request validation rejected it |
-| POST /api/chat when rate-limit service is unavailable | 503 with Retry-After | Fail-closed temporary fallback; no unsafe bypass |
+| POST /api/chat when rate-limit service is unavailable | 503 with Retry-After | Fail-closed response; no unsafe bypass |
 | POST /api/chat when Hugging Face is unavailable or times out | 502/503 | Provider failure is surfaced as a controlled error instead of a fake success |
 | POST /api/chat when database write path is unavailable | 503 or 500 depending on the failing boundary | No claim of successful saved chat; inspect the sanitized code/log correlation |
 
