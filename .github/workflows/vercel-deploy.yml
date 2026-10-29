@@ -370,7 +370,7 @@ jobs:
               process.exit(1);
             }
 
-            console.log("Deep health passed for Supabase Auth, Hugging Face token authentication, and the distributed rate-limit backend.");
+            console.log("Deep health passed for Supabase Auth, Hugging Face token authentication, and Upstash Redis REST PING.");
           });
           '
 
