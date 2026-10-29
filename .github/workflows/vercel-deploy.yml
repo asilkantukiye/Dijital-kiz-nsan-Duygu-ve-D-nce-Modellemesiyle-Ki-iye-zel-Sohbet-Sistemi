@@ -76,8 +76,8 @@ jobs:
                 echo "- $prerequisite"
               done
               echo ""
-              echo "Add VERCEL_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
-              echo "Never put either token in source code, workflow logs, issues, or chat."
+              echo "Add VERCEL_TOKEN and HF_WRITE_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
+              echo "HF_WRITE_TOKEN must have write access to hasankb00/dijital-ikiz-qwen3-4b-lora. Never put any token in source code, workflow logs, issues, or chat."
               echo ""
               echo "Add HEALTHCHECK_TOKEN as a GitHub Actions secret (at least 32 random characters) and configure the identical value as a Vercel Production environment variable. The post-deploy probe will fail closed if the values do not match."
               echo ""
