@@ -206,6 +206,8 @@ test('invalid endpoint and short secret salt are rejected before network access'
     { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'http://region-12345.upstash.io' },
     { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'https://attacker.example' },
     { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'https://region-12345.upstash.io/?token=not-allowed' },
+    { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'https://region-12345.upstash.io/custom' },
+    { ...productionEnvironment, UPSTASH_REDIS_REST_URL: 'https://region-12345.upstash.io:8443' },
     { ...productionEnvironment, RATE_LIMIT_KEY_SALT: 'short' }
   ]) {
     const result = await enforceChatRateLimit('invalid-config-user', {
