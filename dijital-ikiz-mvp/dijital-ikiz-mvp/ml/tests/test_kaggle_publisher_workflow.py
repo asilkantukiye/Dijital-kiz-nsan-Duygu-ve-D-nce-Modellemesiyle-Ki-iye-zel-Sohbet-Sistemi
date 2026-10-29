@@ -22,7 +22,7 @@ class KagglePublisherWorkflowTests(unittest.TestCase):
 
     def test_artifact_metadata_is_written_as_parseable_json(self):
         self.assertIn(
-            "}) , { mode: 0o600 });",
+            "}), { mode: 0o600 });",
             self.workflow,
         )
         self.assertNotIn(
