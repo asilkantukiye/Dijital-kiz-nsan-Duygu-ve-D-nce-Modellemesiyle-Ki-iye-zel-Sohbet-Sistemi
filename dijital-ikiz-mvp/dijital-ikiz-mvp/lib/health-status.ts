@@ -60,12 +60,7 @@ export function buildHealthStatus(environment: HealthEnvironment): HealthStatus 
     environment.upstashRedisRestToken?.trim() &&
     validSalt
   )
-  const supabaseRateLimit = Boolean(
-    isValidSupabaseUrl(environment.supabaseUrl) &&
-    environment.supabaseServiceRoleKey?.trim() &&
-    validSalt
-  )
-  const rateLimit = upstashRateLimit || supabaseRateLimit
+  const rateLimit = upstashRateLimit
 
   return {
     ok: true,
