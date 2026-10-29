@@ -26,7 +26,7 @@ class PublisherIntegrityTests(unittest.TestCase):
             )
             publisher.verify_local_manifest(root, manifest)
 
-            payload.write_text("tampered metadata\n", encoding="utf-8")
+            payload.write_text("changed metadata\n", encoding="utf-8")
             with self.assertRaises(SystemExit):
                 publisher.verify_local_manifest(root, manifest)
 
