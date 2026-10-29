@@ -267,7 +267,7 @@ def main() -> int:
             "method": "GitHub Actions validated Kaggle artifact publisher",
         }
         (release / "training-metrics.json").write_text(
-            json.dumps(aggregate_metrics, ensure_ascii=False, indent=2) + "\\n",
+            json.dumps(aggregate_metrics, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
 
@@ -307,7 +307,7 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
             "base_model": EXPECTED_BASE_MODEL,
         }
         (release / "source-artifact-provenance.json").write_text(
-            json.dumps(provenance, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+            json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
 
         manifest = build_manifest(release)
@@ -359,13 +359,13 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
                 "method": "GitHub Actions validated Kaggle artifact publisher",
             }
             (release / "training-metrics.json").write_text(
-                json.dumps(aggregate_metrics, ensure_ascii=False, indent=2) + "\\n",
+                json.dumps(aggregate_metrics, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
             final_manifest = build_manifest(release)
             verify_local_manifest(release, final_manifest)
             (release / "artifact-manifest.json").write_text(
-                json.dumps(final_manifest, indent=2, sort_keys=True) + "\\n",
+                json.dumps(final_manifest, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
             retry_with_backoff(
