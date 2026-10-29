@@ -24,6 +24,9 @@ test('Vercel workflow requires a token and explicit Supabase migration confirmat
   assert.doesNotMatch(workflow, /secrets\.VERCEL_ORG_ID/)
   assert.ok((workflow.match(/--scope "help-70c6"/g) ?? []).length >= 5)
   assert.match(workflow, /WORKFLOW_REF: \$\{\{ github\.ref \}\}/)
+  assert.match(workflow, /SOURCE_SHA: \$\{\{ github\.sha \}\}/)
+  assert.match(workflow, /gh api "repos\/\$GITHUB_REPOSITORY\/commits\/main" --jq \.sha/)
+  assert.match(workflow, /This run targets a stale main commit/)
   assert.match(workflow, /deployment must be dispatched from main/)
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.preflight\.outputs\.ready\s*==\s*'true'\s*\}\}/)
 })
@@ -130,12 +133,15 @@ test('production deployment URL is captured and health/readiness is checked afte
   assert.match(workflow, /cancel-in-progress:\s*false/)
 })
 
-test('hosting guide matches the verified Supabase-backed rate-limit fallback', async () => {
+test('hosting guide requires Upstash and documents the fail-closed Production limiter', async () => {
   const hostingGuide = await readFile(path.join(projectDirectory, 'docs', 'hosting-setup.md'), 'utf8')
 
-  assert.match(hostingGuide, /Upstash değişkenleri isteğe bağlıdır/)
-  assert.match(hostingGuide, /SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true/)
-  assert.match(hostingGuide, /Upstash Redis.*veya Supabase PostgreSQL RPC erişimi/)
+  assert.match(hostingGuide, /UPSTASH_REDIS_REST_URL.*Production için zorunlu/)
+  assert.match(hostingGuide, /UPSTASH_REDIS_REST_TOKEN.*Production için zorunlu/)
+  assert.match(hostingGuide, /Production'da rate limit yalnızca Upstash Redis üzerinden uygulanır/)
+  assert.match(hostingGuide, /503.*Retry-After/)
+  assert.doesNotMatch(hostingGuide, /Upstash değişkenleri isteğe bağlıdır/)
+  assert.doesNotMatch(hostingGuide, /Supabase PostgreSQL tabanlı atomik rate-limit/)
 })
 
 test('Vercel Git integration cannot bypass gated production deployments on main', async () => {
@@ -170,6 +176,14 @@ test('README documents how to configure the deploy workflow and verify deploymen
   assert.match(readme, /Supabase Auth, Hugging Face token kimliği ve Upstash Redis REST `PING` kontrol edilir/)
 })
 
+
+test('production smoke test checks missing deep-health token is hidden', async () => {
+  const smoke = await readFile(path.join(projectDirectory, 'tests', 'production-smoke.mjs'), 'utf8')
+
+  assert.match(smoke, /unauthenticatedDeepResponse\.status === 404/)
+  assert.match(smoke, /x-healthcheck-token/)
+  assert.match(smoke, /disclosed internal provider or diagnostic details/)
+})
 
 test('Production deployment verifies the private published LoRA before staging', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
