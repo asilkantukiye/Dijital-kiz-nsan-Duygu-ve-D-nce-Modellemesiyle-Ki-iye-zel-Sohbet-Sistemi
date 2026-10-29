@@ -9,6 +9,8 @@ const REQUIRED_KEYS = [
   'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'HF_TOKEN',
+  'HF_MODEL',
+  'HF_EMBEDDING_MODEL',
   'RATE_LIMIT_KEY_SALT',
   'HEALTHCHECK_TOKEN',
   'UPSTASH_REDIS_REST_URL',
@@ -79,6 +81,24 @@ function isValidHuggingFaceChatEndpointUrl(value) {
   }
 }
 
+function isValidChatCompletionsUrl(value) {
+  try {
+    const url = new URL(value);
+    const trustedHost = url.hostname === 'router.huggingface.co' ||
+      url.hostname.endsWith('.endpoints.huggingface.cloud');
+    return url.protocol === 'https:' &&
+      trustedHost &&
+      !url.port &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      url.pathname === '/v1/chat/completions';
+  } catch {
+    return false;
+  }
+}
+
 function isValidUpstashUrl(value) {
   try {
     const url = new URL(value);
@@ -128,6 +148,18 @@ export function validateProductionEnvironment(env) {
 
   if (env.HF_TOKEN?.trim() && env.HF_TOKEN.trim().length < 20) {
     issues.push('HF_TOKEN is too short');
+  }
+
+  for (const key of ['HF_MODEL', 'HF_EMBEDDING_MODEL']) {
+    const value = env[key]?.trim() || '';
+    if (value && (value.length > 512 || /[\\r\\n]/u.test(value))) {
+      issues.push(key + ' is invalid');
+    }
+  }
+
+  const chatCompletionsUrl = env.HF_CHAT_COMPLETIONS_URL?.trim() || '';
+  if (chatCompletionsUrl && !isValidChatCompletionsUrl(chatCompletionsUrl)) {
+    issues.push('HF_CHAT_COMPLETIONS_URL must be an HTTPS Hugging Face Router or Inference Endpoint /v1/chat/completions URL');
   }
 
   const chatEndpointUrl = env.HF_CHAT_COMPLETIONS_URL?.trim() || '';
