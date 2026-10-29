@@ -95,9 +95,9 @@ Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata ç
 
 ### Üretim sohbet rate-limit yapılandırması
 
-Üretim sohbeti önce geçerli Upstash Redis REST ayarı varsa onu kullanır; yoksa proje zaten kullandığı Supabase PostgreSQL üzerindeki atomik `consume_chat_rate_limit` RPC'sine düşer. Böylece ayrı bir Redis sağlayıcısını zorunlu kılmadan dağıtık limit uygulanabilir. Her iki backend de aynı UTC zaman pencerelerinde kullanıcı başına 20 istek/dakika, proje genelinde 120 istek/dakika ve 1000 istek/gün sınırlarını uygular. Sayaç tablosu RLS ile korunur; doğrudan erişim yalnızca `service_role` içindir ve RPC yalnızca sunucudan çağrılır.
+Üretim sohbeti yalnızca geçerli Upstash Redis REST ayarıyla çalışır. Upstash URL/token eksik, kısmi veya erişilemezse süreç içi ya da veritabanı fallback'i denenmez; sohbet API'si modele istek göndermeden HTTP `503` ve `Retry-After` döndürür. Redis Lua komutu aynı UTC zaman pencerelerinde kullanıcı başına 20 istek/dakika, proje genelinde 120 istek/dakika ve 1000 istek/gün sınırlarını atomik uygular.
 
-`RATE_LIMIT_KEY_SALT` her dağıtım ortamında en az 32 karakterlik benzersiz gizli değer olmalıdır; kullanıcı kimlikleri Redis anahtarına veya DB sayacına ham biçimde gönderilmez, HMAC-SHA256 özeti kullanılır. Üretim ortamında rate-limit backend'i, salt veya server key yapılandırması eksik/erişilemezse sohbet API'si modele istek göndermeden `503` döndürür. Upstash seçilirse aşağıdaki iki ek değişken kullanılır:
+`RATE_LIMIT_KEY_SALT` her dağıtım ortamında en az 32 karakterlik benzersiz gizli değer olmalıdır; kullanıcı kimlikleri Redis anahtarına veya DB sayacına ham biçimde gönderilmez, HMAC-SHA256 özeti kullanılır. Üretim ortamında Upstash backend'i, salt veya server key yapılandırması eksik/erişilemezse sohbet API'si modele istek göndermeden `503` ve `Retry-After` döndürür. Upstash için aşağıdaki iki değişken zorunludur:
 
 - `UPSTASH_REDIS_REST_URL`: HTTPS ile başlayan Upstash REST endpoint'i (`*.upstash.io`).
 - `UPSTASH_REDIS_REST_TOKEN`: Upstash panelinden alınan REST token'ı; yalnızca sunucu ortamında tut.
@@ -148,7 +148,7 @@ HF_MODEL
 HF_EMBEDDING_MODEL
 RATE_LIMIT_KEY_SALT
 HEALTHCHECK_TOKEN
-# Optional only when Upstash is selected:
+# Required for Production (both values are required):
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 ```
@@ -176,10 +176,10 @@ Takım kapsamı workflow içinde `help-70c6` olarak yapılandırılmıştır; ay
 1. Workflow yalnızca elle başlatılır ve yalnızca `main` dalından ilerler.
 2. `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` olmadan preflight başarısız olur. Bu değişkeni yalnızca doğru Supabase projesindeki temel şema, gereken tüm migration'lar, RLS politikaları ve kritik RPC izinleri gerçek sorgularla doğrulandıktan sonra ayarlayın. Dosya adı ile canlı migration sürümü eşleşmiyorsa önce geçmişi uzlaştırın; bu değişkeni yalnızca CI yeşil olduğu için `true` yapmayın.
 3. Tam Python/ML doğrulaması, uygulama birim testleri, TypeScript kontrolü ve üretim build'i geçmelidir.
-4. Staging işi Vercel Production ortamında şu zorunlu değişken adlarını kontrol eder: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `HF_TOKEN`, `RATE_LIMIT_KEY_SALT` ve `HEALTHCHECK_TOKEN`. `UPSTASH_REDIS_REST_URL` ile `UPSTASH_REDIS_REST_TOKEN` isteğe bağlıdır; Upstash seçilirse ikisi birlikte bulunmalıdır. İkisi de yoksa canlı Supabase PostgreSQL rate-limit migration'ının uygulanmış olması ve `SUPABASE_PRODUCTION_SCHEMA_VERIFIED=true` ile onaylanması gerekir. Kontrol değerleri loglamaz; eksikleri bildirip dağıtımı durdurur.
+4. Staging işi Vercel Production ortamında `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `HF_TOKEN`, `RATE_LIMIT_KEY_SALT`, `HEALTHCHECK_TOKEN`, `UPSTASH_REDIS_REST_URL` ve `UPSTASH_REDIS_REST_TOKEN` değişkenlerinin hepsini kontrol eder. URL ve token değerleri yapısal olarak doğrulanır; eksik veya geçersiz değerler loglanmadan yayın durdurulur.
 5. Vercel Production ayarları çekilir, aynı Production ayarlarıyla build alınır ve `vercel deploy --prebuilt --prod --skip-domain` kullanılarak deployment önce alan adı atanmadan hazırlanır.
 6. Hazırlanan deployment'ın `/api/health` endpoint'i geçerli JSON, `ok: true` ve `ready: true` döndürmelidir. Ancak bu kontrol yapılandırma ve readiness koşullarını doğrular; gerçek model çıkarımının başarılı olduğunu tek başına kanıtlamaz; Supabase veri yazımını veya iki kullanıcı arasındaki izolasyonu da test etmez.
-7. Staged deployment'ın `/api/health/deep` endpoint'i yalnızca `x-healthcheck-token` başlığında doğru gizli token gönderildiğinde bağlantı denetimi yapar. Supabase Auth, Hugging Face token kimliği ve yapılandırılmış dağıtık rate-limit backend'i (Upstash Redis `PING` veya Supabase PostgreSQL RPC erişimi) kontrol edilir; model çıkarımı çağrılmaz ve gizli değerler yanıtta dönmez. Herhangi bir denetim başarısızsa workflow terfi ettirmez.
+7. Staged deployment'ın `/api/health/deep` endpoint'i yalnızca `x-healthcheck-token` başlığında doğru gizli token gönderildiğinde bağlantı denetimi yapar. Supabase Auth, Hugging Face token kimliği ve Upstash Redis REST `PING` kontrol edilir; model çıkarımı çağrılmaz ve gizli değerler yanıtta dönmez. Herhangi bir denetim başarısızsa workflow terfi ettirmez.
 8. Staged yapılandırma ve tüm upstream sağlık kontrolleri başarılı olduktan sonra ayrı `promote` işi `production` GitHub Environment kapısına gelir. Terfi sonrası `https://dijital-ikiz-insan.vercel.app/api/health` alan adı tekrar kontrol edilir.
 
 Önkoşullardan biri eksikse workflow hata verir ve dağıtım yapmaz; bu durumda üretim güncellenmiş değildir. GitHub CI testlerinin yeşil olması, gerçek Supabase veritabanına migration uygulandığını kanıtlamaz. Vercel Git entegrasyonu önizleme deployment'ları oluşturabilir; uygulama kökündeki `vercel.json`, `main` dalından otomatik Git deployment'ını kapatır (`git.deploymentEnabled.main: false). Böylece `main` dalına merge tek başına üretim terfisi başlatmamalıdır. Üretim dağıtımı yalnızca GitHub Actions **Vercel Deploy** workflow'u üzerinden yapılmalıdır.
@@ -205,7 +205,7 @@ Mevcut sürüm:
 - varyanta göre ayrıştırılmış sohbet geçmişi,
 - kişiselleştirilmiş ve genel koşulların profil durumunu karıştırmaması,
 - veri silme,
-- üretimde dağıtık kullanıcı/dakika ve proje-geneli dakika/UTC-günü rate-limit (Upstash Redis veya Supabase PostgreSQL atomik RPC), yalnızca geliştirmede süreç içi fallback,
+- üretimde zorunlu Upstash Redis Lua tabanlı dağıtık kullanıcı/dakika ve proje-geneli dakika/UTC-günü rate-limit, yalnızca geliştirmede süreç içi fallback,
 - istek gövdesi ve sohbet geçmişi boyut sınırları,
 - mutasyon yapan tarayıcı API'lerinde same-origin kontrolü,
 - güvenlik HTTP başlıkları,
@@ -234,9 +234,9 @@ Deney yapılmadan sonuçlar bilimsel başarı olarak raporlanmamalıdır.
 
 Uygulama kullanıcı konuşmalarını, geri bildirimlerini ve çıkarılan profil verilerini saklar. Kullanıcı arayüzünden kendi sohbet ve profil verilerini silebilir.
 
-Koruma katmanları arasında Supabase RLS, sunucu tarafı kullanıcı doğrulaması, same-origin kontrolleri, girdi/çıktı boyut sınırları, üretimde dağıtık rate-limit (Upstash Redis veya Supabase PostgreSQL atomik RPC) ve güvenlik HTTP başlıkları bulunur.
+Koruma katmanları arasında Supabase RLS, sunucu tarafı kullanıcı doğrulaması, same-origin kontrolleri, girdi/çıktı boyut sınırları, üretimde zorunlu Upstash Redis tabanlı dağıtık rate-limit ve güvenlik HTTP başlıkları bulunur.
 
-**Önemli:** üretim istek limiti her zaman dağıtık uygulanır. Geçerli Upstash URL ve token ikisi birlikte tanımlanmışsa atomik Redis Lua komutu; ikisi de yoksa doğrulanmış Supabase PostgreSQL `consume_chat_rate_limit` RPC'si kullanılır. Yalnızca geliştirme ortamında süreç içi sayaç fallback'i vardır. Üretimde backend, salt veya sunucu anahtarı eksik/erişilemezse sohbet ücretli inference başlatmadan `503` döndürür.
+**Önemli:** Production'da Upstash URL ve token ikisi birden zorunludur; istek sınırı atomik Redis Lua komutuyla uygulanır. Eksik/yanlış Redis ayarı veya Redis kesintisinde sohbet ücretli inference başlatmadan HTTP `503` ve `Retry-After` döndürür. Yalnızca geliştirme ortamında süreç içi sayaç kullanılabilir.
 
 Proje çocuklar veya psikolojik destek gibi alanlarda gerçek kullanıcı çalışmasına geçmeden önce uygun etik, ebeveyn/onam, veri koruma ve uzman denetimi süreçleri ayrıca değerlendirilmelidir.
 
