@@ -122,7 +122,7 @@ jobs:
             name: artifact.name,
             digest: artifact.digest.toLowerCase(),
             size_in_bytes: artifact.size_in_bytes
-          }) + '\\n', { mode: 0o600 });
+          }), { mode: 0o600 });
           console.log(JSON.stringify({
             artifact_id: artifact.id,
             artifact_name: artifact.name,
