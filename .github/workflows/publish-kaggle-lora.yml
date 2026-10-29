@@ -88,24 +88,126 @@ jobs:
           }, null, 2));
           NODE
 
-      - name: Download the training artifact
+      - name: Verify GitHub artifact metadata and expected digest
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN_ID: ${{ inputs.run_id }}
         shell: bash
         run: |
           set -euo pipefail
+          artifact_list="$RUNNER_TEMP/kaggle-artifacts.json"
+          metadata_file="$RUNNER_TEMP/kaggle-artifact-metadata.json"
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name == "kaggle-digital-twin-model-artifacts")]' \
+            > "$artifact_list"
+
+          node - "$artifact_list" "$metadata_file" <<'NODE'
+          const fs = require('node:fs');
+          const [inputPath, outputPath] = process.argv.slice(2);
+          const matches = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+          if (!Array.isArray(matches) || matches.length !== 1) {
+            console.error('Expected exactly one GitHub training artifact; publication blocked.');
+            process.exit(1);
+          }
+          const artifact = matches[0];
+          if (artifact.expired !== false || !Number.isSafeInteger(artifact.id) ||
+              !Number.isSafeInteger(artifact.size_in_bytes) || artifact.size_in_bytes <= 0 ||
+              !/^sha256:[a-f0-9]{64}$/i.test(artifact.digest || '')) {
+            console.error('Training artifact is expired or its SHA-256 metadata is invalid; publication blocked.');
+            process.exit(1);
+          }
+          fs.writeFileSync(outputPath, JSON.stringify({
+            id: artifact.id,
+            name: artifact.name,
+            digest: artifact.digest.toLowerCase(),
+            size_in_bytes: artifact.size_in_bytes
+          }) + '\\n', { mode: 0o600 });
+          console.log(JSON.stringify({
+            artifact_id: artifact.id,
+            artifact_name: artifact.name,
+            artifact_size_in_bytes: artifact.size_in_bytes,
+            digest_metadata_present: true,
+            credential_values_printed: false
+          }, null, 2));
+          NODE
+
+      - name: Download archive and verify GitHub SHA-256 digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata_file="$RUNNER_TEMP/kaggle-artifact-metadata.json"
+          artifact_id="$(node -e 'process.stdout.write(String(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).id))' "$metadata_file")"
+          expected_digest="$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).digest)' "$metadata_file")"
+          archive="$RUNNER_TEMP/kaggle-artifact.zip"
           destination="$RUNNER_TEMP/kaggle-model-artifact"
-          mkdir -p "$destination"
-          gh run download "$SOURCE_RUN_ID" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name kaggle-digital-twin-model-artifacts \
-            --dir "$destination"
-          if ! find "$destination" -type f -name dijital-ikiz-model-artifacts.zip -print -quit | grep -q .; then
-            echo "::error::The requested training run does not contain dijital-ikiz-model-artifacts.zip."
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > "$archive"
+          actual_digest="sha256:$(sha256sum "$archive" | awk '{print $1}')"
+          if [[ "$actual_digest" != "$expected_digest" ]]; then
+            echo "::error::Downloaded training artifact SHA-256 does not match GitHub metadata."
             exit 1
           fi
-          echo "Kaggle artifact downloaded; archive contents will be validated before publication."
+          echo "GitHub artifact archive digest verified."
+
+          python - "$archive" "$destination" <<'PY'
+          import os
+          import shutil
+          import stat
+          import sys
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          archive = Path(sys.argv[1])
+          destination = Path(sys.argv[2])
+          destination.mkdir(parents=True, exist_ok=True)
+          root = destination.resolve()
+
+          try:
+              with zipfile.ZipFile(archive) as bundle:
+                  members = bundle.infolist()
+                  if not members or len(members) > 20_000:
+                      raise ValueError("artifact ZIP has an invalid file count")
+                  if sum(item.file_size for item in members) > 8 * 1024**3:
+                      raise ValueError("artifact ZIP exceeds the extraction limit")
+
+                  seen = set()
+                  for item in members:
+                      name = PurePosixPath(item.filename)
+                      if name.is_absolute() or ".." in name.parts:
+                          raise ValueError("artifact ZIP contains an unsafe path")
+                      target = (root / Path(*name.parts)).resolve()
+                      if target != root and root not in target.parents:
+                          raise ValueError("artifact ZIP path escaped extraction directory")
+                      mode = (item.external_attr >> 16) & 0o170000
+                      if mode == stat.S_IFLNK:
+                          raise ValueError("artifact ZIP symlinks are not allowed")
+                      normalized = target.as_posix()
+                      if normalized in seen and not item.is_dir():
+                          raise ValueError("artifact ZIP contains a duplicate file path")
+                      seen.add(normalized)
+                  for item in members:
+                      target = (root / Path(*PurePosixPath(item.filename).parts)).resolve()
+                      if item.is_dir():
+                          target.mkdir(parents=True, exist_ok=True)
+                      else:
+                          target.parent.mkdir(parents=True, exist_ok=True)
+                          with bundle.open(item, "r") as source, target.open("wb") as output:
+                              shutil.copyfileobj(source, output, length=1024 * 1024)
+          except (OSError, RuntimeError, zipfile.BadZipFile, ValueError):
+              print("GitHub artifact ZIP failed safe extraction; publication blocked.")
+              raise SystemExit(1)
+
+          inner = list(destination.rglob("dijital-ikiz-model-artifacts.zip"))
+          if len(inner) != 1 or not inner[0].is_file() or inner[0].stat().st_size <= 0:
+              print("Expected exactly one non-empty dijital-ikiz-model-artifacts.zip; publication blocked.")
+              raise SystemExit(1)
+
+          metadata_path = Path(os.environ["RUNNER_TEMP"]) / "kaggle-artifact-metadata.json"
+          print("Artifact integrity and safe extraction passed; inner model archive will be validated before publication.")
+          PY
 
       - name: Install the Hugging Face publisher dependency
         run: python -m pip install --disable-pip-version-check "huggingface_hub>=0.34,<2"
@@ -119,10 +221,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source_digest="$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).digest)' "$RUNNER_TEMP/kaggle-artifact-metadata.json")"
           python ml/kaggle/publish_lora_to_hf.py \
             --artifact-dir "$RUNNER_TEMP/kaggle-model-artifact" \
             --repo-id "$MODEL_REPO" \
             --run-id "$SOURCE_RUN_ID" \
+            --source-artifact-digest "$source_digest" \
             | tee "$RUNNER_TEMP/hf-publish-result.json"
 
           {

@@ -12,6 +12,15 @@ import publish_lora_to_hf as publisher
 
 
 class PublisherIntegrityTests(unittest.TestCase):
+    def test_source_artifact_digest_is_normalized_and_validated(self):
+        digest = "sha256:" + "A" * 64
+        self.assertEqual(publisher.validate_source_artifact_digest(digest), "sha256:" + "a" * 64)
+
+    def test_source_artifact_digest_rejects_untrusted_or_incomplete_values(self):
+        for digest in ("", "sha256:abcd", "sha256:" + "z" * 64, "sha1:" + "a" * 40):
+            with self.subTest(digest=digest), self.assertRaises(SystemExit):
+                publisher.validate_source_artifact_digest(digest)
+
     def test_manifest_hashes_every_release_file_and_detects_mutation(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

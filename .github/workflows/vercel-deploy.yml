@@ -138,6 +138,7 @@ jobs:
                   "tokenizer_config.json",
                   "training-metrics.json",
                   "artifact-manifest.json",
+                  "source-artifact-provenance.json",
                   "README.md",
               }
               missing = sorted(required - files)
@@ -152,14 +153,29 @@ jobs:
               metrics_path = hf_hub_download(
                   repo_id=repo_id, filename="training-metrics.json", repo_type="model", token=token
               )
+              provenance_path = hf_hub_download(
+                  repo_id=repo_id, filename="source-artifact-provenance.json", repo_type="model", token=token
+              )
               with open(config_path, encoding="utf-8") as stream:
                   config = json.load(stream)
               with open(metrics_path, encoding="utf-8") as stream:
                   metrics = json.load(stream)
+              with open(provenance_path, encoding="utf-8") as stream:
+                  provenance = json.load(stream)
 
               expected_base = "Qwen/Qwen3-4B-Instruct-2507"
               if config.get("base_model_name_or_path") != expected_base or metrics.get("base_model") != expected_base:
                   raise ValueError("model base identifier does not match the evaluated Qwen base model")
+              if (
+                  provenance.get("source_training_workflow") != "Kaggle End-to-End Model Training"
+                  or provenance.get("source_artifact_name") != "kaggle-digital-twin-model-artifacts"
+                  or provenance.get("base_model") != expected_base
+                  or not isinstance(provenance.get("source_training_run_id"), int)
+                  or provenance["source_training_run_id"] <= 0
+                  or not isinstance(provenance.get("source_artifact_digest"), str)
+                  or not __import__("re").fullmatch(r"sha256:[a-f0-9]{64}", provenance["source_artifact_digest"])
+              ):
+                  raise ValueError("source artifact provenance is missing or invalid")
               base_loss = metrics.get("base_model_test_loss")
               tuned_loss = metrics.get("finetuned_model_test_loss")
               if not all(isinstance(value, (int, float)) and math.isfinite(value) and value >= 0
