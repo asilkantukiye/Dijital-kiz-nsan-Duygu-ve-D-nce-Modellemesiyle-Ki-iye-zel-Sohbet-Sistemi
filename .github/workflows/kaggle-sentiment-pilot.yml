@@ -138,6 +138,7 @@ jobs:
           if notebook.get("nbformat") != 4 or not notebook.get("cells"):
               raise SystemExit("Training notebook must be a non-empty nbformat 4 notebook.")
           code_cells = 0
+          python_cells = 0
           for index, cell in enumerate(notebook["cells"]):
               if cell.get("cell_type") != "code":
                   continue
@@ -150,14 +151,15 @@ jobs:
                       continue
                   raise SystemExit(f"Unsupported notebook magic in code cell {index}; static Python validation cannot safely skip it.")
               compile(source, f"{path}:cell-{index}", "exec")
-          if code_cells < 5:
+              python_cells += 1
+          if code_cells < 5 or python_cells < 5:
               raise SystemExit(f"Unexpectedly few Python code cells: {code_cells}")
-          workflow = Path("../../../.github/workflows/kaggle-sentiment-pilot.yml").read_text(encoding="utf-8")
+          workflow = Path("../../.github/workflows/kaggle-sentiment-pilot.yml").read_text(encoding="utf-8")
           if "--no-run" in workflow:
               raise SystemExit("Autonomous Kaggle workflow must not use --no-run.")
           if "kaggle kernels status" not in workflow or "kaggle kernels output" not in workflow:
               raise SystemExit("Workflow must poll Kaggle status and collect the completed output.")
-          print(f"Notebook JSON validated; compiled {code_cells - len(magics)} Python cells and verified autonomous CLI commands.")
+          print(f"Notebook JSON validated; compiled {python_cells} Python cells and verified autonomous CLI commands.")
           PY
 
       - name: Prepare Kaggle notebook metadata
