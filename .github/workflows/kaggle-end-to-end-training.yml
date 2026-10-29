@@ -91,8 +91,8 @@ jobs:
               raise SystemExit("Kaggle notebook owner does not match the authenticated account; refusing to push to another account.")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
-              output.write(f"KERNEL_ID={kernel_id}\\n")
-              output.write(f"KAGGLE_USERNAME={username}\\n")
+              output.write(f"KERNEL_ID={kernel_id}\n")
+              output.write(f"KAGGLE_USERNAME={username}\n")
           print("Kaggle credentials and notebook ownership validated; secret values were not printed.")
 
       - name: Prepare Kaggle notebook metadata
