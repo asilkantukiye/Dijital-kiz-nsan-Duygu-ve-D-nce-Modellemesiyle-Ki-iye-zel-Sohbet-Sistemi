@@ -11,6 +11,8 @@ const REQUIRED_KEYS = [
   'HF_TOKEN',
   'RATE_LIMIT_KEY_SALT',
   'HEALTHCHECK_TOKEN',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
 ];
 
 export function parseDotEnv(source) {
@@ -121,7 +123,7 @@ export function validateProductionEnvironment(env) {
   const redisToken = env.UPSTASH_REDIS_REST_TOKEN?.trim() || '';
 
   if (Boolean(redisUrl) !== Boolean(redisToken)) {
-    issues.push('UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must either both be set or both be absent');
+    issues.push('UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must both be set');
   }
 
   if (redisUrl && !isValidUpstashUrl(redisUrl)) {
