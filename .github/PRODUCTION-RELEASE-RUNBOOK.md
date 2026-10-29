@@ -139,6 +139,10 @@ Do not deliberately disable Production credentials to test 503 behavior. Exercis
 | Missing or partial Upstash configuration | Production build gate fails; if Redis fails after deployment, chat fails closed with HTTP 503 and Retry-After |
 | Duplicate simultaneous request | One owner does model work; concurrent duplicate receives replay/wait behavior or a controlled conflict, not two persisted turns |
 
+## Supabase Security Advisor baseline
+
+The intentional internal-table grants, caller-scoped `SECURITY DEFINER` functions, leaked-password-protection plan limitation, and currently unused-index findings are documented in [SUPABASE-SECURITY-ADVISOR-BASELINE.md](../dijital-ikiz-mvp/dijital-ikiz-mvp/docs/SUPABASE-SECURITY-ADVISOR-BASELINE.md). CI enforces the critical table ACL and function ownership invariants. Do not silence INFO/WARN findings by broadening table policies or revoking required functions without a reviewed replacement implementation.
+
 ## Release decision
 
 **GO** only if CI for the exact main SHA passes, model artifact publication verifies all expected private Hub files, the live Supabase guard is verified, the Production env-name gate passes, both staged and public-domain smoke tests pass, and authenticated /api/chat produces HTTP 200 with a saved reply. Otherwise keep the release blocked and fix the failing gate.
