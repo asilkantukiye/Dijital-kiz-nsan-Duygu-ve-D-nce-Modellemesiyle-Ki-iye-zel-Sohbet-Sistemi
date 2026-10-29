@@ -133,7 +133,7 @@ test('invalid custom HF chat endpoint fails closed before sending a request', as
     assert.ok(error instanceof ChatProviderError)
     assert.equal(error.code, 'AI_NOT_CONFIGURED')
     assert.equal(error.status, 503)
-    assert.doesNotMatch(error.publicMessage, /attacker\\.example|test-token|Bearer/i)
+    assert.doesNotMatch(error.publicMessage, /attacker\.example|test-token|Bearer/i)
     return true
   })
   assert.equal(requests, 0)
