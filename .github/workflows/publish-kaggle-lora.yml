@@ -12,7 +12,7 @@ on:
         description: Private Hugging Face model repository (OWNER/REPO)
         required: true
         type: string
-        default: "asilkantukiye/dijital-ikiz-qwen3-4b-lora"
+        default: "hasankb00/dijital-ikiz-qwen3-4b-lora"
 
 permissions:
   actions: read
