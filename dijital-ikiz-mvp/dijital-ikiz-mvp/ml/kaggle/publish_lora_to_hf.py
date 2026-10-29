@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -164,11 +165,19 @@ def verify_remote_manifest(api, repo_id: str, token: str, manifest: dict[str, di
                 "Published artifact-manifest.json SHA-256 mismatch.")
 
 
+def validate_source_artifact_digest(value: str) -> str:
+    digest = value.strip().lower()
+    require(bool(re.fullmatch(r"sha256:[a-f0-9]{64}", digest)),
+            "GitHub source artifact digest must be a SHA-256 digest.")
+    return digest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--artifact-dir", required=True, type=Path)
     parser.add_argument("--repo-id", required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--source-artifact-digest", required=True)
     args = parser.parse_args()
 
     repo_id = args.repo_id.strip()
@@ -180,6 +189,7 @@ def main() -> int:
     token = os.environ.get("HF_WRITE_TOKEN", "").strip()
     require(len(token) >= 20, "HF_WRITE_TOKEN is missing or too short.")
     require(args.run_id.isdigit(), "Kaggle workflow run ID must be numeric.")
+    source_artifact_digest = validate_source_artifact_digest(args.source_artifact_digest)
     require(args.artifact_dir.is_dir(), "Downloaded Kaggle artifact directory is missing.")
 
     archives = list(args.artifact_dir.rglob("dijital-ikiz-model-artifacts.zip"))
@@ -257,6 +267,7 @@ This private repository contains a LoRA adapter, not a standalone full model.
 
 - Base model: {EXPECTED_BASE_MODEL}
 - Kaggle workflow run: {args.run_id}
+- GitHub artifact archive digest: {source_artifact_digest}
 - Encoded train / validation / test rows: {metrics['train_rows_encoded']} / {metrics['validation_rows_encoded']} / {metrics['test_rows_encoded']}
 - Base-model test loss: {metrics['base_model_test_loss']}
 - Fine-tuned test loss: {metrics['finetuned_model_test_loss']}
@@ -266,6 +277,17 @@ The training set is general Turkish instruction data. This adapter is not a vali
 Use the compatible base model and PEFT to load this adapter. The repository is intended to remain private until its licensing and research-release review is complete.
 """
         (release / "README.md").write_text(readme, encoding="utf-8")
+        provenance = {
+            "schema_version": 1,
+            "source_training_run_id": int(args.run_id),
+            "source_training_workflow": "Kaggle End-to-End Model Training",
+            "source_artifact_name": "kaggle-digital-twin-model-artifacts",
+            "source_artifact_digest": source_artifact_digest,
+            "base_model": EXPECTED_BASE_MODEL,
+        }
+        (release / "source-artifact-provenance.json").write_text(
+            json.dumps(provenance, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+        )
 
         manifest = build_manifest(release)
         verify_local_manifest(release, manifest)
@@ -337,6 +359,7 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
             "url": f"https://huggingface.co/{repo_id}",
             "run_id": args.run_id,
             "base_model": EXPECTED_BASE_MODEL,
+            "source_artifact_digest": source_artifact_digest,
             "uploaded_files": sorted(required_remote),
             "adapter_weight_bytes": weights[0].stat().st_size,
             "private_verified": True,
