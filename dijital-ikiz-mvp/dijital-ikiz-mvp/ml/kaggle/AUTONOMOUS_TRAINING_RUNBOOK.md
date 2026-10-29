@@ -22,3 +22,9 @@ VAD ve Big Five yalnızca gerekli hedefleri, örnek/katılımcı kimliklerini ve
 ## Güvenli yeniden çalıştırma
 
 Hugging Face token'ı yalnızca GitHub Actions Secrets içinde tutun. Notebook'u Kaggle arayüzünden doğrudan çalıştırmak da istenirse aynı token ayrıca Kaggle Notebook Secrets içinde `HF_WRITE_TOKEN` adıyla tanımlanmalıdır; GitHub Secrets otomatik olarak Kaggle'a aktarılmaz.
+
+## Reusable workflow trigger invariant
+
+The wrapper may call the training workflow because a tagged commit was pushed to `main`. Inside the reusable workflow, do not require `github.event_name == 'workflow_call'`: GitHub exposes the caller's event to the called workflow. The training job should gate on `github.ref == 'refs/heads/main'`; the wrapper itself controls which push messages are allowed to spend GPU quota.
+
+Credentials are held in separate stores: the Kaggle API credential must be a GitHub Actions Secret for the runner to submit the notebook, while `HF_WRITE_TOKEN` may be kept in Kaggle Notebook Secrets for notebook-side publication. An optional GitHub Actions `HF_WRITE_TOKEN` enables the separate validated publisher; its absence must not block Kaggle training.
