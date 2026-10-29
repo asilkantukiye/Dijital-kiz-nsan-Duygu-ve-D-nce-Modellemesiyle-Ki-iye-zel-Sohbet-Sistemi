@@ -16,7 +16,7 @@ test('Kaggle training can only auto-run from a specially tagged main commit', as
   assert.match(workflow, /github\.event_name == 'workflow_dispatch'/)
   assert.match(workflow, /publish_qwen_adapter:[\s\S]*?default: true/)
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[run-kaggle-training\]'\)/)
-  assert.match(workflow, /INPUT_KERNEL_ID: \\$\{\{ inputs\.kaggle_kernel_id \|\| vars\.KAGGLE_KERNEL_ID \|\| '' \}\}/)
+  assert.match(workflow, /INPUT_KERNEL_ID: \$\{\{ inputs\.kaggle_kernel_id \|\| vars\.KAGGLE_KERNEL_ID \|\| '' \}\}/)
   assert.match(workflow, /from kagglehub\.auth import whoami/)
   assert.match(workflow, /owner\.casefold\(\) != username\.casefold\(\)/)
   assert.ok(workflow.indexOf('- name: Install Kaggle CLI and account identity helper') < workflow.indexOf('- name: Validate safe inputs and credentials'))
