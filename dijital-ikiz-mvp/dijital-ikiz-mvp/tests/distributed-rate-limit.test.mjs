@@ -218,3 +218,25 @@ test('invalid endpoint and short secret salt are rejected before network access'
   }
   assert.equal(calls, 0)
 })
+
+test('Upstash HTTP/network failures fail closed with a bounded retry delay', async () => {
+  const failingFetchers = [
+    async () => new Response('provider secret should not be surfaced', { status: 503 }),
+    async () => { throw new Error('internal connection detail should not be surfaced') }
+  ]
+
+  for (const fetcher of failingFetchers) {
+    const result = await enforceChatRateLimit('rate-limit-failure-user', {
+      environment: productionEnvironment,
+      fetcher
+    })
+
+    assert.deepEqual(result, {
+      allowed: false,
+      unavailable: true,
+      retryAfterSeconds: 2,
+      reason: 'backend'
+    })
+    assert.doesNotMatch(JSON.stringify(result), /provider secret|internal connection detail/)
+  }
+})
