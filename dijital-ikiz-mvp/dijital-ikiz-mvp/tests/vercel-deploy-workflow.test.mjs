@@ -182,7 +182,7 @@ test('Production deployment verifies the private published LoRA before staging',
   assert.match(workflow, /tokenizer_config\.json/)
   assert.match(workflow, /artifact-manifest\.json/)
   assert.match(workflow, /finetuned_model_test_loss/)
-  assert.match(workflow, /info\.private is not true/)
+  assert.match(workflow, /info\.private is not True/)
   assert.match(workflow, /Production deployment is blocked/)
   assert.ok(
     workflow.indexOf('Verify published Hugging Face LoRA adapter before Production deployment') <
