@@ -285,104 +285,34 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish Qwen LoRA adapter to Hugging Face
+      - name: Publish Qwen LoRA adapter through the validated publisher
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_qwen_adapter) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-model]')) }}
         env:
           HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
           HF_MODEL_REPO: ${{ inputs.hf_model_repo || vars.HF_MODEL_REPO || 'hasankb00/dijital-ikiz-qwen3-4b-lora' }}
-        working-directory: kaggle-output/unpacked
+          SOURCE_RUN_ID: ${{ github.run_id }}
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
         shell: bash
         run: |
           set -euo pipefail
           if [[ -z "${HF_WRITE_TOKEN:-}" ]]; then
-            echo "::error::Publishing requires the HF_WRITE_TOKEN GitHub secret with write permission limited to the target model repo."
+            echo "::error::Publishing requires the HF_WRITE_TOKEN GitHub secret with write permission to the target private model repo."
             exit 1
           fi
           if [[ ! "$HF_MODEL_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-            echo "::error::Provide a valid Hugging Face repo ID in owner/model-name format."
+            echo "::error::Hugging Face model repo must use OWNER/REPO form."
             exit 1
           fi
-          python -m pip install --upgrade huggingface_hub
-          python - <<'PY'
-          import json
-          import os
-          import re
-          import shutil
-          import textwrap
-          from pathlib import Path
-          from huggingface_hub import HfApi
 
-          root = Path.cwd()
-          source_adapter = root / "qwen-lora" / "adapter"
-          source_tokenizer = root / "qwen-lora" / "tokenizer"
-          metrics_path = root / "qwen-lora" / "metrics.json"
-          repo_id = os.environ["HF_MODEL_REPO"].strip()
-          token = os.environ["HF_WRITE_TOKEN"]
+          python -m pip install --disable-pip-version-check "huggingface_hub>=0.34,<2"
+          python ml/kaggle/publish_lora_to_hf.py \
+            --artifact-dir "$GITHUB_WORKSPACE/kaggle-output" \
+            --repo-id "$HF_MODEL_REPO" \
+            --run-id "$SOURCE_RUN_ID" \
+            | tee "$RUNNER_TEMP/hf-publish-result.json"
 
-          if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo_id):
-              raise SystemExit("Invalid Hugging Face model repo ID.")
-          if not (source_adapter / "adapter_config.json").is_file():
-              raise SystemExit("Qwen LoRA adapter_config.json is missing; no model will be published.")
-          if not any(source_adapter.glob("adapter_model.*")):
-              raise SystemExit("Qwen LoRA weights are missing; no model will be published.")
-          if not metrics_path.is_file():
-              raise SystemExit("Qwen metrics.json is missing; no model will be published.")
-
-          release_dir = root / "qwen-lora-release"
-          release_dir.mkdir(parents=True, exist_ok=True)
-          for source in source_adapter.iterdir():
-              target = release_dir / source.name
-              if source.is_dir():
-                  shutil.copytree(source, target, dirs_exist_ok=True)
-              else:
-                  shutil.copy2(source, target)
-          if source_tokenizer.is_dir():
-              for source in source_tokenizer.iterdir():
-                  target = release_dir / source.name
-                  if source.is_dir():
-                      shutil.copytree(source, target, dirs_exist_ok=True)
-                  else:
-                      shutil.copy2(source, target)
-          shutil.copy2(metrics_path, release_dir / "training-metrics.json")
-
-          metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-          readme = textwrap.dedent(f"""
-          ---
-          base_model: {metrics.get('base_model', 'Qwen/Qwen3-4B-Instruct-2507')}
-          library_name: peft
-          pipeline_tag: text-generation
-          tags:
-          - qwen3
-          - lora
-          - turkish
-          - kaggle
-          ---
-
-          # Dijital İkiz İnsan — Qwen3-4B LoRA pilot
-
-          This repository contains a **LoRA adapter**, not a standalone full model.
-          Base model: {metrics.get('base_model', 'Qwen/Qwen3-4B-Instruct-2507')}.
-
-          Training dataset: {metrics.get('dataset', 'TFLai/Turkish-Alpaca')} at revision {metrics.get('dataset_revision', '90f9589')}.
-
-          The attached training-metrics.json records the actual run's training/test losses and sample counts. The model was trained on general Turkish instruction examples; it was **not** trained on a user's private chat history and does not represent a validated emotion or Big Five predictor.
-
-          This artifact is published privately by default. Review the dataset and base-model license terms, the metrics, and the adapter before making it public. Test loss alone does not establish chat quality or the project's claimed research target.
-
-          To load the adapter, use the compatible base model with the PEFT library and follow the base model's license and usage requirements.
-          """).lstrip()
-          (release_dir / "README.md").write_text(readme, encoding="utf-8")
-
-          api = HfApi(token=token)
-          api.create_repo(repo_id=repo_id, repo_type="model", private=True, exist_ok=True)
-          repo_info = api.repo_info(repo_id=repo_id, repo_type="model")
-          if not repo_info.private:
-              raise SystemExit("Target Hugging Face repository is public; refusing to upload. Choose a private repository.")
-          api.upload_folder(
-              repo_id=repo_id,
-              repo_type="model",
-              folder_path=str(release_dir),
-              commit_message="Publish evaluated Qwen3-4B LoRA pilot",
-          )
-          print(f"Published Qwen LoRA adapter to private Hugging Face repo: {repo_id}")
-          PY
+          {
+            echo "## Private Hugging Face LoRA publication"
+            echo ""
+            cat "$RUNNER_TEMP/hf-publish-result.json"
+          } >> "$GITHUB_STEP_SUMMARY"
