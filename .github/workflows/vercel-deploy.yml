@@ -93,6 +93,83 @@ jobs:
             exit 1
           fi
 
+      - name: Verify published Hugging Face LoRA adapter before Production deployment
+        if: ${{ steps.check.outputs.ready == 'true' }}
+        env:
+          HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+          HF_MODEL_REPO: hasankb00/dijital-ikiz-qwen3-4b-lora
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet "huggingface_hub>=0.34,<2"
+          python - <<'PY'
+          import json
+          import math
+          import os
+          import sys
+          from huggingface_hub import HfApi, hf_hub_download
+
+          repo_id = os.environ["HF_MODEL_REPO"]
+          token = os.environ.get("HF_WRITE_TOKEN", "").strip()
+          if len(token) < 20:
+              print("::error::HF write credential is absent; model deployment is blocked.")
+              sys.exit(1)
+
+          try:
+              api = HfApi(token=token)
+              info = api.repo_info(repo_id=repo_id, repo_type="model")
+              if info.private is not True:
+                  raise ValueError("model repository must remain private")
+
+              files = set(api.list_repo_files(repo_id=repo_id, repo_type="model"))
+              required = {
+                  "adapter_config.json",
+                  "tokenizer_config.json",
+                  "training-metrics.json",
+                  "artifact-manifest.json",
+                  "README.md",
+              }
+              missing = sorted(required - files)
+              weights = {"adapter_model.safetensors", "adapter_model.bin"} & files
+              vocab = {"tokenizer.json", "tokenizer.model", "vocab.json"} & files
+              if missing or not weights or not vocab:
+                  raise ValueError("required adapter, weight, tokenizer, or metrics files are missing")
+
+              config_path = hf_hub_download(
+                  repo_id=repo_id, filename="adapter_config.json", repo_type="model", token=token
+              )
+              metrics_path = hf_hub_download(
+                  repo_id=repo_id, filename="training-metrics.json", repo_type="model", token=token
+              )
+              with open(config_path, encoding="utf-8") as stream:
+                  config = json.load(stream)
+              with open(metrics_path, encoding="utf-8") as stream:
+                  metrics = json.load(stream)
+
+              expected_base = "Qwen/Qwen3-4B-Instruct-2507"
+              if config.get("base_model_name_or_path") != expected_base or metrics.get("base_model") != expected_base:
+                  raise ValueError("model base identifier does not match the evaluated Qwen base model")
+              base_loss = metrics.get("base_model_test_loss")
+              tuned_loss = metrics.get("finetuned_model_test_loss")
+              if not all(isinstance(value, (int, float)) and math.isfinite(value) and value >= 0
+                         for value in (base_loss, tuned_loss)) or tuned_loss >= base_loss:
+                  raise ValueError("evaluated fine-tuned test loss is missing or did not improve")
+
+              print(json.dumps({
+                  "result": "published_adapter_verified",
+                  "repository": repo_id,
+                  "private": True,
+                  "adapter_weight": sorted(weights)[0],
+                  "tokenizer_files_present": True,
+                  "base_model": expected_base,
+                  "test_loss_improved": True,
+                  "secret_values_printed": False,
+              }, indent=2))
+          except Exception as exc:
+              print("::error::Hugging Face adapter verification failed (" + type(exc).__name__ + "); Production deployment is blocked.")
+              sys.exit(1)
+          PY
+
   validate:
     needs: preflight
     if: ${{ needs.preflight.outputs.ready == 'true' }}

@@ -171,6 +171,26 @@ test('README documents how to configure the deploy workflow and verify deploymen
 })
 
 
+test('Production deployment verifies the private published LoRA before staging', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  assert.match(workflow, /Verify published Hugging Face LoRA adapter before Production deployment/)
+  assert.match(workflow, /HF_WRITE_TOKEN/)
+  assert.match(workflow, /hasankb00\/dijital-ikiz-qwen3-4b-lora/)
+  assert.match(workflow, /adapter_config\.json/)
+  assert.match(workflow, /adapter_model\.safetensors/)
+  assert.match(workflow, /tokenizer_config\.json/)
+  assert.match(workflow, /artifact-manifest\.json/)
+  assert.match(workflow, /finetuned_model_test_loss/)
+  assert.match(workflow, /info\.private is not True/)
+  assert.match(workflow, /Production deployment is blocked/)
+  assert.ok(
+    workflow.indexOf('Verify published Hugging Face LoRA adapter before Production deployment') <
+    workflow.indexOf('  validate:'),
+    'Published adapter verification must run before the deployment validation/staging jobs'
+  )
+})
+
 test('production deployment is manual, uses a pinned CLI, and never passes the token as an argument', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
