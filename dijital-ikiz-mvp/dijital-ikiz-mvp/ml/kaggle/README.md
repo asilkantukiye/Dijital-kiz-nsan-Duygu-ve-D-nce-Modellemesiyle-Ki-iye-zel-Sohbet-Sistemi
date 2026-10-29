@@ -6,7 +6,7 @@ Tek notebook: ml/kaggle/dijital_ikiz_training.ipynb.
 
 Manuel yol: GitHub Actions → **Kaggle End-to-End Model Training** → **Run workflow** adımlarını main dalında çalıştır.
 
-Bu sürüm ayrıca yalnızca ana dala gelen ve commit başlığında `[run-kaggle-training]` işaretini taşıyan özel bir tetiklemeyle tek gerçek eğitimi başlatabilir. Bu, sıradan commit'lerin GPU kotasını tüketmesini önlemek içindir. İş akışı Kaggle metadata'sını oluşturur, GPU ve Internet seçeneğini etkinleştirir, notebook'u Kaggle'a göndererek çalıştırır, bitiş durumunu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını doğrular. İşaretlenmiş commit, özel `hasankb00/dijital-ikiz-qwen3-4b-lora-pilot` deposuna doğrulanmış Qwen LoRA artefaktlarını yayımlamayı da dener. Bunun için `HF_WRITE_TOKEN` GitHub Actions secret'ı yazma yetkisine sahip olmalıdır; yoksa eğitim artefaktı yüklenebilir, ancak Hugging Face yayımlama adımı güvenli biçimde başarısız olur.
+Bu sürüm, ana dala gelen ve commit başlığında `[run-kaggle-training]` işaretini taşıyan commit'lerle otomatik eğitim başlatabilir; böylece sıradan commit'ler GPU kotasını tüketmez. Ayrıca GitHub Actions → **Kaggle End-to-End Model Training** → **Run workflow** yoluyla manuel başlatılabilir. İş akışı Kaggle metadata'sını oluşturur, GPU ve Internet seçeneklerini etkinleştirir, notebook'u Kaggle'a gönderip çalıştırır, bitiş durumunu bekler, paketini indirir ve gerçek metrik dosyalarını doğrular. Varsayılan Hugging Face hedefi `hasankb00/dijital-ikiz-qwen3-4b-lora` deposudur. Yayımlama için Kaggle Notebook Secrets'ta `HF_WRITE_TOKEN` bulunabilir; GitHub Actions Secrets'taki aynı isimli token ise bağımsız yayınlama ve SHA-256 doğrulama adımı için isteğe bağlıdır.
 
 Workflow girdileri:
 
