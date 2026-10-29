@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
-import { ChatProviderError, qwenChat } from '../lib/huggingface.ts'
+import { ChatProviderError, qwenChat, resolveChatCompletionsUrl } from '../lib/huggingface.ts'
 
 const originalFetch = globalThis.fetch
 const originalToken = process.env.HF_TOKEN
+const originalModel = process.env.HF_MODEL
+const originalChatUrl = process.env.HF_CHAT_COMPLETIONS_URL
 const messages = [
   { role: 'system', content: 'Test system message' },
   { role: 'user', content: 'Merhaba' }
@@ -13,6 +15,10 @@ afterEach(() => {
   globalThis.fetch = originalFetch
   if (originalToken === undefined) delete process.env.HF_TOKEN
   else process.env.HF_TOKEN = originalToken
+  if (originalModel === undefined) delete process.env.HF_MODEL
+  else process.env.HF_MODEL = originalModel
+  if (originalChatUrl === undefined) delete process.env.HF_CHAT_COMPLETIONS_URL
+  else process.env.HF_CHAT_COMPLETIONS_URL = originalChatUrl
 })
 
 test('missing HF_TOKEN yields a safe 503 without calling the provider', async () => {
@@ -85,4 +91,63 @@ test('invalid provider response is mapped to a safe 502', async () => {
     assert.doesNotMatch(error.publicMessage, /test-token|Bearer|provider payload/i)
     return true
   })
+})
+
+test('custom HF Inference Endpoint is selected without sending credentials to an untrusted host', async () => {
+  process.env.HF_TOKEN = 'test-token-not-a-real-secret'
+  process.env.HF_MODEL = 'tgi'
+  process.env.HF_CHAT_COMPLETIONS_URL =
+    'https://model-abc.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions'
+
+  let requestedUrl = ''
+  let requestedBody = null
+  globalThis.fetch = async (url, init) => {
+    requestedUrl = String(url)
+    requestedBody = JSON.parse(String(init?.body || '{}'))
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-token-not-a-real-secret')
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'endpoint-ok' } }] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
+  assert.equal(await qwenChat(messages, 500), 'endpoint-ok')
+  assert.equal(
+    requestedUrl,
+    'https://model-abc.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions'
+  )
+  assert.equal(requestedBody.model, 'tgi')
+})
+
+test('invalid custom HF chat endpoint fails closed before sending a request', async () => {
+  process.env.HF_TOKEN = 'test-token-not-a-real-secret'
+  process.env.HF_CHAT_COMPLETIONS_URL =
+    'https://attacker.example/v1/chat/completions'
+  let requests = 0
+  globalThis.fetch = async () => {
+    requests += 1
+    throw new Error('network must not be called for an untrusted endpoint')
+  }
+
+  await assert.rejects(qwenChat(messages, 200), (error) => {
+    assert.ok(error instanceof ChatProviderError)
+    assert.equal(error.code, 'AI_NOT_CONFIGURED')
+    assert.equal(error.status, 503)
+    assert.doesNotMatch(error.publicMessage, /attacker\\.example|test-token|Bearer/i)
+    return true
+  })
+  assert.equal(requests, 0)
+})
+
+test('chat endpoint resolver permits only trusted HTTPS endpoints without query credentials', () => {
+  assert.equal(
+    resolveChatCompletionsUrl('https://router.huggingface.co/v1/chat/completions'),
+    'https://router.huggingface.co/v1/chat/completions'
+  )
+  assert.equal(
+    resolveChatCompletionsUrl('https://router.huggingface.co/v1/chat/completions?token=secret'),
+    null
+  )
+  assert.equal(resolveChatCompletionsUrl('http://router.huggingface.co/v1/chat/completions'), null)
+  assert.equal(resolveChatCompletionsUrl('https://router.huggingface.co.attacker.example/v1/chat/completions'), null)
 })
