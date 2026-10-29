@@ -9,9 +9,11 @@ const validEnv = {
   HF_TOKEN: 'hf_' + 'x'.repeat(40),
   RATE_LIMIT_KEY_SALT: 's'.repeat(40),
   HEALTHCHECK_TOKEN: 'h'.repeat(40),
+  UPSTASH_REDIS_REST_URL: 'https://region-12345.upstash.io',
+  UPSTASH_REDIS_REST_TOKEN: 'redis-' + 'x'.repeat(32),
 };
 
-test('Production gate accepts required variables and no Upstash pair (Supabase limiter mode)', () => {
+test('Production gate accepts all required Production variables including both Upstash credentials', () => {
   const result = validateProductionEnvironment({ ...validEnv });
   assert.deepEqual(result, { ok: true, issues: [] });
 });
@@ -30,9 +32,10 @@ test('Production gate rejects an incomplete Upstash pair', () => {
   const result = validateProductionEnvironment({
     ...validEnv,
     UPSTASH_REDIS_REST_URL: 'https://example-upstash.upstash.io',
+    UPSTASH_REDIS_REST_TOKEN: '',
   });
   assert.equal(result.ok, false);
-  assert.ok(result.issues.some(issue => issue.includes('must either both be set')));
+  assert.ok(result.issues.some(issue => issue.includes('must both be set')));
 });
 
 test('Production gate rejects invalid Upstash URLs', () => {
