@@ -231,7 +231,7 @@ jobs:
           print("Prepared private Kaggle notebook metadata with GPU and Internet enabled.")
           PY
 
-      - name: Verify Hugging Face publishing credential before GPU training
+      - name: Check optional GitHub-side Hugging Face publishing credential
         if: ${{ inputs.publish_qwen_adapter || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-model]')) }}
         env:
           HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
@@ -239,10 +239,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${HF_WRITE_TOKEN:-}" ]]; then
-            echo "::error::HF_WRITE_TOKEN is missing. Add a repo-scoped write token for the private Hugging Face model before spending Kaggle GPU time."
-            exit 1
+            echo "::notice::GitHub HF_WRITE_TOKEN is absent. Training may still publish from the Kaggle notebook using its own HF_WRITE_TOKEN Notebook Secret."
+          else
+            echo "GitHub-side Hugging Face write credential is present; value is redacted."
           fi
-          echo "Hugging Face model-write credential is present (value redacted)."
 
       - name: Submit notebook and start Kaggle training
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
@@ -407,8 +407,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${HF_WRITE_TOKEN:-}" ]]; then
-            echo "::error::Publishing requires the HF_WRITE_TOKEN GitHub secret with write permission to the target private model repo."
-            exit 1
+            echo "::notice::Skipping GitHub-side publication because HF_WRITE_TOKEN is not configured in GitHub Secrets. The notebook-level publication result remains in training-metrics.json."
+            exit 0
           fi
           if [[ ! "$HF_MODEL_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
             echo "::error::Hugging Face model repo must use OWNER/REPO form."
