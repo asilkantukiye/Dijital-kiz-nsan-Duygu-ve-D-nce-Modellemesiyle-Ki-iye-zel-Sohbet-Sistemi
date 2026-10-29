@@ -124,6 +124,42 @@ jobs:
               output.write(f"KAGGLE_USERNAME={username}\n")
           print("Kaggle credentials and notebook ownership validated; secret values were not printed.")
 
+      - name: Validate notebook structure and Python cells
+        working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("ml/kaggle/dijital_ikiz_training.ipynb")
+          notebook = json.loads(path.read_text(encoding="utf-8"))
+          if notebook.get("nbformat") != 4 or not notebook.get("cells"):
+              raise SystemExit("Training notebook must be a non-empty nbformat 4 notebook.")
+          code_cells = 0
+          for index, cell in enumerate(notebook["cells"]):
+              if cell.get("cell_type") != "code":
+                  continue
+              code_cells += 1
+              source = "".join(cell.get("source", []))
+              lines = source.splitlines()
+              magics = [line for line in lines if line.lstrip().startswith(("%", "!"))]
+              if magics:
+                  if len(lines) == 1 and lines[0].lstrip().startswith("%pip "):
+                      continue
+                  raise SystemExit(f"Unsupported notebook magic in code cell {index}; static Python validation cannot safely skip it.")
+              compile(source, f"{path}:cell-{index}", "exec")
+          if code_cells < 5:
+              raise SystemExit(f"Unexpectedly few Python code cells: {code_cells}")
+          workflow = Path("../../../.github/workflows/kaggle-sentiment-pilot.yml").read_text(encoding="utf-8")
+          if "--no-run" in workflow:
+              raise SystemExit("Autonomous Kaggle workflow must not use --no-run.")
+          if "kaggle kernels status" not in workflow or "kaggle kernels output" not in workflow:
+              raise SystemExit("Workflow must poll Kaggle status and collect the completed output.")
+          print(f"Notebook JSON validated; compiled {code_cells - len(magics)} Python cells and verified autonomous CLI commands.")
+          PY
+
       - name: Prepare Kaggle notebook metadata
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
         shell: bash
@@ -355,7 +391,7 @@ jobs:
           retention-days: 14
 
       - name: Publish Qwen LoRA adapter through the validated publisher
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_qwen_adapter) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-model]')) }}
+        if: ${{ inputs.publish_qwen_adapter || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-model]')) }}
         env:
           HF_WRITE_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
           HF_MODEL_REPO: ${{ inputs.hf_model_repo || vars.HF_MODEL_REPO || 'hasankb00/dijital-ikiz-qwen3-4b-lora' }}
