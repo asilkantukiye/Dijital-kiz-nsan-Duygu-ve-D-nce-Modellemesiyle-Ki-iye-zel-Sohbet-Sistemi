@@ -105,7 +105,7 @@ test('Dotenv parser handles quotes, exports, comments and blank lines', () => {
 });
 
 test('Production gate rejects model identifiers containing newlines or excessive length', () => {
-  assert.ok(validateProductionEnvironment({ ...validEnv, HF_MODEL: 'Qwen/model\\nInjected: yes' }).issues
+  assert.ok(validateProductionEnvironment({ ...validEnv, HF_MODEL: 'Qwen/model\nInjected: yes' }).issues
     .some(issue => issue.includes('HF_MODEL')));
   assert.ok(validateProductionEnvironment({ ...validEnv, HF_EMBEDDING_MODEL: 'x'.repeat(513) }).issues
     .some(issue => issue.includes('HF_EMBEDDING_MODEL')));
