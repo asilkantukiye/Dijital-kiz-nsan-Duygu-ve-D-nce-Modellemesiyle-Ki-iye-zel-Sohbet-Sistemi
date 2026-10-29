@@ -27,6 +27,7 @@ function validUpstashUrl(value?: string) {
     if (
       url.protocol !== 'https:' ||
       !url.hostname.endsWith('.upstash.io') ||
+      url.port ||
       url.username ||
       url.password ||
       url.search ||
