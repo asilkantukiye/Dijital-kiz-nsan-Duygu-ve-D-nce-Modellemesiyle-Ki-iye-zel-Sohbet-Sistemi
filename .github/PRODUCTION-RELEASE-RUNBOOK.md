@@ -23,7 +23,7 @@ Configure these under **Repository → Settings → Secrets and variables → Ac
 | PRODUCTION_SMOKE_TEST_EMAIL | GitHub Actions secret only | Yes for deploy workflow | Dedicated, confirmed, low-privilege Supabase test account email |
 | PRODUCTION_SMOKE_TEST_PASSWORD | GitHub Actions secret only | Yes for deploy workflow | Password for the dedicated smoke-test account |
 | SUPABASE_PRODUCTION_SCHEMA_VERIFIED | GitHub repository variable | Yes | Must be exactly true only after live migration/RLS/RPC checks pass |
-| HF_MODEL_REPO | GitHub repository variable | Optional | Override the default asilkantukiye/dijital-ikiz-qwen3-4b-lora destination |
+| HF_MODEL_REPO | GitHub repository variable | Optional | Override the default hasankb00/dijital-ikiz-qwen3-4b-lora destination |
 
 The app needs HF_TOKEN; the publishing workflow separately needs HF_WRITE_TOKEN. A read/inference token is not a substitute for a write token. The HF_WRITE_TOKEN owner must have write permission to the selected OWNER/REPO. The default target is the private repository requested for this release. If the account token belongs to a different Hugging Face namespace, set the workflow input to a repository in that namespace instead.
 
@@ -51,7 +51,7 @@ Do not set the database guard just to make a workflow green. If the variable is 
 1. Merge the reviewed PR that adds .github/workflows/publish-kaggle-lora.yml and ml/kaggle/publish_lora_to_hf.py.
 2. From main, dispatch the workflow for the successful Kaggle run currently recorded as 40562948791:
 
-    gh workflow run publish-kaggle-lora.yml --ref main -f run_id=40562948791 -f model_repo=asilkantukiye/dijital-ikiz-qwen3-4b-lora
+    gh workflow run publish-kaggle-lora.yml --ref main -f run_id=40562948791 -f model_repo=hasankb00/dijital-ikiz-qwen3-4b-lora
 
 3. Follow the exact run:
 
