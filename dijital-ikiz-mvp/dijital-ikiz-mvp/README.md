@@ -53,6 +53,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 HF_TOKEN=
 HF_MODEL=Qwen/Qwen3-4B-Instruct-2507
+# Optional: trusted HF Inference Endpoint OpenAI-compatible URL.
+# Must use router.huggingface.co or *.endpoints.huggingface.cloud and end in /v1/chat/completions.
+HF_CHAT_COMPLETIONS_URL=
 HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
@@ -89,7 +92,9 @@ Arayüz otomatik Supabase anonim oturumu oluşturur; e-posta/şifre ekranı gös
 
 Hugging Face'de Inference Providers erişimi olan bir fine-grained token oluşturun ve yalnızca sunucu ortamında `HF_TOKEN` olarak tanımlayın.
 
-Uygulama, OpenAI-uyumlu `https://router.huggingface.co/v1/chat/completions` uç noktasını kullanır.
+Varsayılan olarak uygulama, OpenAI-uyumlu `https://router.huggingface.co/v1/chat/completions` uç noktasını kullanır. `HF_CHAT_COMPLETIONS_URL` yalnızca HTTPS Hugging Face Router veya `*.endpoints.huggingface.cloud` hostlarına ve tam `/v1/chat/completions` yoluna izin verir; başka bir host'a servis token'ı gönderilmez. Bu değişken boşsa mevcut varsayılan davranış değişmez.
+
+**LoRA entegrasyonu:** `HF_MODEL=Qwen/Qwen3-4B-Instruct-2507` şu anda taban Qwen modelini seçer. LoRA adapter'ının Hugging Face Hub'a yüklenmesi, serverless Router'ın adapter'ı otomatik yüklemesi anlamına gelmez. Fine-tuned modelin gerçekten çalışması için adapter'ı yükleyen uyumlu bir serving endpoint'i (veya doğrulanmış merged model) gerekir. Endpoint kurulmadan `HF_MODEL` değerini adapter deposuna çevirmeyin. Ayrılmış Hugging Face Inference Endpoint ücretli olabilir; ücretli altyapı otomatik açılmaz. Endpoint'i yapılandırdıktan sonra gerçek oturumla `POST /api/chat` smoke test'i geçmeden fine-tuned modelin uygulamada kullanıldığı iddia edilmemelidir.
 
 Uygulama sağlayıcı hata gövdelerini kullanıcıya veya normal sunucu hata çıktısına taşımamak üzere hata mesajlarını sınırlar. Geçici 408/429/5xx hatalarında sınırlı yeniden deneme uygulanır ve üretim uzunluğu MVP veri sınırına uygun tutulur.
 
@@ -145,6 +150,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY
 HF_TOKEN
 HF_MODEL
+HF_CHAT_COMPLETIONS_URL (optional; trusted Hugging Face endpoint only)
 HF_EMBEDDING_MODEL
 RATE_LIMIT_KEY_SALT
 HEALTHCHECK_TOKEN
