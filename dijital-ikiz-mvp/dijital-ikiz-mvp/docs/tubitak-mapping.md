@@ -10,7 +10,7 @@ Tek Kaggle notebook'u ml/kaggle/dijital_ikiz_training.ipynb kullanılır. Polari
 
 ### 2. Duygu ve kişilik analizi
 
-- **Duygu polaritesi:** BERTurk sınıflandırıcı test accuracy 0,9407 ve macro-F1 0,9407 raporladı. Bu sonuç yalnızca olumlu/nötr/olumsuz polarite sınıfları için geçerlidir.
+- **Duygu polaritesi:** BERTurk sınıflandırıcı test accuracy 0,9407 ve macro-F1 0,9407 raporladı. Bu yalnızca sabitlenmiş kaynak korpusundaki olumlu/nötr/olumsuz etiketleri için ön pilottur. Kaynak README'si nötr sınıfta Wikipedia ve rastgele metin bulunduğunu belirttiği için kaynağa/genre'a özgü ipuçları olasılığı vardır; bağımsız doğal sohbet ve source-heldout testi yapılmadan genel kullanıcı sohbetlerine genellenmemelidir. CPU-only TF-IDF + LogisticRegression karşılaştırması ayrıca ekleniyor.
 - **VAD / Big Five:** Bu görevler henüz gerçek, uygun etiketli veriler üzerinde eğitilip ölçülmedi.
 - **Profil çıkarımı:** Uygulamadaki lib/twin.ts hâlen deneysel heuristic/baseline göstergeler kullanır. Eğitimli polarite sınıflandırıcısının çıktısı, web sohbetinde doğrulanmış bir kişilik veya psikolojik değerlendirme gibi kullanılmamalıdır.
 
@@ -28,7 +28,7 @@ Qwen3-4B QLoRA pilotunda test loss 2,3596'dan 1,4867'ye indi; ancak adaptör hen
 
 - **Otomatik yazılım doğrulaması:** Ana dal CI çalıştırması d4e44c3f859d555f0ef918b053f778b489e26710 commit'inde PostgreSQL migration/entegrasyon testleri, embedding bütünlüğü, eşzamanlı profil ve hız sınırı testleri, birim testleri, TypeScript ve build adımlarını başarıyla tamamladı.
 - **Silme-yarışı koruması:** Canlı Supabase'e 20261027200805_delete_my_chat_inflight_claims migration'ı uygulandı; sohbet verisi silinirken devam eden eski isteklerin sonradan mesaj veya bellek kaydetmesini engelleyen generation kilitleri eklendi.
-- **Bilimsel değerlendirme:** Kontrollü kullanıcı/uzman kör değerlendirmesi, genel sohbet–kişiselleştirilmiş sohbet A/B karşılaştırması, örneklem planı ve istatistiksel sonuçlar henüz mevcut değildir.
+- **Bilimsel değerlendirme:** Kontrollü kullanıcı/uzman kör değerlendirmesi, genel sohbet–kişiselleştirilmiş sohbet A/B karşılaştırması, örneklem planı ve istatistiksel sonuçlar henüz mevcut değildir. Polarite pilotunun kaynak/genre karışıklığı için bağımsız test ve basit TF-IDF baseline da tamamlanmadan geniş doğruluk iddiası verilmemelidir.
 - **Dağıtım:** Yeni kodun Vercel'de son üretim dağıtımı tamamlanmış değildir; son denemeler platformun 24 saatlik build kotası engeline takıldı. Canlı uygulamanın eski dağıtımda bulunması, yeni güvenlik kodunun üretimde çalıştığını kanıtlamaz.
 
 ## TÜBİTAK raporunda kullanılabilecek mevcut ifade
