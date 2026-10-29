@@ -9,15 +9,15 @@ on:
   workflow_dispatch:
     inputs:
       kaggle_kernel_id:
-        description: "Kaggle notebook ID (owner/slug)"
-        required: true
+        description: "Optional Kaggle notebook ID (owner/slug); defaults to the authenticated Kaggle account"
+        required: false
         type: string
-        default: "asilkantkiye/dijital-ikiz-training"
+        default: ""
       publish_qwen_adapter:
         description: "Publish the evaluated Qwen LoRA adapter to a private Hugging Face model repo"
         required: true
         type: boolean
-        default: false
+        default: true
       hf_model_repo:
         description: "Hugging Face repo ID (owner/model-name); required only when publishing"
         required: false
@@ -52,20 +52,48 @@ jobs:
 
       - name: Validate safe inputs and credentials
         env:
-          INPUT_KERNEL_ID: ${{ inputs.kaggle_kernel_id || vars.KAGGLE_KERNEL_ID || 'asilkantkiye/dijital-ikiz-training' }}
+          INPUT_KERNEL_ID: ${{ inputs.kaggle_kernel_id || vars.KAGGLE_KERNEL_ID || '' }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$INPUT_KERNEL_ID" =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]]; then
-            echo "::error::Kaggle notebook ID must have the form owner/slug."
-            exit 1
-          fi
           if [[ -z "${KAGGLE_API_TOKEN:-}" ]] && { [[ -z "${KAGGLE_USERNAME:-}" ]] || [[ -z "${KAGGLE_KEY:-}" ]]; }; then
             echo "::error::Add KAGGLE_API_TOKEN (preferred) or KAGGLE_USERNAME + KAGGLE_KEY in GitHub Actions Secrets."
             exit 1
           fi
-          echo "KERNEL_ID=$INPUT_KERNEL_ID" >> "$GITHUB_ENV"
-          echo "Kaggle notebook ID and credential presence validated without displaying any secret."
+
+          python - <<'PY'
+          import contextlib
+          import io
+          import os
+          import re
+
+          api_token = os.environ.get("KAGGLE_API_TOKEN", "").strip()
+          configured_username = os.environ.get("KAGGLE_USERNAME", "").strip()
+
+          if api_token:
+              from kagglehub.auth import whoami
+              with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                  identity = whoami(verbose=False)
+              username = str(identity.get("username", "")).strip()
+          else:
+              username = configured_username
+
+          if not username:
+              raise SystemExit("Kaggle authentication succeeded without a usable account username.")
+
+          requested = os.environ.get("INPUT_KERNEL_ID", "").strip()
+          kernel_id = requested or f"{username}/dijital-ikiz-training"
+          if not re.fullmatch(r"[A-Za-z0-9_-]+/[A-Za-z0-9_-]+", kernel_id):
+              raise SystemExit("Kaggle notebook ID must have the form owner/slug.")
+
+          owner, _slug = kernel_id.split("/", 1)
+          if owner.casefold() != username.casefold():
+              raise SystemExit("Kaggle notebook owner does not match the authenticated account; refusing to push to another account.")
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(f"KERNEL_ID={kernel_id}\\n")
+              output.write(f"KAGGLE_USERNAME={username}\\n")
+          print("Kaggle credentials and notebook ownership validated; secret values were not printed.")
 
       - name: Prepare Kaggle notebook metadata
         working-directory: dijital-ikiz-mvp/dijital-ikiz-mvp
@@ -105,8 +133,8 @@ jobs:
           print("Prepared private Kaggle notebook metadata with GPU and Internet enabled.")
           PY
 
-      - name: Install Kaggle CLI
-        run: python -m pip install --upgrade "kaggle>=2.2.4,<3"
+      - name: Install Kaggle CLI and account identity helper
+        run: python -m pip install --disable-pip-version-check --upgrade "kaggle>=2.2.4,<3" "kagglehub>=0.3.12,<1"
 
       - name: Verify Hugging Face publishing credential before GPU training
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_qwen_adapter) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-model]')) }}
