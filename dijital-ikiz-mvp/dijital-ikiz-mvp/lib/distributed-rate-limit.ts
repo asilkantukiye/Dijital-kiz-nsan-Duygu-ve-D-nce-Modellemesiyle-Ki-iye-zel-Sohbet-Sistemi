@@ -166,8 +166,7 @@ export async function enforceChatRateLimit(
 
   const userDigest = createHmac('sha256', salt).update(userId).digest('hex')
 
-  {
-    const dayKey = now.toISOString().slice(0, 10)
+  const dayKey = now.toISOString().slice(0, 10)
   const keys = [
     'dijital-ikiz:{chat}:user:' + userDigest,
     'dijital-ikiz:{chat}:global:minute',
@@ -247,7 +246,4 @@ export async function enforceChatRateLimit(
     // Do not log endpoint credentials, provider payloads, or raw user IDs.
     return unavailable()
   }
-  }
-
-  return unavailable()
 }
