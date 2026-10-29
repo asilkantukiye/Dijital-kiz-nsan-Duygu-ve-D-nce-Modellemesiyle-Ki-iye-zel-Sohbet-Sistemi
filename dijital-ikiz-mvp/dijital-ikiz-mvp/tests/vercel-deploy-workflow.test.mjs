@@ -60,6 +60,22 @@ test('missing deployment prerequisites are explained without exposing secret val
   assert.match(workflow, /Deployment prerequisites are missing[^\n]*\n\s*exit 1/)
 })
 
+test('Production rechecks the exact main SHA before staging and before promotion', async () => {
+  const workflow = await readFile(workflowPath, 'utf8')
+
+  const stageGuard = workflow.indexOf('Recheck main tip before staging')
+  const stageDeploy = workflow.indexOf('name: Deploy to Vercel production')
+  const promoteGuard = workflow.indexOf('Recheck main tip immediately before promotion')
+  const promoteCommand = workflow.indexOf('vercel@63.1.2 promote "$DEPLOYMENT_URL"')
+
+  assert.ok(stageGuard > 0 && stageGuard < stageDeploy, 'main SHA must be checked before creating the staged deployment')
+  assert.ok(promoteGuard > 0 && promoteGuard < promoteCommand, 'main SHA must be checked immediately before promotion')
+  assert.ok((workflow.match(/gh api "repos\/\$GITHUB_REPOSITORY\/commits\/main" --jq \.sha/g) ?? []).length >= 3,
+    'preflight, staging, and promotion must all query the remote main tip')
+  assert.match(workflow, /refusing to stage a stale production build/)
+  assert.match(workflow, /refusing to promote the stale artifact/)
+})
+
 test('production deploy is gated on the full validation job', async () => {
   const workflow = await readFile(workflowPath, 'utf8')
 
