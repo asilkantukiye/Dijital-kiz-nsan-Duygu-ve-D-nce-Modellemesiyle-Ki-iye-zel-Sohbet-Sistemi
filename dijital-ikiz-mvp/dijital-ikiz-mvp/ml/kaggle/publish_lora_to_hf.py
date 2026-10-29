@@ -9,7 +9,9 @@ import json
 import math
 import os
 import shutil
+import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -76,6 +78,80 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def retry_with_backoff(operation, label: str, attempts: int = 5):
+    """Retry network operations with bounded exponential backoff; never print response bodies."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            if attempt == attempts:
+                raise SystemExit(
+                    f"{label} failed after {attempts} attempts ({type(exc).__name__}); "
+                    "response bodies and credentials were suppressed."
+                ) from None
+            delay = min(2 ** (attempt - 1), 8)
+            print(
+                f"{label} failed ({type(exc).__name__}); retrying "
+                f"{attempt}/{attempts - 1} after {delay}s.",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+
+
+def build_manifest(directory: Path) -> dict[str, dict[str, int | str]]:
+    """Build a SHA-256 manifest for every release file except the manifest itself."""
+    return {
+        path.name: {"bytes": path.stat().st_size, "sha256": sha256(path)}
+        for path in sorted(directory.iterdir())
+        if path.is_file() and path.name != "artifact-manifest.json"
+    }
+
+
+def verify_local_manifest(directory: Path, manifest: dict[str, dict[str, int | str]]) -> None:
+    require(bool(manifest), "Release manifest is empty.")
+    for name, expected in manifest.items():
+        file_path = directory / name
+        require(file_path.is_file(), f"Manifest file is missing: {name}")
+        require(file_path.stat().st_size == expected.get("bytes"),
+                f"Local manifest size mismatch: {name}")
+        require(sha256(file_path) == expected.get("sha256"),
+                f"Local manifest SHA-256 mismatch: {name}")
+
+
+def verify_remote_manifest(api, repo_id: str, token: str, manifest: dict[str, dict[str, int | str]],
+                           hf_hub_download) -> None:
+    names = sorted(manifest)
+    info = retry_with_backoff(
+        lambda: api.get_paths_info(repo_id=repo_id, paths=names, repo_type="model"),
+        "Hugging Face remote file metadata verification",
+    )
+    remote = {item.path: item for item in info}
+    require(set(names).issubset(remote),
+            "Published model is missing one or more manifest files.")
+
+    for name, expected in manifest.items():
+        item = remote[name]
+        remote_size = getattr(item, "size", None)
+        require(remote_size == expected.get("bytes"),
+                f"Published file size mismatch: {name}")
+
+        lfs = getattr(item, "lfs", None)
+        lfs_sha256 = getattr(lfs, "sha256", None) if lfs is not None else None
+        if isinstance(lfs_sha256, str) and lfs_sha256.lower() == expected.get("sha256"):
+            continue
+
+        # Small Git-managed files are downloaded and hashed; LFS weights use the
+        # server's SHA-256 metadata so a multi-GB adapter is not needlessly redownloaded.
+        cached_file = retry_with_backoff(
+            lambda: hf_hub_download(
+                repo_id=repo_id, filename=name, repo_type="model", token=token
+            ),
+            f"Hugging Face SHA-256 verification for {name}",
+        )
+        require(sha256(Path(cached_file)) == expected.get("sha256"),
+                f"Published file SHA-256 mismatch: {name}")
 
 
 def main() -> int:
@@ -154,14 +230,6 @@ def main() -> int:
                 copy_file(source, release / source.name)
         copy_file(qwen_metrics_path, release / "training-metrics.json")
 
-        manifest = {}
-        for path in sorted(release.iterdir()):
-            if path.is_file():
-                manifest[path.name] = {"bytes": path.stat().st_size, "sha256": sha256(path)}
-        (release / "artifact-manifest.json").write_text(
-            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-
         readme = f"""---
 base_model: {EXPECTED_BASE_MODEL}
 library_name: peft
@@ -189,31 +257,53 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
 """
         (release / "README.md").write_text(readme, encoding="utf-8")
 
+        manifest = build_manifest(release)
+        verify_local_manifest(release, manifest)
+        (release / "artifact-manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
         try:
-            from huggingface_hub import HfApi
+            from huggingface_hub import HfApi, hf_hub_download
         except ImportError as exc:
             raise SystemExit("huggingface_hub is not installed in the publication environment.") from exc
 
         api = HfApi(token=token)
         try:
-            api.create_repo(repo_id=repo_id, repo_type="model", private=True, exist_ok=True)
-            before = api.repo_info(repo_id=repo_id, repo_type="model")
-            require(bool(before.private), "Refusing to publish into a public Hugging Face repository.")
-            api.upload_folder(
-                repo_id=repo_id,
-                repo_type="model",
-                folder_path=str(release),
-                commit_message=f"Publish validated Kaggle Qwen LoRA run {args.run_id}",
+            retry_with_backoff(
+                lambda: api.create_repo(repo_id=repo_id, repo_type="model", private=True, exist_ok=True),
+                "Hugging Face repository setup",
             )
-            after = api.repo_info(repo_id=repo_id, repo_type="model")
+            before = retry_with_backoff(
+                lambda: api.repo_info(repo_id=repo_id, repo_type="model"),
+                "Hugging Face repository privacy check",
+            )
+            require(bool(before.private), "Refusing to publish into a public Hugging Face repository.")
+            retry_with_backoff(
+                lambda: api.upload_folder(
+                    repo_id=repo_id,
+                    repo_type="model",
+                    folder_path=str(release),
+                    commit_message=f"Publish validated Kaggle Qwen LoRA run {args.run_id}",
+                ),
+                "Hugging Face model upload",
+            )
+            after = retry_with_backoff(
+                lambda: api.repo_info(repo_id=repo_id, repo_type="model"),
+                "Hugging Face post-upload privacy check",
+            )
             require(bool(after.private), "Hugging Face repository privacy verification failed after upload.")
-            published_files = set(api.list_repo_files(repo_id=repo_id, repo_type="model"))
+            published_files = set(retry_with_backoff(
+                lambda: api.list_repo_files(repo_id=repo_id, repo_type="model"),
+                "Hugging Face remote file inventory",
+            ))
         except SystemExit:
             raise
         except Exception as exc:
             raise SystemExit(
-                f"Hugging Face publication failed ({type(exc).__name__}); check token scope, ownership, and repository access."
-            ) from exc
+                f"Hugging Face publication failed ({type(exc).__name__}); "
+                "check token scope, ownership, and repository access. Response bodies were suppressed."
+            ) from None
 
         required_remote = {
             "adapter_config.json",
@@ -225,6 +315,8 @@ Use the compatible base model and PEFT to load this adapter. The repository is i
         }
         require(required_remote.issubset(published_files),
                 "Uploaded repository is missing required adapter files.")
+
+        verify_remote_manifest(api, repo_id, token, manifest, hf_hub_download)
 
         print(json.dumps({
             "result": "published_private",
