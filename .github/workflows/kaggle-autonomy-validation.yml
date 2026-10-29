@@ -1,0 +1,92 @@
+name: Kaggle Autonomy Static Validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/kaggle-autonomy-validation.yml"
+      - ".github/workflows/kaggle-sentiment-pilot.yml"
+      - ".github/workflows/kaggle-end-to-end-training.yml"
+      - "dijital-ikiz-mvp/dijital-ikiz-mvp/ml/kaggle/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static_validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Compile notebook cells and publisher; verify autonomy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("dijital-ikiz-mvp/dijital-ikiz-mvp")
+          notebook_path = root / "ml/kaggle/dijital_ikiz_training.ipynb"
+          publisher_path = root / "ml/kaggle/publish_lora_to_hf.py"
+          template_path = root / "ml/kaggle/SCIENTIFIC_VALIDATION_TEMPLATE.md"
+          pilot_path = Path(".github/workflows/kaggle-sentiment-pilot.yml")
+          wrapper_path = Path(".github/workflows/kaggle-end-to-end-training.yml")
+
+          notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+          if notebook.get("nbformat") != 4 or not notebook.get("cells"):
+              raise SystemExit("Notebook must be non-empty nbformat 4 JSON.")
+
+          compiled = 0
+          for index, cell in enumerate(notebook["cells"]):
+              if cell.get("cell_type") != "code":
+                  continue
+              source = "".join(cell.get("source", []))
+              lines = source.splitlines()
+              if len(lines) == 1 and lines[0].lstrip().startswith("%pip "):
+                  continue
+              if any(line.lstrip().startswith(("%", "!")) for line in lines):
+                  raise SystemExit(f"Unsupported magic in code cell {index}.")
+              compile(source, f"{notebook_path}:cell-{index}", "exec")
+              compiled += 1
+          if compiled < 5:
+              raise SystemExit(f"Only {compiled} ordinary Python cells compiled.")
+
+          compile(publisher_path.read_text(encoding="utf-8"), str(publisher_path), "exec")
+
+          pilot = pilot_path.read_text(encoding="utf-8")
+          if "workflow_call:" not in pilot or "workflow_dispatch:" not in pilot:
+              raise SystemExit("Autonomous workflow needs both reusable and manual triggers.")
+          submit_parts = pilot.rsplit("- name: Submit notebook and start Kaggle training", 1)
+          if len(submit_parts) != 2:
+              raise SystemExit("Kaggle submit/run step missing.")
+          submit = submit_parts[1].split("\n      - name:", 1)[0]
+          if "kaggle kernels push" not in submit or "--no-run" in submit:
+              raise SystemExit("Kaggle push must start execution; --no-run is forbidden in the submit command.")
+          if 'kaggle kernels status "$KERNEL_ID"' not in pilot:
+              raise SystemExit("Kaggle status polling is required.")
+          if 'kaggle kernels output "$KERNEL_ID"' not in pilot:
+              raise SystemExit("Completed Kaggle outputs must be downloaded.")
+          if "--source-artifact-digest" not in pilot or "--source-artifact-digest" not in publisher_path.read_text(encoding="utf-8"):
+              raise SystemExit("Publisher source artifact digest argument is not wired end-to-end.")
+          if "training-metrics.json" not in pilot or "scientific-validation-report.md" not in pilot:
+              raise SystemExit("Unified metrics and scientific report must be validated in the pipeline.")
+          if "HF_WRITE_TOKEN" not in publisher_path.read_text(encoding="utf-8"):
+              raise SystemExit("Hugging Face write-token handling is missing.")
+          if "QWEN_MODEL_REVISION" not in "".join(notebook["cells"][18].get("source", [])):
+              raise SystemExit("Qwen base-model revision must be pinned.")
+          if "MODEL_REVISION = \"b6e1de1\"" not in "".join(notebook["cells"][10].get("source", [])):
+              raise SystemExit("BERTurk model revision must be pinned.")
+          if not template_path.is_file() or not template_path.stat().st_size:
+              raise SystemExit("Scientific validation template is missing.")
+          if "secrets: inherit" not in wrapper_path.read_text(encoding="utf-8"):
+              raise SystemExit("Wrapper must pass repository secrets to the reusable workflow.")
+          print(f"Static verification passed: {compiled} notebook code cells + Python publisher syntax + Kaggle/HF autonomy contract.")
+          PY
