@@ -248,6 +248,9 @@ def main() -> int:
         for source in tokenizer.iterdir():
             if source.is_file():
                 copy_file(source, release / source.name)
+        scientific_report_path = extracted / "scientific-validation-report.md"
+        copy_file(scientific_report_path, release / scientific_report_path.name)
+
         aggregate_metrics_path = extracted / "training-metrics.json"
         require(aggregate_metrics_path.is_file(),
                 "Consolidated training-metrics.json is missing from the Kaggle artifact.")

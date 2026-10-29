@@ -31,6 +31,10 @@ class KagglePublisherWorkflowTests(unittest.TestCase):
             "}), { mode: 0o600 });",
             self.workflow,
         )
+        self.assertIn(
+            'copy_file(scientific_report_path, release / scientific_report_path.name)',
+            self.publisher,
+        )
         self.assertNotIn(
             "}) + '\\\\n', { mode: 0o600 });",
             self.workflow,
