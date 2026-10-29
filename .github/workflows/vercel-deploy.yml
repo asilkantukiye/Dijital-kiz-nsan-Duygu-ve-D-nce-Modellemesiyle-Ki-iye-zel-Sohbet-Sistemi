@@ -28,7 +28,18 @@ jobs:
           PRODUCTION_SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_TEST_PASSWORD }}
           SUPABASE_PRODUCTION_SCHEMA_VERIFIED: ${{ vars.SUPABASE_PRODUCTION_SCHEMA_VERIFIED }}
           WORKFLOW_REF: ${{ github.ref }}
+          SOURCE_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          latest_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [[ "$latest_main_sha" != "$SOURCE_SHA" ]]; then
+            echo "::error::This run targets a stale main commit; rerun Vercel Deploy from the current main tip."
+            echo "Workflow SHA: $SOURCE_SHA"
+            echo "Latest main SHA: $latest_main_sha"
+            exit 1
+          fi
+
           missing=()
           if [[ "$WORKFLOW_REF" != "refs/heads/main" ]]; then
             missing+=("deployment must be dispatched from main (current ref: $WORKFLOW_REF)")
