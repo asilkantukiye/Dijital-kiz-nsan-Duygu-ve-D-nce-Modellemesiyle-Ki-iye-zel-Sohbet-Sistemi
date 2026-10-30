@@ -297,8 +297,8 @@ def analyze_style_ab_scores(
 
     for case_id, dimensions in by_case.items():
         for dimension in DIMENSIONS:
-            baseline_values = dimensions["baseline"][dimension]
-            personalized_values = dimensions["personalized"][dimension]
+            baseline_values = dimensions[dimension]["baseline"]
+            personalized_values = dimensions[dimension]["personalized"]
             if not baseline_values or not personalized_values:
                 raise ValueError(f"{case_id}: iki koşul için eşleşmiş puan bulunamadı.")
             baseline_mean = statistics.mean(baseline_values)
