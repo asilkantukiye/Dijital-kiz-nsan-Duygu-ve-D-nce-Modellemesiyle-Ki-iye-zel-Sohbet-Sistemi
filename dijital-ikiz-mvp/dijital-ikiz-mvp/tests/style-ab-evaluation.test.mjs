@@ -4,7 +4,9 @@ import test from 'node:test'
 import {
   buildProfile,
   buildSystemPrompt,
+  createBalancedConditionOrder,
   createBlindPair,
+  deriveCaseSeed,
 } from '../scripts/run-style-ab-evaluation.mjs'
 
 test('style profile is derived from text examples and prompt is limited to language style', () => {
@@ -50,4 +52,25 @@ test('blind pair rejects empty or invalid outputs', () => {
   assert.throws(() => createBlindPair('case-01', '', 'styled answer', 'baseline'))
   assert.throws(() => createBlindPair('case-01', 'general', 'styled', 'unknown'))
   assert.throws(() => buildProfile(['one']))
+})
+
+test('per-case seed is deterministic and shared between paired conditions', () => {
+  const first = deriveCaseSeed('friendly-01', 42)
+  assert.equal(deriveCaseSeed('friendly-01', 42), first)
+  assert.notEqual(deriveCaseSeed('formal-01', 42), first)
+  assert.throws(() => deriveCaseSeed('', 42))
+  assert.throws(() => deriveCaseSeed('case-01', -1))
+})
+
+test('generation and presentation orders are randomized with balanced counts', () => {
+  for (const count of [1, 2, 3, 30, 31]) {
+    const order = createBalancedConditionOrder(count)
+    assert.equal(order.length, count)
+    assert.ok(order.every((condition) => ['baseline', 'personalized'].includes(condition)))
+    const baselineCount = order.filter((condition) => condition === 'baseline').length
+    const personalizedCount = order.filter((condition) => condition === 'personalized').length
+    assert.ok(Math.abs(baselineCount - personalizedCount) <= 1)
+  }
+
+  assert.throws(() => createBalancedConditionOrder(0))
 })
