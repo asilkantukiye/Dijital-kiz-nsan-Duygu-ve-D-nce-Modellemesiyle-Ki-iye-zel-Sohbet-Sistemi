@@ -33,7 +33,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 2. **Qwen3-4B QLoRA pilotu çalıştırıldı.** `TFLai/Turkish-Alpaca` revizyonu `90f9589` için temel model test loss 2,3596, ince ayarlı model test loss 1,4867 oldu. Test kaybı iyileşmesi sohbet kalitesi veya kişilik/duygu başarısı kanıtı değildir; veri alt kaynakları ve lisans şartları ayrıca incelenmeli.
 3. VAD, aktif araştırma sorusunun parçası değildir. Bu sürümde VAD verisi üretme veya VAD başarısı iddia etme hedefi yoktur.
 4. Big Five, aktif araştırma sorusunun parçası değildir. Metinden kişilik etiketi türetilmez; yeni ve ayrı bir protokol onaylanmadan kişilik tahmini modeli eğitilmez.
-5. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
+5. Aktif üslup A/B deneyi için birincil ölçüt kör üslup uyumu puanıdır; görev uygunluğu ve yanıt tutarlılığı ikincil tanımlayıcı ölçütlerdir. Polarite sınıflandırma skorları veya QLoRA test loss değeri kişiselleştirme başarısı yerine kullanılamaz.
 
 **Durdurma kuralı:** Doğrulanmış uygun veri yoksa o görev eğitilmiş gibi gösterilmez; etiketi uydurulmuş ya da lisans durumu belirsiz veri eklenmez.
 
