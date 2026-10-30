@@ -15,7 +15,7 @@ Her test girdisi için iki yanıt üretilir:
 - **A – Genel koşul:** temel model aynı güvenlik ve görev talimatlarıyla yanıt verir; üslup profili sistem mesajına eklenmez.
 - **B – Kişiselleştirilmiş koşul:** aynı model, aynı kullanıcı mesajı ve aynı konuşma bağlamıyla yanıt verir; yalnızca deneysel üslup profili sistem mesajına eklenir.
 
-Model sürümü, LoRA alias'ı, kullanıcı mesajı, konuşma bağlamı, temperature, top_p ve token sınırı iki koşulda aynı olmalıdır. LoRA adaptörü kullanılacaksa iki koşulda da aynı adaptör etkin olmalıdır. Böylece deney LoRA'nın genel Türkçe talimat performansını değil, profil koşullandırmasının katkısını sınar.
+Model sürümü, LoRA alias'ı, kullanıcı mesajı, konuşma bağlamı, temperature, top_p ve token sınırı iki koşulda aynı olmalıdır. LoRA adaptörü kullanılacaksa iki koşulda da aynı adaptör etkin olmalıdır. Böylece deney LoRA'nın genel Türkçe talimat performansını değil, profil koşullandırmasının katkısını sınar. İlk sentetik pilot tek turludur: her vaka bir kullanıcı istemi ve iki tekil model yanıtından oluşur; önceki sohbet geçmişi verilmez. Dolayısıyla bu koşu uzun konuşmalarda üslup sürekliliğini veya bellek başarısını ölçmez.
 
 ## 4. Veri ve üslup profili
 
@@ -51,6 +51,6 @@ Depodaki `scripts/run-style-ab-evaluation.mjs` sentetik pilot veri üzerinde iki
 
 ## 8. Sonuçları yorumlama sınırı
 
-LoRA test loss değerinin düşmesi kişiselleştirme başarısını kanıtlamaz. Sentetik pilot sonuçları gerçek kullanıcılara genellenemez. Mevcut `lib/twin.ts` profili el ile belirlenmiş sezgisel kurallardan oluşur; doğrulanmış psikometrik ölçüm değildir. VAD, Big Five, psikolojik fayda veya akran zorbalığını önleme iddiaları bu deneyin kapsamı dışındadır.
+LoRA test loss değerinin düşmesi kişiselleştirme başarısını kanıtlamaz. Sentetik tek-tur pilot sonuçları gerçek kullanıcılara genellenemez; uzun konuşmalarda üslup devamlılığı, bellek doğruluğu veya kullanıcı deneyimi hakkında sonuç çıkarılamaz. Mevcut `lib/twin.ts` profili el ile belirlenmiş sezgisel kurallardan oluşur; doğrulanmış psikometrik ölçüm değildir. VAD, Big Five, psikolojik fayda veya akran zorbalığını önleme iddiaları bu deneyin kapsamı dışındadır.
 
 Ölçülmemiş performans değerleri sonuç olarak yazılmamalıdır.
