@@ -57,9 +57,9 @@ test('system prompt conditions only observable language-style indicators', () =>
 
   assert.match(prompt, /DİLSEL İFADE PROFİLİ/i)
   assert.match(prompt, /deneysel/i)
-  assert.match(prompt, /Emoji sıklığı: 0\\.12/)
-  assert.match(prompt, /Mizah göstergesi: 0\\.83/)
-  assert.match(prompt, /Argo\\/kısaltma göstergesi: 0\\.77/)
+  assert.ok(prompt.includes('Emoji sıklığı: 0.12'))
+  assert.ok(prompt.includes('Mizah göstergesi: 0.83'))
+  assert.ok(prompt.includes('Argo/kısaltma göstergesi: 0.77'))
   assert.doesNotMatch(prompt, /valence|arousal|dominance|Big Five|openness|conscientiousness|extraversion|agreeableness|neuroticism/i)
   assert.match(prompt, /Duygu durumu, kişilik özelliği veya psikolojik durum çıkarımı/i)
   assert.match(prompt, /gerçek kimliğini taklit ettiğini/i)
