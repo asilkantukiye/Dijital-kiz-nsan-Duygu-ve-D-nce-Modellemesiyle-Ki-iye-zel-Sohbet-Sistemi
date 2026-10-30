@@ -50,7 +50,7 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 ## 30.10.2026 — onaylı üslup A/B odağı ve Stage 6.2 durumu
 
 - **Deney değişkeni:** aynı temel model, aynı model/LoRA sürümü, aynı istem ve aynı üretim parametreleri korunur. Tek kontrollü fark, kişiselleştirilmiş koşulda gözlemlenebilir üslup profilinin sistem mesajına eklenmesidir.
-- **Sentetik teknik pilot:** `ml/evaluation/style-ab-cases.json` içinde üç sentetik üslup profiline yayılmış 30 istem vardır. Bu dosya insan katılımcı verisi değildir ve tek başına gerçek kullanıcı genellemesi sağlayamaz.
+- **Sentetik teknik pilot:** `ml/evaluation/style-ab-cases.json` içinde üç sentetik üslup profiline yayılmış 30 tek-turlu istem vardır; önceki sohbet geçmişi kullanılmaz. Bu dosya insan katılımcı verisi değildir ve tek başına gerçek kullanıcı genellemesi, uzun konuşma tutarlılığı veya bellek başarısı kanıtı sağlayamaz.
 - **Kör üretim:** `scripts/run-style-ab-evaluation.mjs` iki koşul için aynı vaka-seed'ini kullanır; vaka çalıştırma sırasını karıştırır; üretim ve kör sunum sırasını her hedef üslup profili içinde ayrı ayrı dengeli biçimde rastgeleleştirir. Koşul anahtarı ayrı tutulur.
 - **Kör puanlama:** `docs/style-ab-human-scoring-guide.md` yönergesi ve `ml/evaluation/style-ab-score-template.csv` şablonu, her çiftin en az iki bağımsız değerlendirici tarafından 1–5 aralığında puanlanmasını tanımlar.
 - **İstatistik:** `ml/analyze_style_ab_scores.py`, birincil üslup uyumu farkını tekrarlanan aynı istemleri kümelendirerek bootstrap %95 güven aralığı ve iki taraflı işaret-değiştirme permütasyon testiyle raporlar. Değerlendiriciler arası güvenilirlik katsayısı henüz hesaplanmaz; ayrı doğrulama gerekir.
