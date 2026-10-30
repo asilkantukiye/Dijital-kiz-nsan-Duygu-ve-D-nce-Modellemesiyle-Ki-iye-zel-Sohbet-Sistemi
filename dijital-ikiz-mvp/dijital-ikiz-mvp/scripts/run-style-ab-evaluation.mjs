@@ -73,6 +73,38 @@ export function createBlindPair(caseId, baseline, personalized, firstCondition) 
   }
 }
 
+export function deriveCaseSeed(caseId, rootSeed = 42) {
+  if (typeof caseId !== 'string' || !caseId.trim()) {
+    throw new Error('caseId boş olamaz.')
+  }
+  if (!Number.isSafeInteger(rootSeed) || rootSeed < 0 || rootSeed > 0xffffffff) {
+    throw new Error('seed 0–4294967295 arasında tam sayı olmalıdır.')
+  }
+
+  const digest = createHash('sha256')
+    .update(String(rootSeed) + ':' + caseId)
+    .digest('hex')
+  return Number.parseInt(digest.slice(0, 8), 16)
+}
+
+export function createBalancedConditionOrder(count) {
+  if (!Number.isSafeInteger(count) || count < 1) {
+    throw new Error('Koşul sırası için pozitif bir örnek sayısı gerekir.')
+  }
+
+  const order = Array.from(
+    { length: count },
+    (_, index) => index % 2 === 0 ? 'baseline' : 'personalized'
+  )
+
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1)
+    ;[order[index], order[swapIndex]] = [order[swapIndex], order[index]]
+  }
+
+  return order
+}
+
 function parseLimit(argv) {
   const index = argv.indexOf('--limit')
   if (index === -1) return null
@@ -83,7 +115,17 @@ function parseLimit(argv) {
   return value
 }
 
-async function requestCompletion({ endpoint, token, model, messages, timeoutMs }) {
+function parseSeed(argv) {
+  const index = argv.indexOf('--seed')
+  if (index === -1) return 42
+  const value = Number(argv[index + 1])
+  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
+    throw new Error('--seed 0–4294967295 arasında tam sayı olmalıdır.')
+  }
+  return value
+}
+
+async function requestCompletion({ endpoint, token, model, messages, timeoutMs, seed }) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -96,7 +138,7 @@ async function requestCompletion({ endpoint, token, model, messages, timeoutMs }
       temperature: 0.2,
       top_p: 0.8,
       max_tokens: 300,
-      seed: 42,
+      seed,
       stream: false,
     }),
     signal: AbortSignal.timeout(timeoutMs),
@@ -122,6 +164,7 @@ async function main() {
   const model = process.env.HF_MODEL?.trim()
   const timeoutMs = Number(process.env.HF_STYLE_AB_TIMEOUT_MS ?? 120000)
   const limit = parseLimit(process.argv.slice(2))
+  const rootSeed = parseSeed(process.argv.slice(2))
 
   if (!token || !endpoint || !configuredUrl || !model) {
     throw new Error('HF_TOKEN, HF_MODEL ve HF_CHAT_COMPLETIONS_URL tanımlanmalıdır.')
@@ -140,6 +183,8 @@ async function main() {
   }
 
   const selectedCases = limit ? dataset.cases.slice(0, limit) : dataset.cases
+  const generationOrder = createBalancedConditionOrder(selectedCases.length)
+  const presentationOrder = createBalancedConditionOrder(selectedCases.length)
   const runId = new Date().toISOString().replace(/[:.]/g, '-')
   const outputDir = resolve(defaultOutputRoot, runId)
   await mkdir(outputDir, { recursive: true })
@@ -152,6 +197,7 @@ async function main() {
     const testCase = selectedCases[index]
     const profileDefinition = dataset.profiles[testCase.profile_id]
     if (!profileDefinition || !Array.isArray(profileDefinition.examples) ||
+        typeof profileDefinition.label !== 'string' ||
         typeof testCase.prompt !== 'string' || !testCase.prompt.trim()) {
       throw new Error('Deney girdisi ' + (testCase.id ?? index) + ' geçersiz.')
     }
@@ -165,18 +211,37 @@ async function main() {
       { role: 'system', content: buildSystemPrompt(profile) },
       { role: 'user', content: testCase.prompt },
     ]
+    const caseSeed = deriveCaseSeed(testCase.id, rootSeed)
+    let baseline
+    let personalized
 
-    const baseline = await requestCompletion({ ...common, messages: baselineMessages })
-    const personalized = await requestCompletion({ ...common, messages: personalizedMessages })
-    const firstCondition = randomInt(2) === 0 ? 'baseline' : 'personalized'
-    const pair = createBlindPair(testCase.id, baseline, personalized, firstCondition)
+    // Randomize inference order as well as the blind display order.
+    if (generationOrder[index] === 'baseline') {
+      baseline = await requestCompletion({ ...common, messages: baselineMessages, seed: caseSeed })
+      personalized = await requestCompletion({ ...common, messages: personalizedMessages, seed: caseSeed })
+    } else {
+      personalized = await requestCompletion({ ...common, messages: personalizedMessages, seed: caseSeed })
+      baseline = await requestCompletion({ ...common, messages: baselineMessages, seed: caseSeed })
+    }
+
+    const pair = createBlindPair(
+      testCase.id,
+      baseline,
+      personalized,
+      presentationOrder[index]
+    )
 
     blindRows.push({
       ...pair.blind,
       prompt: testCase.prompt,
       profile_id: testCase.profile_id,
+      target_style: profileDefinition.label,
     })
-    keyRows.push(pair.key)
+    keyRows.push({
+      ...pair.key,
+      generation_order: generationOrder[index],
+      case_seed: caseSeed,
+    })
     process.stdout.write('Tamamlandı: ' + (index + 1) + '/' + selectedCases.length + '\n')
   }
 
@@ -191,8 +256,14 @@ async function main() {
     endpoint_host: new URL(endpoint).hostname,
     dataset_sha256: createHash('sha256').update(datasetText).digest('hex'),
     cases_completed: blindRows.length,
-    parameters: { temperature: 0.2, top_p: 0.8, max_tokens: 300, seed: 42 },
-    note: 'Synthetic pilot. The condition key must remain separate until blind scoring is complete.',
+    random_seed: rootSeed,
+    randomization: {
+      generation_order: 'cryptographically shuffled and near-balanced across cases',
+      blind_presentation_order: 'cryptographically shuffled and near-balanced across cases',
+      per_case_generation_seed: 'sha256(root_seed:case_id), shared by both conditions',
+    },
+    parameters: { temperature: 0.2, top_p: 0.8, max_tokens: 300 },
+    note: 'Synthetic pilot only. Keep condition-key.json separate until blind scoring is complete.',
   }, null, 2) + '\n', 'utf8')
 
   process.stdout.write('Kör tamamlandı. Kör yanıt paketi: ' + blindPath + '\n')
