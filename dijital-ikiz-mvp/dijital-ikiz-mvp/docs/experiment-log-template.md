@@ -1,63 +1,47 @@
-# Deney Kayıt Şablonu
+# Üslup Kişiselleştirme Deney Kayıt Şablonu
 
 ## Deney kimliği
-
 - Deney ID:
 - Tarih:
-- Araştırmacı:
-- Kod sürümü / commit:
-- Veri sürümü:
-- Model sürümü:
+- Git commit:
+- Veri dosyası ve SHA-256:
+- Temel model:
+- LoRA adaptör/alias:
+- Inference Endpoint sürümü:
+- Üretim parametreleri:
+
+## Araştırma sorusu
+Türkçe sohbet sistemindeki üslup profili koşullandırması, aynı modelin genel yanıtlarına kıyasla üslup uyumu ve tutarlılığı artırıyor mu?
 
 ## Hipotez
-
-Örnek: Profil koşullandırması, genel koşula göre algılanan üslup benzerliğini artırır.
+Kişiselleştirilmiş koşulun kör üslup uyumu puanı genel koşuldan yüksek olacaktır.
 
 ## Koşullar
+- A – Genel: aynı model; profil sistem mesajına eklenmez.
+- B – Kişiselleştirilmiş: aynı model; yalnızca üslup profili eklenir.
 
-### Baseline
+## Örneklem
+- Test girdisi sayısı:
+- Üslup profili sayısı:
+- Değerlendirici sayısı:
+- Sentetik / insan katılımcısı:
+- İzin ve onam durumu (gerekiyorsa):
 
-Dijital ikiz profilinin modele verilmediği koşul.
-
-### Personalized
-
-Dijital ikiz profilinin modele koşullu girdi olarak verildiği koşul.
-
-## Ölçümler
-
-### Duygu modeli
-
-- MAE:
-- RMSE:
-- Valence korelasyonu:
-- Arousal korelasyonu:
-- Dominance korelasyonu:
-
-### Kişilik modeli
-
-- Openness:
-- Conscientiousness:
-- Extraversion:
-- Agreeableness:
-- Neuroticism:
-
-### Sohbet
-
-- Ortalama 1–5 puan:
-- Üslup benzerliği:
-- Duygu uyumu:
-- Tutarlılık:
-- Güvenlik/hata oranı:
-
-## Sonuç
-
-Yalnızca gerçek deney sonucunu yazın.
+## Sonuçlar
+- A üslup uyumu ortalama (1–5):
+- B üslup uyumu ortalama (1–5):
+- Eşleştirilmiş ortalama fark:
+- %95 güven aralığı:
+- Kullanılan test ve gerekçesi:
+- Değerlendiriciler arası uyum:
+- Tutarlılık ortalaması:
+- Uygunluk ortalaması:
+- Güvenlik ihlali sayısı:
 
 ## Hata analizi
+- Yaygın hata örnekleri:
+- Beklenmeyen davranış:
+- Dışlanan yanıtlar ve gerekçeleri:
 
-En sık görülen hatalar:
--
-
-## Sonraki deney
-
--
+## Sonuç
+Yalnızca ölçülen sonuçları yazın. LoRA test kaybını kişiselleştirme başarısı olarak yorumlamayın.
