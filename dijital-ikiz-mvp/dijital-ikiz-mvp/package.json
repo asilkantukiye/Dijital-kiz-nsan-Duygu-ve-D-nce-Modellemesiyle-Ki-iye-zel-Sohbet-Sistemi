@@ -6,13 +6,14 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "analyze:style-ab": "python ml/analyze_style_ab_scores.py",
     "build": "next build",
+    "dev": "next dev",
+    "eval:style-ab": "node --experimental-strip-types scripts/run-style-ab-evaluation.mjs",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
     "test:memory": "node --experimental-strip-types --test tests/memory-text.test.mjs",
     "test:unit": "node --experimental-strip-types --test tests/*.test.mjs",
-    "eval:style-ab": "node --experimental-strip-types scripts/run-style-ab-evaluation.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@huggingface/inference": "4.13.30",

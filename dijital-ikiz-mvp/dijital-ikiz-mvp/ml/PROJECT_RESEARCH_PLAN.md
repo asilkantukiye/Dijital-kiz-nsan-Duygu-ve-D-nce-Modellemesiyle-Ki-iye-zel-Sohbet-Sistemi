@@ -2,7 +2,7 @@
 
 ## Proje amacı
 
-“Dijital İkiz İnsan: Duygu ve Düşünce Modellemesiyle Kişiye Özel Sohbet Sistemi”, Türkçe metinlerden ölçülebilir duygu, ifade biçimi ve uygun koşullarda kişilik göstergeleri çıkararak genel sohbet ile kişiselleştirilmiş sohbeti kontrollü bir deneyde karşılaştırmayı amaçlar.
+“Dijital İkiz İnsan: Duygu ve Düşünce Modellemesiyle Kişiye Özel Sohbet Sistemi” proje adı korunur; ancak **30.10.2026 itibarıyla aktif araştırma sorusu yalnızca gözlemlenebilir dil üslubu kişiselleştirmesidir**. Aynı temel sohbet modelinin genel yanıtları ile yalnızca üslup profili eklenmiş yanıtları, aynı Türkçe istemlerde kör değerlendiricilerle karşılaştırılır. Duygu tanıma, VAD, Big Five veya psikolojik durum çıkarımı mevcut deneyin hedefi değildir. Polarite ve QLoRA eğitim koşuları yardımcı teknik pilotlardır; kişiselleştirme başarısını veya psikolojik ölçüm geçerliliğini kanıtlamaz.
 
 Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabilir veri/izin zinciri, sızıntısız test ve raporlanabilir deney sonuçlarıyla gösterilmelidir.
 
@@ -10,16 +10,16 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 
 | Rapor basamağı | Depodaki karşılık | Mevcut durum |
 |---|---|---|
-| Veri toplama, ön işleme, etiketleme | `ml/data/`, `DATA_ANNOTATION_GUIDE.md`, `DATASET_SOURCE_AUDIT.md` | Doğrulama ve boş şablonlar hazır; VAD/Big Five için uygun gerçek etiketli veri henüz eklenmedi. |
-| Duygu ve kişilik modelleri | `ml/kaggle/dijital_ikiz_training.ipynb`, `ml/train_regressor.py` | Tek Kaggle notebook'u Türkçe polarite modelini ve Qwen3-4B QLoRA talimat pilotunu eğitir. VAD/BF yalnızca kendi hedef etiketleri olan doğrulanmış CSV eklenirse eğitilir. |
-| Üslup modellemesi | `lib/twin.ts`, `ml/data/style_template.csv` | Uygulamada heuristic başlangıç; öğrenilmiş/kalibre edilmiş model değil. |
-| Kişiye özel sohbet motoru | `app/api/chat/route.ts`, `lib/huggingface.ts`, `lib/twin.ts` | Qwen sohbet motoru var; profil özellikleri henüz deneysel baseline. |
-| Test ve değerlendirme | `ml/tests/`, `tests/`, `ml/analyze_feedback.py`, kör değerlendirme araçları | 27.10.2026 tarihli gerçek Kaggle koşusu polarite ve Qwen QLoRA metriklerini üretti; PostgreSQL/Node testleri, TypeScript ve build CI'da geçti. Kontrollü kullanıcı/A-B değerlendirmesi henüz yapılmadı. |
+| Veri ve etiket hazırlığı | `ml/data/`, `DATA_ANNOTATION_GUIDE.md`, `DATASET_SOURCE_AUDIT.md` | Eğitim veri kaynağı, lisans, revizyon ve sızıntı kontrolleri için araçlar var. İnsan değerlendirmesi için gerçek puanlar henüz toplanmadı. |
+| Yardımcı ML pilotları | `ml/kaggle/dijital_ikiz_training.ipynb`, `ml/train_regressor.py` | Türkçe polarite ve Qwen3-4B QLoRA pilotları çalıştırıldı. Bunlar aktif A/B araştırma sorusunun ana sonuçları değildir; VAD/Big Five model başarısı iddia edilmez. |
+| Üslup profili | `lib/twin.ts`, `ml/data/style_template.csv` | Gözlemlenebilir yazı özelliklerine dayalı, el ile tanımlanmış sezgisel başlangıç profili; öğrenilmiş veya kalibre edilmiş model değildir. |
+| Sohbet ve koşullandırma | `app/api/chat/route.ts`, `lib/huggingface.ts`, `lib/twin.ts` | Qwen sohbet sağlayıcısı ve profil koşullandırma altyapısı var. Özel LoRA adaptörü yayımlandı; çalışan üretim inference endpoint'i ve Vercel entegrasyonu henüz doğrulanmış değil. |
+| Kör A/B değerlendirmesi | `scripts/run-style-ab-evaluation.mjs`, `ml/analyze_style_ab_scores.py`, `docs/style-ab-human-scoring-guide.md`, `ml/tests/` | 30 sentetik durum için kör paket ve koşul anahtarı üretilebilir; en az iki değerlendiricinin puanlarını istem kümeleri üzerinden analiz eden araç ve testler eklendi. Henüz insan puanı veya deney sonucu yok. |
 
 ## Aşama 1 — çalışan ve ölçülebilir altyapı
 
 - Giriş ekranı kaldırılır; istemci anonim Supabase oturumu oluşturur. API kullanıcı kimliğini sunucu tarafından doğrulamaya devam eder ve RLS koruması korunur.
-- Tek Kaggle notebook'u kullanılır: Türkçe polarite + Qwen3-4B QLoRA talimat ince ayarı; VAD ve Big Five ayrı hedefler olarak yalnızca uygun etiketli CSV sağlanırsa çalışır.
+- Tek Kaggle notebook'u, yardımcı teknik pilotlar için Türkçe polarite ve Qwen3-4B QLoRA talimat ince ayarını çalıştırır. Bu koşular aktif üslup A/B araştırmasının yerine geçmez. VAD ve Big Five mevcut araştırma kapsamı dışındadır; ayrı bir araştırma sorusu, geçerli ölçüm aracı, veri/lisans incelemesi ve gerekli etik izinler olmadan bu görevler için eğitim başlatılmaz.
 - Polarite pilotunda normalize edilmiş birebir metin çakışmaları eğitim bölümünden çıkarılır ve sabit tohumlu train/validation/test alt örnekleri kullanılır. Bu birleşik duygu veri kümesinde participant_id bulunmadığından katılımcı bazlı sızıntı denetlenemez; aynı kaynak veya benzer metin türünden örnekler farklı split'lerde bulunabilir. VAD/Big Five CSV'lerinde participant_id varsa tüm katılımcı kayıtları tek split'te tutulmalıdır.
 - Her görev kendi metriklerini, veri sürümünü/hash'ini, ortam bilgilerini ve bilimsel sınırlılıklarını ayrı `metrics.json` ile raporlar.
 - `.github/workflows/kaggle-end-to-end-training.yml` manuel olarak başlatıldığında GitHub Actions Kaggle notebook'unu GPU ve Internet açık şekilde gönderip çalıştırır, sonucu bekler, model paketini indirir ve gerçek `metrics.json` dosyalarını kontrol eder. Önceki manuel **Prepare Kaggle Model Training** + Kaggle **Run All** yolu yedek olarak kalır.
@@ -31,9 +31,9 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 
 1. **Polarite pilotu çalıştırıldı, ancak sonuç ön pilot olarak ele alınmalı.** Sabitlenmiş `winvoker/turkish-sentiment-analysis-dataset` revizyonundaki test ölçümü accuracy 0,9407, macro-F1 0,9407, weighted-F1 0,9407; çoğunluk sınıfı baseline accuracy 0,3333 ve macro-F1 0,1667. Dataset README'si nötr sınıfta Wikipedia ve rastgele metin örnekleri olduğunu belirtiyor; bu kaynak/tür ipuçları skoru yükseltebilir. Kaynak-tutulan veya bağımsız doğal sohbet test kümesi ve TF-IDF + LogisticRegression karşılaştırması olmadan bu sonucu genelleştirilmiş duygu doğruluğu olarak sunma. CC BY-SA 4.0 beyanı ve alt kaynak şartları ayrıca denetlenmeli.
 2. **Qwen3-4B QLoRA pilotu çalıştırıldı.** `TFLai/Turkish-Alpaca` revizyonu `90f9589` için temel model test loss 2,3596, ince ayarlı model test loss 1,4867 oldu. Test kaybı iyileşmesi sohbet kalitesi veya kişilik/duygu başarısı kanıtı değildir; veri alt kaynakları ve lisans şartları ayrıca incelenmeli.
-3. VAD için her örneği açık yönergeyle puanlayan yeterli ve izinli Türkçe veri oluşturulur; mümkünse iki bağımsız değerlendirici ve uyum analizi eklenir.
-4. Big Five için metinden kişilik etiketi tahmin edilmez; gerekli katılımcı onamı ve Türkçe geçerliği/kullanım şartı doğrulanmış ölçek skorları kullanılır.
-5. Her hedef için bağımsız test ve uygun metrik uygulanır. Polarite doğruluğu, VAD başarısı veya Big Five başarısı olarak sunulmaz.
+3. VAD, aktif araştırma sorusunun parçası değildir. Bu sürümde VAD verisi üretme veya VAD başarısı iddia etme hedefi yoktur.
+4. Big Five, aktif araştırma sorusunun parçası değildir. Metinden kişilik etiketi türetilmez; yeni ve ayrı bir protokol onaylanmadan kişilik tahmini modeli eğitilmez.
+5. Aktif üslup A/B deneyi için birincil ölçüt kör üslup uyumu puanıdır; görev uygunluğu ve yanıt tutarlılığı ikincil tanımlayıcı ölçütlerdir. Polarite sınıflandırma skorları veya QLoRA test loss değeri kişiselleştirme başarısı yerine kullanılamaz.
 
 **Durdurma kuralı:** Doğrulanmış uygun veri yoksa o görev eğitilmiş gibi gösterilmez; etiketi uydurulmuş ya da lisans durumu belirsiz veri eklenmez.
 
@@ -46,6 +46,16 @@ Finalist olma sonucu garanti edilemez. Projenin özgün katkısı, doğrulanabil
 - Qwen LoRA özel Hugging Face deposuna yüklendi ve yayınlama job'ı dosya/manifest/rapor kontrolüyle başarılı oldu. Bu, uygulamaya inference entegrasyonu yapıldığı anlamına gelmez; uygulamanın `HF_MODEL` ayarı hâlen temel Qwen modelidir.
 - Vercel production dağıtımı, environment variable'lar ve canlı sağlık kontrolü bu denetimde yetki erişimi nedeniyle doğrulanamadı; canlıya alma tamamlanmış kabul edilmemelidir.
 - Genel sohbet ve kişiselleştirilmiş sohbet için kullanıcı/uzman kör değerlendirmesi, önceden belirlenmiş kalite ölçütleri ve istatistiksel A/B sonucu hâlâ gereklidir.
+
+## 30.10.2026 — onaylı üslup A/B odağı ve Stage 6.2 durumu
+
+- **Deney değişkeni:** aynı temel model, aynı model/LoRA sürümü, aynı istem ve aynı üretim parametreleri korunur. Tek kontrollü fark, kişiselleştirilmiş koşulda gözlemlenebilir üslup profilinin sistem mesajına eklenmesidir.
+- **Sentetik teknik pilot:** `ml/evaluation/style-ab-cases.json` içinde üç sentetik üslup profiline yayılmış 30 istem vardır. Bu dosya insan katılımcı verisi değildir ve tek başına gerçek kullanıcı genellemesi sağlayamaz.
+- **Kör üretim:** `scripts/run-style-ab-evaluation.mjs` iki koşul için aynı vaka-seed'ini kullanır; üretim ve sunum sırasını dengeli biçimde rastgeleleştirir. Koşul anahtarı ayrı tutulur.
+- **Kör puanlama:** `docs/style-ab-human-scoring-guide.md` yönergesi ve `ml/evaluation/style-ab-score-template.csv` şablonu, her çiftin en az iki bağımsız değerlendirici tarafından 1–5 aralığında puanlanmasını tanımlar.
+- **İstatistik:** `ml/analyze_style_ab_scores.py`, birincil üslup uyumu farkını tekrarlanan aynı istemleri kümelendirerek bootstrap %95 güven aralığı ve iki taraflı işaret-değiştirme permütasyon testiyle raporlar. Değerlendiriciler arası güvenilirlik katsayısı henüz hesaplanmaz; ayrı doğrulama gerekir.
+- **Durum sınırı:** yazılım altyapısının eklenmesi insan değerlendirmesinin yapıldığı anlamına gelmez. Gerçek puanlar, gerekli kurum/öğretmen izinleri ve bilgilendirilmiş onam süreçleri tamamlanmadan toplanmaz. Bu tarihte insan puanı veya A/B etki sonucu bildirilmemiştir.
+- **Canlı model sınırı:** özel LoRA adaptörünün Hugging Face'e yayımlanması, çalışan bir vLLM endpoint'inin oluşturulduğu veya Vercel uygulamasının bu adaptörü kullandığı anlamına gelmez. Ücretli GPU endpoint'i açıkça bütçe onayı ve çalışma zamanı doğrulaması olmadan açılmaz.
 
 ## Aşama 3 — entegrasyon ve TÜBİTAK kanıt dosyası
 
