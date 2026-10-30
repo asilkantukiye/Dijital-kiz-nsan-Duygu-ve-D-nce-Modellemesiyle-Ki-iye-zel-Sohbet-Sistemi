@@ -256,13 +256,13 @@ export async function POST(req: Request) {
 
     const safeHistory = boundHistory(rawHistory)
 
+    const chatMemoryEnabled = process.env.CHAT_MEMORY_ENABLED !== 'false'
     let memoryContext: string | null = null
-    if (variant === 'personalized') {
+    if (variant === 'personalized' && chatMemoryEnabled) {
       try {
         const memories = await retrieveMemories(user.id, message)
         memoryContext = formatMemoryContext(memories)
       } catch {
-        // Memory is best-effort; avoid logging user-derived provider/database details.
         console.error('Memory retrieval failed; continuing without memory.')
       }
     }
@@ -357,7 +357,7 @@ export async function POST(req: Request) {
     // The database transaction has committed, so do not release this completed claim.
     releaseOwnedClaim = null
 
-    if (persistenceDisposition === 'completed' && variant === 'personalized') {
+    if (persistenceDisposition === 'completed' && variant === 'personalized' && chatMemoryEnabled) {
       try {
         await persistMemories(user.id, userMessageId, message, chatDataGeneration)
       } catch {
