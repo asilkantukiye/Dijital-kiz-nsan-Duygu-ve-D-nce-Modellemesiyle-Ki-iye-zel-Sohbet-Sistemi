@@ -15,7 +15,7 @@ Her test girdisi için iki yanıt üretilir:
 - **A – Genel koşul:** temel model aynı güvenlik ve görev talimatlarıyla yanıt verir; üslup profili sistem mesajına eklenmez.
 - **B – Kişiselleştirilmiş koşul:** aynı model, aynı kullanıcı mesajı ve aynı konuşma bağlamıyla yanıt verir; yalnızca deneysel üslup profili sistem mesajına eklenir.
 
-Model sürümü, LoRA alias'ı, kullanıcı mesajı, konuşma bağlamı, temperature, top_p ve token sınırı iki koşulda aynı olmalıdır. LoRA adaptörü kullanılacaksa iki koşulda da aynı adaptör etkin olmalıdır. Böylece deney LoRA'nın genel Türkçe talimat performansını değil, profil koşullandırmasının katkısını sınar.
+Model sürümü, LoRA alias'ı, kullanıcı mesajı, konuşma bağlamı, temperature, top_p ve token sınırı iki koşulda aynı olmalıdır. LoRA adaptörü kullanılacaksa iki koşulda da aynı adaptör etkin olmalıdır. Böylece deney LoRA'nın genel Türkçe talimat performansını değil, profil koşullandırmasının katkısını sınar. İlk sentetik pilot tek turludur: her vaka bir kullanıcı istemi ve iki tekil model yanıtından oluşur; önceki sohbet geçmişi verilmez. Dolayısıyla bu koşu uzun konuşmalarda üslup sürekliliğini veya bellek başarısını ölçmez.
 
 ## 4. Veri ve üslup profili
 
@@ -37,9 +37,11 @@ Puanlama: 1 = çok düşük, 5 = çok yüksek. Ölçütlerin tanımları değerl
 
 ## 6. Kör değerlendirme ve analiz
 
-Yanıtlar rastgele A/B kodlarıyla, koşul bilgisi gizlenerek değerlendirilir. Mümkünse her yanıt en az iki değerlendirici tarafından aynı yönergeyle puanlanır. Koşul anahtarı puanlama tamamlanana kadar ayrı saklanır.
+Her bir yanıt çifti, koşul anahtarına erişemeyen en az iki bağımsız değerlendirici tarafından aynı 1–5 puanlama rubriğiyle değerlendirilir. Her değerlendirici aynı `case_id` çiftini yalnızca bir kez puanlar; değerlendiriciler birbirlerinin puanlarını görmez. Üretim sırası ve kör sunum sırası her hedef üslup profili içinde dengeli biçimde rastgeleleştirilir. Eşleşen baseline/personalized isteklerinde aynı vaka-seed'i ve aynı üretim ayarları kullanılır. Koşul anahtarı bütün puanlar tamamlanana kadar ayrı tutulur.
 
-Her test girdisinin A ve B puanları eşleştirilir. Ortalama fark, standart sapma ve %95 güven aralığı raporlanır. Örneklem ve dağılım uygunsa eşleştirilmiş t-testi; uygun değilse Wilcoxon işaretli sıralar testi kullanılır. Değerlendiriciler arası uyum ayrıca incelenir. Veri sayısı, eksik puanlar, dışlanan örnekler ve tüm analiz kararları raporlanır.
+Birincil sonuç üslup uyumudur; görev uygunluğu ve tutarlılık ikincil, tanımlayıcı ölçütlerdir. Her vaka için iki koşul puanlarının değerlendiriciler üzerinden ortalaması alınır. Aynı temel istem üç hedef üslupta tekrarlandığından, istatistiksel çıkarım birimi 30 yanıt çifti değil 10 benzersiz istem kümesidir. Birincil ortalama fark bu kümeler üzerinden bootstrap %95 güven aralığı ve iki taraflı işaret-değiştirme permütasyon testiyle özetlenir; küçük küme sayısı nedeniyle sonuç keşifsel kabul edilir. İkincil ölçütler için bu sürümde doğrulayıcı anlamlılık iddiası üretilmez.
+
+Mevcut analiz betiği değerlendiriciler arası güvenilirlik katsayısı (ör. ICC veya Krippendorff alfa) hesaplamaz. Gerekirse katsayı, veri görülmeden seçilen uygun model ve varsayımlarla ayrı bir analiz aşamasında hesaplanmalıdır. Eksik puanlar uydurulmaz; her vaka için en az iki bağımsız değerlendirici puanı yoksa analiz durdurulur. Veri sayısı, eksikler ve tüm analiz kararları raporlanır.
 
 ## 7. Tekrar üretilebilirlik
 
@@ -49,6 +51,6 @@ Depodaki `scripts/run-style-ab-evaluation.mjs` sentetik pilot veri üzerinde iki
 
 ## 8. Sonuçları yorumlama sınırı
 
-LoRA test loss değerinin düşmesi kişiselleştirme başarısını kanıtlamaz. Sentetik pilot sonuçları gerçek kullanıcılara genellenemez. Mevcut `lib/twin.ts` profili el ile belirlenmiş sezgisel kurallardan oluşur; doğrulanmış psikometrik ölçüm değildir. VAD, Big Five, psikolojik fayda veya akran zorbalığını önleme iddiaları bu deneyin kapsamı dışındadır.
+LoRA test loss değerinin düşmesi kişiselleştirme başarısını kanıtlamaz. Sentetik tek-tur pilot sonuçları gerçek kullanıcılara genellenemez; uzun konuşmalarda üslup devamlılığı, bellek doğruluğu veya kullanıcı deneyimi hakkında sonuç çıkarılamaz. Mevcut `lib/twin.ts` profili el ile belirlenmiş sezgisel kurallardan oluşur; doğrulanmış psikometrik ölçüm değildir. VAD, Big Five, psikolojik fayda veya akran zorbalığını önleme iddiaları bu deneyin kapsamı dışındadır.
 
 Ölçülmemiş performans değerleri sonuç olarak yazılmamalıdır.

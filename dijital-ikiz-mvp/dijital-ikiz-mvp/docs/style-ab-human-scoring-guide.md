@@ -52,7 +52,7 @@ Bu analiz betiği değerlendiriciler arası güvenilirlik katsayısı hesaplamaz
 
 ## Raporlama sınırları
 
-Bu 30 maddelik sentetik pilot, yalnızca yöntem ve teknik akış kontrolüdür. Gerçek kullanıcı genellemesi veya TÜBİTAK başarısı kanıtı değildir. Küçük örneklem, sentetik profiller, sabitlenmiş test istemleri ve sezgisel profil çıkarımı sonuçların sınırlılıkları olarak raporlanmalıdır. Sonuçlar desteklemese bile hipotez ve ölçülen fark aynen raporlanır. Veri olmadan skor, p-değeri, güven aralığı veya başarı yüzdesi yazılmaz.
+Bu 30 maddelik, tek-turlu sentetik pilot yalnızca yöntem ve teknik akış kontrolüdür; önceki sohbet geçmişini, uzun konuşma tutarlılığını veya bellek başarısını değerlendirmez. Gerçek kullanıcı genellemesi veya TÜBİTAK başarısı kanıtı değildir. Küçük örneklem, sentetik profiller, sabitlenmiş test istemleri ve sezgisel profil çıkarımı sonuçların sınırlılıkları olarak raporlanmalıdır. Sonuçlar desteklemese bile hipotez ve ölçülen fark aynen raporlanır. Veri olmadan skor, p-değeri, güven aralığı veya başarı yüzdesi yazılmaz.
 
 ## Gizlilik
 

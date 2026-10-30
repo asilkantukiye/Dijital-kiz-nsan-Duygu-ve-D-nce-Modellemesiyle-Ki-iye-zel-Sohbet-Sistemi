@@ -286,8 +286,8 @@ def analyze_style_ab_scores(
         for dimension in DIMENSIONS:
             first_score = int(row[f"response_1_{dimension}"])
             second_score = int(row[f"response_2_{dimension}"])
-            by_case[case_id][mapping["response_1_condition"]][dimension].append(first_score)
-            by_case[case_id][mapping["response_2_condition"]][dimension].append(second_score)
+            by_case[case_id][dimension][mapping["response_1_condition"]].append(first_score)
+            by_case[case_id][dimension][mapping["response_2_condition"]].append(second_score)
 
     case_effects: dict[str, dict[str, float]] = {dimension: {} for dimension in DIMENSIONS}
     condition_means: dict[str, dict[str, list[float]]] = {
@@ -297,8 +297,8 @@ def analyze_style_ab_scores(
 
     for case_id, dimensions in by_case.items():
         for dimension in DIMENSIONS:
-            baseline_values = dimensions["baseline"][dimension]
-            personalized_values = dimensions["personalized"][dimension]
+            baseline_values = dimensions[dimension]["baseline"]
+            personalized_values = dimensions[dimension]["personalized"]
             if not baseline_values or not personalized_values:
                 raise ValueError(f"{case_id}: iki koşul için eşleşmiş puan bulunamadı.")
             baseline_mean = statistics.mean(baseline_values)
