@@ -1,75 +1,54 @@
-# Deneysel Geliştirme Protokolü
+# Üslup Kişiselleştirme Karşılaştırma Protokolü
 
-Bu belge, MVP'nin TÜBİTAK raporundaki Ar-Ge hedeflerine geçişinde kullanılacak ölçüm çerçevesini tanımlar.
+## 1. Araştırma sorusu
 
-## 1. Veri
+Türkçe bir sohbet sisteminde kullanıcının ifade biçimine göre kişiselleştirilen yanıtlar, aynı temel modelin genel yanıtlarına kıyasla üslup uyumu ve tutarlılık açısından daha iyi sonuç veriyor mu?
 
-Türkçe metinlerden oluşan veri kümesi; kaynak, lisans/izin durumu, örnek kimliği ve etiket bilgileriyle birlikte tutulmalıdır. Kişisel veri içeren gerçek kullanıcı konuşmaları, uygun izin ve veri koruma süreci olmadan eğitim verisi olarak kullanılmamalıdır.
+## 2. Hipotez
 
-## 2. Duygu modeli
+Üslup profiliyle koşullandırılan yanıtların kör değerlendiricilerce verilen üslup uyumu puanları, aynı temel modelin profil verilmeyen genel yanıtlarından daha yüksek olacaktır. Hipotez desteklenmezse bu sonuç değiştirilmeden raporlanır.
 
-Rapordaki VAD yaklaşımı için valence, arousal ve dominance boyutları ayrı hedefler olarak ele alınır.
+## 3. Deney deseni
 
-Önerilen ölçümler:
-- MAE / RMSE: sürekli skorlar için
-- Pearson/Spearman korelasyonu: sıralı ilişki için
-- Gerekirse üç boyutun ayrı ayrı sınıflandırılmış versiyonları için accuracy, precision, recall ve F1
+Her test girdisi için iki yanıt üretilir:
 
-%75 hedefi, deney tasarımı ve kullanılan metriğe göre açıkça tanımlanmalı; tek bir sayı olarak ölçüm tanımı olmadan kullanılmamalıdır.
+- **A – Genel koşul:** temel model aynı güvenlik ve görev talimatlarıyla yanıt verir; üslup profili sistem mesajına eklenmez.
+- **B – Kişiselleştirilmiş koşul:** aynı model, aynı kullanıcı mesajı ve aynı konuşma bağlamıyla yanıt verir; yalnızca deneysel üslup profili sistem mesajına eklenir.
 
-## 3. Kişilik modeli
+Model sürümü, LoRA alias'ı, kullanıcı mesajı, konuşma bağlamı, temperature, top_p ve token sınırı iki koşulda aynı olmalıdır. LoRA adaptörü kullanılacaksa iki koşulda da aynı adaptör etkin olmalıdır. Böylece deney LoRA'nın genel Türkçe talimat performansını değil, profil koşullandırmasının katkısını sınar.
 
-Big Five boyutları için etiketli veri ile regresyon veya sınıflandırma denenebilir.
+## 4. Veri ve üslup profili
 
-Raporlanacak ölçümler:
-- boyut bazlı hata / korelasyon,
-- sınıflandırma kullanılıyorsa accuracy ve macro-F1,
-- eğitim/doğrulama/test ayrımı.
+İlk teknik pilotta araştırmacı tarafından hazırlanmış sentetik Türkçe kullanıcı mesajları ve önceden yazılmış üslup örnekleri kullanılabilir. Bu sonuçlar gerçek kullanıcı davranışına genellenemez. Gerçek katılımcı verisi kullanılacaksa veri toplamadan önce gerekli etik/kurumsal izinler, aydınlatma ve gönüllü onam süreçleri tamamlanmalıdır. Reşit olmayan katılımcılarla çalışma yapılmamalıdır; ayrıca gerekli izin ve veli onamı olmadan kişisel sohbet verisi toplanmamalıdır.
 
-## 4. Üslup modeli
+Üslup profili yalnızca metinden gözlenebilen dil özelliklerini ifade eder: resmiyet/gündeliklik, cümle uzunluğu, emoji, kısaltma/argo ve mizah göstergeleri. Profil psikolojik kişilik, klinik durum veya duygusal teşhis değildir.
 
-Her kullanıcı için:
-- cümle uzunluğu,
-- emoji kullanımı,
-- kısaltma,
-- argo,
-- resmiyet/gündeliklik,
-- mizah göstergeleri
+## 5. Birincil ve ikincil ölçütler
 
-gibi özellikler çıkarılabilir.
+**Birincil ölçüt:** Üslup uyumu (1–5 puan).
 
-Daha sonra klasik özellik vektörü ile embedding tabanlı yaklaşımın kişiselleştirme başarısı karşılaştırılmalıdır.
+İkincil ölçütler:
+- Konuşma tutarlılığı (1–5)
+- Yanıtın soruya uygunluğu (1–5)
+- Doğallık ve okunabilirlik (1–5)
+- Güvenlik: ihlal var/yok ve hata türü
 
-## 5. Kişiselleştirilmiş sohbet testi
+Puanlama: 1 = çok düşük, 5 = çok yüksek. Ölçütlerin tanımları değerlendiricilere verilecek aynı puanlama yönergesinde yer almalıdır. Bunlar sınıflandırma doğruluğu değildir; sonuçlar “% doğruluk” şeklinde adlandırılmamalıdır.
 
-Aynı kullanıcı profiline ait iki koşul karşılaştırılabilir:
+## 6. Kör değerlendirme ve analiz
 
-A. Genel model yanıtı  
-B. Dijital ikiz profili ile koşullandırılmış yanıt
+Yanıtlar rastgele A/B kodlarıyla, koşul bilgisi gizlenerek değerlendirilir. Mümkünse her yanıt en az iki değerlendirici tarafından aynı yönergeyle puanlanır. Koşul anahtarı puanlama tamamlanana kadar ayrı saklanır.
 
-Değerlendirme boyutları:
-- üslup benzerliği,
-- duygu uyumu,
-- tutarlılık,
-- yanıt kalitesi,
-- güvenlik.
+Her test girdisinin A ve B puanları eşleştirilir. Ortalama fark, standart sapma ve %95 güven aralığı raporlanır. Örneklem ve dağılım uygunsa eşleştirilmiş t-testi; uygun değilse Wilcoxon işaretli sıralar testi kullanılır. Değerlendiriciler arası uyum ayrıca incelenir. Veri sayısı, eksik puanlar, dışlanan örnekler ve tüm analiz kararları raporlanır.
 
-Değerlendiriciler mümkün olduğunca körleştirilmelidir.
+## 7. Tekrar üretilebilirlik
 
-## 6. Deney günlüğü
+Her çalışmada şu bilgiler kaydedilir: deney tarihi, Git commit'i, model ve adaptör kimliği, endpoint sürümü, veri dosyası hash'i, üretim parametreleri, test girdileri, kör yanıt paketi, ayrı koşul anahtarı, ham puanlar ve analiz betiği.
 
-Her deney için:
-- tarih,
-- veri sürümü,
-- model sürümü,
-- hiperparametreler,
-- eğitim süresi,
-- metrikler,
-- hata analizi,
-- sonuç ve sonraki aksiyon
+Depodaki `scripts/run-style-ab-evaluation.mjs` sentetik pilot veri üzerinde iki koşulu üretir. `ml/private/` altındaki çıktı ve koşul anahtarı Git'e eklenmemelidir.
 
-kaydedilmelidir.
+## 8. Sonuçları yorumlama sınırı
 
-## 7. Bilimsel raporlama kuralı
+LoRA test loss değerinin düşmesi kişiselleştirme başarısını kanıtlamaz. Sentetik pilot sonuçları gerçek kullanıcılara genellenemez. Mevcut `lib/twin.ts` profili el ile belirlenmiş sezgisel kurallardan oluşur; doğrulanmış psikometrik ölçüm değildir. VAD, Big Five, psikolojik fayda veya akran zorbalığını önleme iddiaları bu deneyin kapsamı dışındadır.
 
-Ölçülmemiş performans değerleri sonuç olarak yazılmamalıdır. MVP'nin mevcut heuristic skorları bilimsel olarak doğrulanmış duygu veya kişilik ölçümleri değildir.
+Ölçülmemiş performans değerleri sonuç olarak yazılmamalıdır.
