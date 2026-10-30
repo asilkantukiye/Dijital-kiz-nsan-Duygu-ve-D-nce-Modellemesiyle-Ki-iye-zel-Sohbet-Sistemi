@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic pilot only. Three fictional writing styles and ten prompts per style. Not participant data and not sufficient for generalizable claims.",
+  "profiles": {
+    "friendly": {
+      "label": "Samimi ve gündelik",
+      "examples": [
+        "Ya selam, bugün baya yoğundum ama sonunda işlerimi toparladım.",
+        "Bence bunu daha sade anlatsak çok daha iyi olur, ne dersin?",
+        "Harika olmuş, eline sağlık! Birkaç küçük önerim var.",
+        "Kısaca anlatabilir misin, çok uzatmadan konuşalım."
+      ]
+    },
+    "formal": {
+      "label": "Resmî ve ölçülü",
+      "examples": [
+        "Merhaba, bugün tamamladığım çalışmayı kısaca değerlendirmek istiyorum.",
+        "Bu konuyu daha açık ve düzenli bir biçimde ifade etmenin yararlı olacağını düşünüyorum.",
+        "Önerileriniz için teşekkür ederim. Gerekli düzenlemeleri yapacağım.",
+        "Konuyu mümkün olduğunca anlaşılır ve kısa biçimde açıklayabilir misiniz?"
+      ]
+    },
+    "concise": {
+      "label": "Kısa ve doğrudan",
+      "examples": [
+        "Bugün işlerimi tamamladım.",
+        "Daha kısa ve açık yazalım.",
+        "Teşekkürler. Düzelteceğim.",
+        "Özetini verir misin?"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "friendly-01",
+      "profile_id": "friendly",
+      "prompt": "Fotosentezi lise öğrencisinin anlayacağı şekilde açıklar mısın?"
+    },
+    {
+      "id": "friendly-02",
+      "profile_id": "friendly",
+      "prompt": "Bugün 30 dakikam var. Ders çalışmak için kısa bir plan önerir misin?"
+    },
+    {
+      "id": "friendly-03",
+      "profile_id": "friendly",
+      "prompt": "Bir arkadaşımı küçük bir başarısından dolayı tebrik etmek istiyorum. Örnek bir mesaj yazar mısın?"
+    },
+    {
+      "id": "friendly-04",
+      "profile_id": "friendly",
+      "prompt": "Sınıfta yapacağım sunum için hazırlık yaparken nelere dikkat etmeliyim?"
+    },
+    {
+      "id": "friendly-05",
+      "profile_id": "friendly",
+      "prompt": "Bir algoritma ile program arasındaki farkı basitçe açıklar mısın?"
+    },
+    {
+      "id": "friendly-06",
+      "profile_id": "friendly",
+      "prompt": "Öğretmenimden ödev teslim süresi için ek zaman istemem gerekiyor. Kibar bir mesaj hazırlar mısın?"
+    },
+    {
+      "id": "friendly-07",
+      "profile_id": "friendly",
+      "prompt": "Bir günde çok fazla işim varsa hangisinden başlayacağıma nasıl karar verebilirim?"
+    },
+    {
+      "id": "friendly-08",
+      "profile_id": "friendly",
+      "prompt": "Düzenli uykunun öğrenme ve dikkat üzerindeki etkisini açıklar mısın?"
+    },
+    {
+      "id": "friendly-09",
+      "profile_id": "friendly",
+      "prompt": "Bir araştırma projesinin yöntem bölümünde hangi bilgiler bulunmalıdır?"
+    },
+    {
+      "id": "friendly-10",
+      "profile_id": "friendly",
+      "prompt": "Bir sunumun kapanış bölümünü etkili hâle getirmek için üç öneri verir misin?"
+    },
+    {
+      "id": "formal-01",
+      "profile_id": "formal",
+      "prompt": "Fotosentezi lise öğrencisinin anlayacağı şekilde açıklar mısın?"
+    },
+    {
+      "id": "formal-02",
+      "profile_id": "formal",
+      "prompt": "Bugün 30 dakikam var. Ders çalışmak için kısa bir plan önerir misin?"
+    },
+    {
+      "id": "formal-03",
+      "profile_id": "formal",
+      "prompt": "Bir arkadaşımı küçük bir başarısından dolayı tebrik etmek istiyorum. Örnek bir mesaj yazar mısın?"
+    },
+    {
+      "id": "formal-04",
+      "profile_id": "formal",
+      "prompt": "Sınıfta yapacağım sunum için hazırlık yaparken nelere dikkat etmeliyim?"
+    },
+    {
+      "id": "formal-05",
+      "profile_id": "formal",
+      "prompt": "Bir algoritma ile program arasındaki farkı basitçe açıklar mısın?"
+    },
+    {
+      "id": "formal-06",
+      "profile_id": "formal",
+      "prompt": "Öğretmenimden ödev teslim süresi için ek zaman istemem gerekiyor. Kibar bir mesaj hazırlar mısın?"
+    },
+    {
+      "id": "formal-07",
+      "profile_id": "formal",
+      "prompt": "Bir günde çok fazla işim varsa hangisinden başlayacağıma nasıl karar verebilirim?"
+    },
+    {
+      "id": "formal-08",
+      "profile_id": "formal",
+      "prompt": "Düzenli uykunun öğrenme ve dikkat üzerindeki etkisini açıklar mısın?"
+    },
+    {
+      "id": "formal-09",
+      "profile_id": "formal",
+      "prompt": "Bir araştırma projesinin yöntem bölümünde hangi bilgiler bulunmalıdır?"
+    },
+    {
+      "id": "formal-10",
+      "profile_id": "formal",
+      "prompt": "Bir sunumun kapanış bölümünü etkili hâle getirmek için üç öneri verir misin?"
+    },
+    {
+      "id": "concise-01",
+      "profile_id": "concise",
+      "prompt": "Fotosentezi lise öğrencisinin anlayacağı şekilde açıklar mısın?"
+    },
+    {
+      "id": "concise-02",
+      "profile_id": "concise",
+      "prompt": "Bugün 30 dakikam var. Ders çalışmak için kısa bir plan önerir misin?"
+    },
+    {
+      "id": "concise-03",
+      "profile_id": "concise",
+      "prompt": "Bir arkadaşımı küçük bir başarısından dolayı tebrik etmek istiyorum. Örnek bir mesaj yazar mısın?"
+    },
+    {
+      "id": "concise-04",
+      "profile_id": "concise",
+      "prompt": "Sınıfta yapacağım sunum için hazırlık yaparken nelere dikkat etmeliyim?"
+    },
+    {
+      "id": "concise-05",
+      "profile_id": "concise",
+      "prompt": "Bir algoritma ile program arasındaki farkı basitçe açıklar mısın?"
+    },
+    {
+      "id": "concise-06",
+      "profile_id": "concise",
+      "prompt": "Öğretmenimden ödev teslim süresi için ek zaman istemem gerekiyor. Kibar bir mesaj hazırlar mısın?"
+    },
+    {
+      "id": "concise-07",
+      "profile_id": "concise",
+      "prompt": "Bir günde çok fazla işim varsa hangisinden başlayacağıma nasıl karar verebilirim?"
+    },
+    {
+      "id": "concise-08",
+      "profile_id": "concise",
+      "prompt": "Düzenli uykunun öğrenme ve dikkat üzerindeki etkisini açıklar mısın?"
+    },
+    {
+      "id": "concise-09",
+      "profile_id": "concise",
+      "prompt": "Bir araştırma projesinin yöntem bölümünde hangi bilgiler bulunmalıdır?"
+    },
+    {
+      "id": "concise-10",
+      "profile_id": "concise",
+      "prompt": "Bir sunumun kapanış bölümünü etkili hâle getirmek için üç öneri verir misin?"
+    }
+  ]
+}
