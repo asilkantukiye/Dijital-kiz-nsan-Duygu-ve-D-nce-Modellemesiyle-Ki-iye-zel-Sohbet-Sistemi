@@ -5,8 +5,10 @@ import {
   buildProfile,
   buildSystemPrompt,
   createBalancedConditionOrder,
+  createBalancedConditionOrderByProfile,
   createBlindPair,
   deriveCaseSeed,
+  shuffleCases,
 } from '../scripts/run-style-ab-evaluation.mjs'
 
 test('style profile is derived from text examples and prompt is limited to language style', () => {
@@ -73,4 +75,29 @@ test('generation and presentation orders are randomized with balanced counts', (
   }
 
   assert.throws(() => createBalancedConditionOrder(0))
+})
+
+test('execution order is shuffled and condition order is balanced within each style profile', () => {
+  const cases = [
+    ...Array.from({ length: 5 }, (_, index) => ({ id: 'f-' + index, profile_id: 'friendly' })),
+    ...Array.from({ length: 4 }, (_, index) => ({ id: 'r-' + index, profile_id: 'formal' })),
+    ...Array.from({ length: 3 }, (_, index) => ({ id: 'c-' + index, profile_id: 'concise' })),
+  ]
+  const shuffled = shuffleCases(cases)
+  assert.deepEqual(
+    [...shuffled.map((item) => item.id)].sort(),
+    [...cases.map((item) => item.id)].sort()
+  )
+
+  const order = createBalancedConditionOrderByProfile(shuffled)
+  assert.equal(order.length, shuffled.length)
+  for (const profileId of ['friendly', 'formal', 'concise']) {
+    const conditions = order.filter((_, index) => shuffled[index].profile_id === profileId)
+    const baseline = conditions.filter((value) => value === 'baseline').length
+    const personalized = conditions.filter((value) => value === 'personalized').length
+    assert.ok(Math.abs(baseline - personalized) <= 1)
+  }
+
+  assert.throws(() => createBalancedConditionOrderByProfile([]))
+  assert.throws(() => createBalancedConditionOrderByProfile([{ profile_id: '' }]))
 })
