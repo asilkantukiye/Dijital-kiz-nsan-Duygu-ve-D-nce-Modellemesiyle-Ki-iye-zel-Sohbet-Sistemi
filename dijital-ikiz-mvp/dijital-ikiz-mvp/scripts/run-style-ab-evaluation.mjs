@@ -18,7 +18,7 @@ const commonSystemPrompt = [
   'Kullanıcının sorusunu doğru, açık ve güvenli biçimde yanıtla.',
   'Kişinin kimliğini taklit ettiğini veya onun adına gerçek dünyada işlem yaptığını iddia etme.',
   'Psikolojik tanı koyma ve doğrulanmamış kişilik çıkarımları yapma.',
-].join('\\n\\n')
+].join('\n\n')
 
 export function buildProfile(examples) {
   if (!Array.isArray(examples) || examples.length < 2 ||
@@ -38,13 +38,13 @@ export function buildSystemPrompt(profile = null) {
       commonSystemPrompt,
       'Bu genel yanıt koşuludur. Kullanıcıya ait üslup profili verilmemiştir.',
       'Kullanıcı mesajına doğal ve tarafsız bir Türkçe yanıt üret.',
-    ].join('\\n\\n')
+    ].join('\n\n')
   }
 
   return [
     commonSystemPrompt,
     profileToSystemPrompt(profile),
-  ].join('\\n\\n')
+  ].join('\n\n')
 }
 
 export function createBlindPair(caseId, baseline, personalized, firstCondition) {
@@ -87,7 +87,7 @@ async function requestCompletion({ endpoint, token, model, messages, timeoutMs }
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: 'Bearer ' + token,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -104,7 +104,7 @@ async function requestCompletion({ endpoint, token, model, messages, timeoutMs }
   })
 
   if (!response.ok) {
-    throw new Error(`Inference isteği başarısız: HTTP ${response.status}. Yanıt gövdesi güvenlik için gösterilmedi.`)
+    throw new Error('Inference isteği başarısız: HTTP ' + response.status + '. Yanıt gövdesi güvenlik için gösterilmedi.')
   }
 
   const payload = await response.json()
@@ -153,7 +153,7 @@ async function main() {
     const profileDefinition = dataset.profiles[testCase.profile_id]
     if (!profileDefinition || !Array.isArray(profileDefinition.examples) ||
         typeof testCase.prompt !== 'string' || !testCase.prompt.trim()) {
-      throw new Error(`Deney girdisi ${testCase.id ?? index} geçersiz.`)
+      throw new Error('Deney girdisi ' + (testCase.id ?? index) + ' geçersiz.')
     }
 
     const profile = buildProfile(profileDefinition.examples)
@@ -177,14 +177,14 @@ async function main() {
       profile_id: testCase.profile_id,
     })
     keyRows.push(pair.key)
-    process.stdout.write(`Tamamlandı: ${index + 1}/${selectedCases.length}\\n`)
+    process.stdout.write('Tamamlandı: ' + (index + 1) + '/' + selectedCases.length + '\n')
   }
 
   const blindPath = resolve(outputDir, 'blind-evaluation.jsonl')
   const keyPath = resolve(outputDir, 'condition-key.json')
   const manifestPath = resolve(outputDir, 'run-manifest.json')
-  await writeFile(blindPath, blindRows.map((row) => JSON.stringify(row)).join('\\n') + '\\n', 'utf8')
-  await writeFile(keyPath, JSON.stringify(keyRows, null, 2) + '\\n', { encoding: 'utf8', mode: 0o600 })
+  await writeFile(blindPath, blindRows.map((row) => JSON.stringify(row)).join('\n') + '\n', 'utf8')
+  await writeFile(keyPath, JSON.stringify(keyRows, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 })
   await writeFile(manifestPath, JSON.stringify({
     created_at: new Date().toISOString(),
     model_alias: model,
@@ -193,12 +193,18 @@ async function main() {
     cases_completed: blindRows.length,
     parameters: { temperature: 0.2, top_p: 0.8, max_tokens: 300, seed: 42 },
     note: 'Synthetic pilot. The condition key must remain separate until blind scoring is complete.',
-  }, null, 2) + '\\n', 'utf8')
+  }, null, 2) + '\n', 'utf8')
 
-  process.stdout.write(`Kör tamamlandı. Kör yanıt paketi: ${blindPath}\\nKoşul anahtarı (puanlama bitene kadar gizli): ${keyPath}\\n`)
+  process.stdout.write('Kör tamamlandı. Kör yanıt paketi: ' + blindPath + '\n')
+  process.stdout.write('Koşul anahtarı (puanlama bitene kadar gizli): ' + keyPath + '\n')
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : 'Deney çalıştırılamadı.'}\\n`)
-  process.exitCode = 1
-})
+const invokedPath = process.argv[1] ? resolve(process.argv[1]) : ''
+const isDirectExecution = invokedPath === fileURLToPath(import.meta.url)
+
+if (isDirectExecution) {
+  main().catch((error) => {
+    process.stderr.write((error instanceof Error ? error.message : 'Deney çalıştırılamadı.') + '\n')
+    process.exitCode = 1
+  })
+}
