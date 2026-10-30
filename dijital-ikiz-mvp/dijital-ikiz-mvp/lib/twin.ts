@@ -124,10 +124,12 @@ export function analyzeMessage(text: string, previous: TwinProfile | null): Twin
 export function profileToSystemPrompt(p: TwinProfile) {
   const profile = normalizeProfile(p)
 
-  return `DİJİTAL İKİZ PROFİLİ (0-1 aralığı):
-Duygu: valence=${profile.valence.toFixed(2)}, arousal=${profile.arousal.toFixed(2)}, dominance=${profile.dominance.toFixed(2)}
-Big Five: openness=${profile.openness.toFixed(2)}, conscientiousness=${profile.conscientiousness.toFixed(2)}, extraversion=${profile.extraversion.toFixed(2)}, agreeableness=${profile.agreeableness.toFixed(2)}, neuroticism=${profile.neuroticism.toFixed(2)}
-Üslup: informality=${profile.informality.toFixed(2)}, emoji=${profile.emoji_frequency.toFixed(2)}, humor=${profile.humor.toFixed(2)}, slang=${profile.slang.toFixed(2)}, sentence_length=${profile.avg_sentence_length.toFixed(2)}
+  return `DİLSEL İFADE PROFİLİ (deneysel, 0-1 aralığı):
+Samimiyet/resmiyet: ${profile.informality.toFixed(2)}
+Emoji sıklığı: ${profile.emoji_frequency.toFixed(2)}
+Mizah göstergesi: ${profile.humor.toFixed(2)}
+Argo/kısaltma göstergesi: ${profile.slang.toFixed(2)}
+Ortalama cümle uzunluğu göstergesi: ${profile.avg_sentence_length.toFixed(2)}
 
-Bu profil, kullanıcının yazım ve ifade eğilimlerini temsil eden deneysel bir modeldir. Yanıtı bu eğilimlere doğal biçimde yaklaştır; kullanıcının gerçek kimliğini taklit ettiğini, gerçek dünyada onun adına işlem yaptığını veya profesyonel/psikolojik tanı verdiğini iddia etme.`
+Bu değerler yalnızca metinde gözlenen ifade tercihleri için deneysel ipuçlarıdır. Duygu durumu, kişilik özelliği veya psikolojik durum çıkarımı olarak yorumlama. Yanıtın anlamını ve doğruluğunu koruyarak yalnızca anlatım biçimini bu dilsel tercihlere yaklaştır. Kullanıcının gerçek kimliğini taklit ettiğini veya onun adına işlem yaptığını iddia etme.`
 }

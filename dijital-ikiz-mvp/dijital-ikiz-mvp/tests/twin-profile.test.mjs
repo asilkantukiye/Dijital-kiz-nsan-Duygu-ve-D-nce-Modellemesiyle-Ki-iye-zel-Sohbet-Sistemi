@@ -43,15 +43,26 @@ test('profile updates apply the documented 25 percent current-message weighting'
   assert.ok(Math.abs(profile.agreeableness - 0.52) < 1e-10)
 })
 
-test('system prompt labels profile as experimental and does not overstate identity', () => {
+test('system prompt conditions only observable language-style indicators', () => {
   const prompt = profileToSystemPrompt({
     ...normalizeProfile(null),
-    valence: 9
+    valence: 1,
+    openness: 1,
+    informality: 0.91,
+    emoji_frequency: 0.12,
+    humor: 0.83,
+    slang: 0.77,
+    avg_sentence_length: 0.42
   })
 
-  assert.match(prompt, /deneysel bir modeldir/i)
+  assert.match(prompt, /DİLSEL İFADE PROFİLİ/i)
+  assert.match(prompt, /deneysel/i)
+  assert.ok(prompt.includes('Emoji sıklığı: 0.12'))
+  assert.ok(prompt.includes('Mizah göstergesi: 0.83'))
+  assert.ok(prompt.includes('Argo/kısaltma göstergesi: 0.77'))
+  assert.doesNotMatch(prompt, /valence|arousal|dominance|Big Five|openness|conscientiousness|extraversion|agreeableness|neuroticism/i)
+  assert.match(prompt, /Duygu durumu, kişilik özelliği veya psikolojik durum çıkarımı/i)
   assert.match(prompt, /gerçek kimliğini taklit ettiğini/i)
-  assert.match(prompt, /valence=1\.00/)
 })
 
 test('profile output is deterministic for the same message and previous state', () => {
