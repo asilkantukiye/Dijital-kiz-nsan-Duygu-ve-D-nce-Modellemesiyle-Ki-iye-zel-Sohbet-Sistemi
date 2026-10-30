@@ -7,7 +7,7 @@ import {
   createBlindPair,
 } from '../scripts/run-style-ab-evaluation.mjs'
 
-test('style profile is derived from text examples and prompt is scoped to language style', () => {
+test('style profile is derived from text examples and prompt is limited to language style', () => {
   const profile = buildProfile([
     'Ya selam, bugün baya yoğundum ama işlerimi bitirdim!',
     'Bence bunu daha kısa anlatsak çok iyi olur.',
@@ -17,10 +17,10 @@ test('style profile is derived from text examples and prompt is scoped to langua
   const prompt = buildSystemPrompt(profile)
   assert.match(prompt, /DİLSEL İFADE PROFİLİ/)
   assert.match(prompt, /yalnızca metinde gözlenen ifade tercihleri/)
-  assert.doesNotMatch(prompt, /tanı koy/)
+  assert.match(prompt, /Psikolojik tanı koyma/)
 })
 
-test('general and personalized system prompts differ only by style profile context', () => {
+test('general and personalized system prompts differ by style profile context', () => {
   const general = buildSystemPrompt()
   const profile = buildProfile(['Merhaba, bugün çalışmamı tamamladım.', 'Görüşünüzü rica ederim.'])
   const personalized = buildSystemPrompt(profile)
