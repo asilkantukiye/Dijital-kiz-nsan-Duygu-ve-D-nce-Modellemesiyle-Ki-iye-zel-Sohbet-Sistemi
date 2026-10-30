@@ -286,8 +286,8 @@ def analyze_style_ab_scores(
         for dimension in DIMENSIONS:
             first_score = int(row[f"response_1_{dimension}"])
             second_score = int(row[f"response_2_{dimension}"])
-            by_case[case_id][mapping["response_1_condition"]][dimension].append(first_score)
-            by_case[case_id][mapping["response_2_condition"]][dimension].append(second_score)
+            by_case[case_id][dimension][mapping["response_1_condition"]].append(first_score)
+            by_case[case_id][dimension][mapping["response_2_condition"]].append(second_score)
 
     case_effects: dict[str, dict[str, float]] = {dimension: {} for dimension in DIMENSIONS}
     condition_means: dict[str, dict[str, list[float]]] = {
