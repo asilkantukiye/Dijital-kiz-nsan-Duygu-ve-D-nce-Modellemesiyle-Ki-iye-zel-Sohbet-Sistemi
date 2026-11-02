@@ -105,6 +105,44 @@ export function createBalancedConditionOrder(count) {
   return order
 }
 
+export function shuffleCases(cases) {
+  if (!Array.isArray(cases)) {
+    throw new Error('Deney durumları bir dizi olmalıdır.')
+  }
+
+  const shuffled = [...cases]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1)
+    ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+  }
+  return shuffled
+}
+
+export function createBalancedConditionOrderByProfile(cases) {
+  if (!Array.isArray(cases) || cases.length === 0) {
+    throw new Error('Profil başına dengeleme için deney durumları gereklidir.')
+  }
+
+  const indicesByProfile = new Map()
+  cases.forEach((testCase, index) => {
+    const profileId = testCase?.profile_id
+    if (typeof profileId !== 'string' || !profileId.trim()) {
+      throw new Error('Her deney durumu geçerli bir profile_id içermelidir.')
+    }
+    if (!indicesByProfile.has(profileId)) indicesByProfile.set(profileId, [])
+    indicesByProfile.get(profileId).push(index)
+  })
+
+  const order = new Array(cases.length)
+  for (const indices of indicesByProfile.values()) {
+    const groupOrder = createBalancedConditionOrder(indices.length)
+    indices.forEach((caseIndex, groupIndex) => {
+      order[caseIndex] = groupOrder[groupIndex]
+    })
+  }
+  return order
+}
+
 function parseLimit(argv) {
   const index = argv.indexOf('--limit')
   if (index === -1) return null
@@ -183,8 +221,9 @@ async function main() {
   }
 
   const selectedCases = limit ? dataset.cases.slice(0, limit) : dataset.cases
-  const generationOrder = createBalancedConditionOrder(selectedCases.length)
-  const presentationOrder = createBalancedConditionOrder(selectedCases.length)
+  const executionCases = shuffleCases(selectedCases)
+  const generationOrder = createBalancedConditionOrderByProfile(executionCases)
+  const presentationOrder = createBalancedConditionOrderByProfile(executionCases)
   const runId = new Date().toISOString().replace(/[:.]/g, '-')
   const outputDir = resolve(defaultOutputRoot, runId)
   await mkdir(outputDir, { recursive: true })
@@ -194,7 +233,7 @@ async function main() {
   const common = { endpoint, token, model, timeoutMs }
 
   for (let index = 0; index < selectedCases.length; index += 1) {
-    const testCase = selectedCases[index]
+    const testCase = executionCases[index]
     const profileDefinition = dataset.profiles[testCase.profile_id]
     if (!profileDefinition || !Array.isArray(profileDefinition.examples) ||
         typeof profileDefinition.label !== 'string' ||
@@ -258,8 +297,9 @@ async function main() {
     cases_completed: blindRows.length,
     random_seed: rootSeed,
     randomization: {
-      generation_order: 'cryptographically shuffled and near-balanced across cases',
-      blind_presentation_order: 'cryptographically shuffled and near-balanced across cases',
+      execution_order: 'cryptographically shuffled across all cases',
+      generation_order: 'cryptographically shuffled and near-balanced within each target style profile',
+      blind_presentation_order: 'cryptographically shuffled and near-balanced within each target style profile',
       per_case_generation_seed: 'sha256(root_seed:case_id), shared by both conditions',
     },
     parameters: { temperature: 0.2, top_p: 0.8, max_tokens: 300 },
