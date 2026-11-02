@@ -7,6 +7,7 @@
   },
   "scripts": {
     "analyze:style-ab": "python ml/analyze_style_ab_scores.py",
+    "analyze:interrater": "python ml/analyze_interrater_reliability.py",
     "build": "next build",
     "dev": "next dev",
     "eval:style-ab": "node --experimental-strip-types scripts/run-style-ab-evaluation.mjs",
