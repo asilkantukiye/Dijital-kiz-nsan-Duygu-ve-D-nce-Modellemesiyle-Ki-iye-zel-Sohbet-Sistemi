@@ -86,6 +86,65 @@ def krippendorff_alpha_ordinal(units: dict[str, list[int]]) -> dict[str, object]
     }
 
 
+def quadratic_weighted_cohen_kappa(left: list[int], right: list[int]) -> dict[str, object]:
+    if len(left) != len(right):
+        raise ValueError("Both raters must score the same number of items.")
+    if len(left) < 2:
+        return {
+            "status": "not_estimable",
+            "kappa": None,
+            "items": len(left),
+            "reason": "At least two commonly rated items are required.",
+        }
+    if any(
+        not isinstance(score, int) or isinstance(score, bool) or score not in {1, 2, 3, 4, 5}
+        for score in (*left, *right)
+    ):
+        raise ValueError("Quadratic weighted Cohen's kappa requires integer ratings from 1 to 5.")
+
+    total = len(left)
+    observed = [[0] * 5 for _ in range(5)]
+    for first, second in zip(left, right, strict=True):
+        observed[first - 1][second - 1] += 1
+
+    row_totals = [sum(row) for row in observed]
+    column_totals = [
+        sum(observed[row][column] for row in range(5))
+        for column in range(5)
+    ]
+    observed_agreement = 0.0
+    expected_agreement = 0.0
+
+    for row in range(5):
+        for column in range(5):
+            weight = 1.0 - ((row - column) / 4.0) ** 2
+            observed_agreement += weight * observed[row][column] / total
+            expected_agreement += (
+                weight * row_totals[row] * column_totals[column] / (total * total)
+            )
+
+    denominator = 1.0 - expected_agreement
+    if denominator <= 1e-15:
+        return {
+            "status": "not_estimable",
+            "kappa": None,
+            "items": total,
+            "weighting": "quadratic",
+            "reason": "Expected weighted disagreement is zero.",
+            "observed_weighted_agreement": observed_agreement,
+            "expected_weighted_agreement": expected_agreement,
+        }
+
+    return {
+        "status": "estimated",
+        "kappa": (observed_agreement - expected_agreement) / denominator,
+        "items": total,
+        "weighting": "quadratic",
+        "observed_weighted_agreement": observed_agreement,
+        "expected_weighted_agreement": expected_agreement,
+    }
+
+
 def _percentile(values: list[float], probability: float) -> float:
     ordered = sorted(values)
     index = (len(ordered) - 1) * probability
@@ -210,7 +269,7 @@ def analyze(run_dir: Path, scores_path: Path, *, seed: int = 42, repetitions: in
     }
     report: dict[str, object] = {
         "analysis_type": "blinded ordinal inter-rater reliability",
-        "coefficient": "Krippendorff alpha with ordinal distance",
+        "coefficient": "Ordinal Krippendorff alpha; quadratic weighted Cohen kappa when exactly two evaluators",
         "rating_scale": "1-5",
         "cases": len(blind),
         "unique_prompt_clusters": len(set(cluster_for_case.values())),
@@ -219,7 +278,9 @@ def analyze(run_dir: Path, scores_path: Path, *, seed: int = 42, repetitions: in
         "interpretation_note": (
             "Both blinded response positions are treated as separate rated items. "
             "The confidence interval resamples whole identical-prompt clusters. "
-            "If expected disagreement is zero, alpha is marked not_estimable, never replaced with 1."
+            "If expected disagreement is zero, coefficients are marked not_estimable, never replaced with 1. "
+            "Quadratic weighted Cohen kappa is calculated only when exactly two evaluators are present; "
+            "ordinal Krippendorff alpha remains the multi-rater measure."
         ),
         "warnings": [],
         "privacy_note": "Evaluator IDs, individual scores, prompts and response texts are excluded from this report.",
@@ -228,6 +289,8 @@ def analyze(run_dir: Path, scores_path: Path, *, seed: int = 42, repetitions: in
         report["warnings"].append(
             "Fewer than 20 independent prompt clusters: reliability estimates and clustered intervals are exploratory."
         )
+
+    evaluator_ids = sorted({str(row["evaluator_id"]) for row in rows})
 
     for dimension in DIMENSIONS:
         units: dict[str, list[int]] = {}
@@ -250,9 +313,51 @@ def analyze(run_dir: Path, scores_path: Path, *, seed: int = 42, repetitions: in
             else {"status": "not_estimable", "lower": None, "upper": None,
                   "reason": point["reason"]}
         )
+        weighted_kappa: dict[str, object]
+        if len(evaluator_ids) != 2:
+            weighted_kappa = {
+                "status": "not_applicable",
+                "kappa": None,
+                "raters": len(evaluator_ids),
+                "reason": "Quadratic weighted Cohen kappa requires exactly two evaluators; use ordinal Krippendorff alpha for multi-rater data.",
+            }
+        else:
+            paired_scores: dict[str, dict[str, int]] = {
+                item: {} for item in units
+            }
+            for row in rows:
+                evaluator = str(row["evaluator_id"])
+                case_id = str(row["case_id"])
+                for response in (1, 2):
+                    item = f"{case_id}::response_{response}"
+                    paired_scores[item][evaluator] = int(
+                        row[f"response_{response}_{dimension}"]
+                    )
+            complete_pairs = [
+                (ratings[evaluator_ids[0]], ratings[evaluator_ids[1]])
+                for ratings in paired_scores.values()
+                if evaluator_ids[0] in ratings and evaluator_ids[1] in ratings
+            ]
+            if len(complete_pairs) != len(paired_scores):
+                weighted_kappa = {
+                    "status": "not_estimable",
+                    "kappa": None,
+                    "raters": 2,
+                    "items": len(complete_pairs),
+                    "reason": "Both evaluators must rate every response item for paired Cohen kappa.",
+                }
+            else:
+                weighted_kappa = {
+                    **quadratic_weighted_cohen_kappa(
+                        [pair[0] for pair in complete_pairs],
+                        [pair[1] for pair in complete_pairs],
+                    ),
+                    "raters": 2,
+                }
         report["dimensions"][dimension] = {
             "point_estimate": point,
             "clustered_95_percent_ci": interval,
+            "quadratic_weighted_cohen_kappa": weighted_kappa,
         }
     return report
 
