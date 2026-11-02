@@ -49,9 +49,10 @@ def krippendorff_alpha_ordinal(units: dict[str, list[int]]) -> dict[str, object]
     coincidence = [[0.0] * 5 for _ in range(5)]
     for values in valid:
         weight = 1.0 / (len(values) - 1)
-        for left in values:
-            for right in values:
+        for index, left in enumerate(values):
+            for right in values[index + 1:]:
                 coincidence[left - 1][right - 1] += weight
+                coincidence[right - 1][left - 1] += weight
 
     coincidence_total = sum(map(sum, coincidence))
     observed = sum(
