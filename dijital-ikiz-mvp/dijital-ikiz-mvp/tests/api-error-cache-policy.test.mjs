@@ -19,6 +19,13 @@ test('chat auth and rate-limit errors explicitly disable caching', async () => {
     /error: 'Oturum bulunamadı\.'[\s\S]{0,140}status: 401, headers: \{ 'Cache-Control': 'no-store' \}/
   )
   assert.match(chat, /enforceChatRateLimit\(user\.id\)/)
+  const rateLimitCall = chat.indexOf('const rateLimitDecision = await enforceChatRateLimit(user.id)')
+  const adminClientCreation = chat.indexOf('adminSupabase = createAdminClient()')
+  const generationRead = chat.indexOf("'get_chat_data_generation_server'")
+  const idempotencyClaim = chat.indexOf("'claim_chat_request_server'")
+  assert.ok(rateLimitCall >= 0 && rateLimitCall < adminClientCreation)
+  assert.ok(rateLimitCall < generationRead)
+  assert.ok(rateLimitCall < idempotencyClaim)
   assert.match(chat, /rateLimitDecision\.unavailable \? 503 : 429/)
   assert.match(chat, /'Retry-After': String\(rateLimitDecision\.retryAfterSeconds\)/)
   assert.match(chat, /Çok fazla istek gönderildi\./)
