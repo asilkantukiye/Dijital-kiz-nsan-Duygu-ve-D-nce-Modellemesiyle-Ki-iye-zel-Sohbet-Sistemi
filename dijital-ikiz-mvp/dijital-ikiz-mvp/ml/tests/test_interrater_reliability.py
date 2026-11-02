@@ -1,6 +1,6 @@
 import unittest
 
-from analyze_interrater_reliability import clustered_bootstrap_ci, krippendorff_alpha_ordinal
+from ml.analyze_interrater_reliability import clustered_bootstrap_ci, krippendorff_alpha_ordinal
 
 
 class OrdinalKrippendorffAlphaTests(unittest.TestCase):
