@@ -41,7 +41,7 @@ Her bir yanıt çifti, koşul anahtarına erişemeyen en az iki bağımsız değ
 
 Birincil sonuç üslup uyumudur; görev uygunluğu ve tutarlılık ikincil, tanımlayıcı ölçütlerdir. Her vaka için iki koşul puanlarının değerlendiriciler üzerinden ortalaması alınır. Aynı temel istem üç hedef üslupta tekrarlandığından, istatistiksel çıkarım birimi 30 yanıt çifti değil 10 benzersiz istem kümesidir. Birincil ortalama fark bu kümeler üzerinden bootstrap %95 güven aralığı ve iki taraflı işaret-değiştirme permütasyon testiyle özetlenir; küçük küme sayısı nedeniyle sonuç keşifsel kabul edilir. İkincil ölçütler için bu sürümde doğrulayıcı anlamlılık iddiası üretilmez.
 
-Mevcut analiz betiği değerlendiriciler arası güvenilirlik katsayısı (ör. ICC veya Krippendorff alfa) hesaplamaz. Gerekirse katsayı, veri görülmeden seçilen uygun model ve varsayımlarla ayrı bir analiz aşamasında hesaplanmalıdır. Eksik puanlar uydurulmaz; her vaka için en az iki bağımsız değerlendirici puanı yoksa analiz durdurulur. Veri sayısı, eksikler ve tüm analiz kararları raporlanır.
+Değerlendiriciler arası uyum, ordinal 1–5 puanlar için Krippendorff alfa ile ayrıca hesaplanır: `python ml/analyze_interrater_reliability.py --run-dir ml/private/style-ab-runs/<run-id>`. Güven aralığı aynı isteme bağlı profil vakalarını birlikte yeniden örnekler. Beklenen uyuşmazlık sıfırsa katsayı yapay biçimde 1 yapılmaz; hesaplanamaz olarak raporlanır. Eksik puanlar uydurulmaz; her vaka için en az iki bağımsız değerlendirici puanı yoksa analiz durdurulur. Veri sayısı, eksikler ve tüm analiz kararları raporlanır.
 
 ## 7. Tekrar üretilebilirlik
 
