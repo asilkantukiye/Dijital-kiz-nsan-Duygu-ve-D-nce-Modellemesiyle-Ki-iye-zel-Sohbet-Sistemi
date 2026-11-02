@@ -108,6 +108,26 @@ export async function POST(req: Request) {
 
     const { message, variant } = validation.value
 
+    // Enforce the budget before privileged RPCs or idempotency polling.
+    const rateLimitDecision = await enforceChatRateLimit(user.id)
+    if (!rateLimitDecision.allowed) {
+      const status = rateLimitDecision.unavailable ? 503 : 429
+      const error = rateLimitDecision.unavailable
+        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
+        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
+
+      return NextResponse.json(
+        { error },
+        {
+          status,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
+          }
+        }
+      )
+    }
+
     // The publishable/session client is used for auth and user-scoped reads.
     // Only this server-side privileged client may persist assistant/profile writes.
     let adminSupabase: ReturnType<typeof createAdminClient>
@@ -186,27 +206,6 @@ export async function POST(req: Request) {
         p_owner_token: ownerToken
       })
       if (error) throw error
-    }
-
-    const rateLimitDecision = await enforceChatRateLimit(user.id)
-
-    if (!rateLimitDecision.allowed) {
-      await releaseClaim()
-      const status = rateLimitDecision.unavailable ? 503 : 429
-      const error = rateLimitDecision.unavailable
-        ? 'İstek sınırı hizmeti şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.'
-        : 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.'
-
-      return NextResponse.json(
-        { error },
-        {
-          status,
-          headers: {
-            'Cache-Control': 'no-store',
-            'Retry-After': String(rateLimitDecision.retryAfterSeconds)
-          }
-        }
-      )
     }
 
     const [
