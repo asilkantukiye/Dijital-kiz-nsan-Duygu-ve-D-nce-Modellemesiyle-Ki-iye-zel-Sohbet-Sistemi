@@ -6,7 +6,7 @@
 - **Çalıştırma sonucu:** `success`
 - **Artefakt doğrulaması:** `passed` — model paketinin bütünlük kontrolü ve beklenen `metrics.json` dosyaları doğrulanmış.
 - **Eğitim kodu:** `ml/kaggle/dijital_ikiz_training.ipynb`; veri bölümleri sabit tohum kullanır. Polarite veri kaynağı revizyonu `ef87c7a2a7199a8b721c99425933316d35f9af2f`; Qwen talimat veri kaynağı revizyonu `90f9589`.
-- **Yayınlama durumu:** Qwen LoRA adaptörünün Hugging Face'e yüklenmesi, GitHub Actions `HF_WRITE_TOKEN` sırrı bulunmadığı için engellenmiş. Bu nedenle modelin Hugging Face'e yüklendiği veya web uygulamasında kullanıldığı iddia edilmemelidir.
+- **Yayınlama durumu (2 Kasım 2026 canlı doğrulaması):** `hasankb00/dijital-ikiz-qwen3-4b-lora` özel deposunda `adapter_config.json`, `adapter_model.safetensors`, tokenizer dosyaları, `training-metrics.json`, `artifact-manifest.json`, `source-artifact-provenance.json` ve bilimsel doğrulama raporu mevcuttur. Metrics kaydı yayınlamayı `published_private` ve doğrulanmış olarak işaretliyor; kaynak Kaggle run ID 40897581853 ve SHA-256 artefakt özeti manifest/provenance içinde doğrulandı. Bu, adaptörün Hub'da bulunduğunu kanıtlar; web uygulamasının adaptörü canlı inference sırasında kullandığını kanıtlamaz.
 
 ## 1. Türkçe duygu polaritesi sınıflandırması
 
@@ -74,7 +74,7 @@ Hub sayfasının Apache-2.0 olarak beyan ettiği veri lisansı ve modelin lisans
 - **VAD:** Geçerli kaynak/izin bilgisi ve etiketli CSV sağlanmadığı için bu çalıştırmada eğitilmedi.
 - **Big Five:** Doğrulanmış ölçek puanları ve uygun katılımcı/izin zinciri içeren CSV olmadığı için bu çalıştırmada eğitilmedi. Metinden yapay kişilik etiketleri türetilmedi.
 - **Genel sohbet ↔ kişiselleştirilmiş sohbet değerlendirmesi:** Gerçek kullanıcı değerlendirmesi, kör insan puanlaması veya istatistiksel A/B sonucu bu eğitim raporunda yoktur.
-- **Hugging Face:** Yükleme `HF_WRITE_TOKEN` eksik olduğu için yapılmadı; özel model depolarının varlığı ağırlıkların orada bulunduğu anlamına gelmez.
+- **Hugging Face:** Adaptör özel depoda yayımlandı ve dosya manifesti mevcut. Canlı uygulamanın uyumlu inference endpoint'inden adaptörü kullandığı henüz doğrulanmadı.
 - **Vercel canlıya alma:** Bu model artefaktı web uygulamasına entegre edilmedi. Canlı dağıtım ayrıca güvenlik kapıları ve Vercel dağıtım kotası tarafından engellenmişti.
 
 TÜBİTAK raporuna bu değerler yalnızca görev adı, veri kaynağı/revizyonu, split sayıları, metrik ve sınırlılıkları birlikte verilerek eklenmelidir. Polarite skorları VAD/Big Five başarısı veya projenin genel “%75 başarı” ölçütü olarak sunulmamalıdır.
