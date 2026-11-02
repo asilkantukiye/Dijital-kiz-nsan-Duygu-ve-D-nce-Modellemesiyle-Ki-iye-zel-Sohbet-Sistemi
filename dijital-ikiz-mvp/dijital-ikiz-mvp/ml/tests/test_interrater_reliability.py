@@ -1,6 +1,36 @@
 import unittest
 
-from ml.analyze_interrater_reliability import clustered_bootstrap_ci, krippendorff_alpha_ordinal
+from ml.analyze_interrater_reliability import (
+    clustered_bootstrap_ci,
+    krippendorff_alpha_ordinal,
+    quadratic_weighted_cohen_kappa,
+)
+
+
+class QuadraticWeightedCohenKappaTests(unittest.TestCase):
+    def test_perfect_agreement_with_score_variation(self):
+        result = quadratic_weighted_cohen_kappa([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])
+        self.assertEqual(result["status"], "estimated")
+        self.assertAlmostEqual(result["kappa"], 1.0, places=12)
+        self.assertEqual(result["weighting"], "quadratic")
+
+    def test_weighted_disagreement_is_below_one(self):
+        result = quadratic_weighted_cohen_kappa([1, 2, 3, 4, 5], [2, 2, 4, 4, 5])
+        self.assertEqual(result["status"], "estimated")
+        self.assertLess(result["kappa"], 1.0)
+
+    def test_zero_expected_disagreement_is_not_estimable(self):
+        result = quadratic_weighted_cohen_kappa([3, 3, 3], [3, 3, 3])
+        self.assertEqual(result["status"], "not_estimable")
+        self.assertIsNone(result["kappa"])
+
+    def test_requires_paired_rating_lengths(self):
+        with self.assertRaisesRegex(ValueError, "same number of items"):
+            quadratic_weighted_cohen_kappa([1, 2], [1])
+
+    def test_rejects_scores_outside_likert_scale(self):
+        with self.assertRaisesRegex(ValueError, "integer ratings from 1 to 5"):
+            quadratic_weighted_cohen_kappa([1, 6], [1, 5])
 
 
 class OrdinalKrippendorffAlphaTests(unittest.TestCase):
