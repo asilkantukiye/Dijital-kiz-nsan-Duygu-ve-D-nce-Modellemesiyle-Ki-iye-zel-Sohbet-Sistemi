@@ -51,7 +51,7 @@ class InterRaterAnalysisReportTests(unittest.TestCase):
             {"case_id": "case-02", "prompt": "İkinci ortak Türkçe istem"},
         ]
         (self.run_dir / "blind-evaluation.jsonl").write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in blind),
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in blind),
             encoding="utf-8",
         )
         self.scores_path = self.root / "scores.csv"
