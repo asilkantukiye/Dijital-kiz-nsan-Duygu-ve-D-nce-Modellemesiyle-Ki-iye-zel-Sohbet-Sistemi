@@ -304,6 +304,7 @@ jobs:
           fi
           unzip -t "$archive"
           unzip -q "$archive" -d "$GITHUB_WORKSPACE/kaggle-output/unpacked"
+          python ml/validate_training_artifacts.py "$GITHUB_WORKSPACE/kaggle-output/unpacked" --summary "$GITHUB_WORKSPACE/kaggle-output/strict-metrics-summary.json"
           python - <<'PY'
           import json
           import math
