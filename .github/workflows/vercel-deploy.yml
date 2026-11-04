@@ -89,6 +89,7 @@ jobs:
               echo ""
               echo "Add VERCEL_TOKEN and HF_WRITE_TOKEN in **Settings → Secrets and variables → Actions → New repository secret**."
               echo "HF_WRITE_TOKEN must have write access to hasankb00/dijital-ikiz-qwen3-4b-lora. Never put any token in source code, workflow logs, issues, or chat."
+              echo "Production chat must use HF_MODEL=dijital-ikiz and a dedicated Hugging Face Inference Endpoint in HF_CHAT_COMPLETIONS_URL; the shared router does not automatically load this private LoRA adapter."
               echo ""
               echo "Add HEALTHCHECK_TOKEN as a GitHub Actions secret (at least 32 random characters) and configure the identical value as a Vercel Production environment variable. The post-deploy probe will fail closed if the values do not match."
               echo ""
@@ -350,6 +351,7 @@ jobs:
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
             SUPABASE_SERVICE_ROLE_KEY \
             HF_TOKEN \
+            HF_CHAT_COMPLETIONS_URL \
             HF_MODEL \
             HF_EMBEDDING_MODEL \
             RATE_LIMIT_KEY_SALT \
