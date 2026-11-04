@@ -43,6 +43,7 @@ test('missing deployment prerequisites are explained without exposing secret val
     'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
     'HF_TOKEN',
+    'HF_CHAT_COMPLETIONS_URL',
     'HF_MODEL',
     'HF_EMBEDDING_MODEL',
     'UPSTASH_REDIS_REST_URL',
@@ -195,21 +196,24 @@ test('README documents how to configure the deploy workflow and verify deploymen
 })
 
 
-test('custom Hugging Face chat endpoint is optional, allowlisted, and covered by unit tests', async () => {
-  const [provider, envGate, envExample, readme, runbook] = await Promise.all([
+test('Production requires the dedicated Hugging Face Inference Endpoint and LoRA alias', async () => {
+  const [provider, envGate, envExample, workflow, readme, runbook] = await Promise.all([
     readFile(path.join(projectDirectory, 'lib', 'huggingface.ts'), 'utf8'),
     readFile(path.join(projectDirectory, 'scripts', 'check-production-env.mjs'), 'utf8'),
     readFile(path.join(projectDirectory, '.env.local.example'), 'utf8'),
+    readFile(workflowPath, 'utf8'),
     readFile(readmePath, 'utf8'),
     readFile(path.join(repositoryDirectory, '.github', 'PRODUCTION-RELEASE-RUNBOOK.md'), 'utf8')
   ])
 
   assert.match(provider, /resolveChatCompletionsUrl/)
-  assert.match(provider, /url\.hostname === 'router\.huggingface\.co'/)
-  assert.match(provider, /\.endpoints\.huggingface\.cloud/)
-  assert.match(provider, /fetch\(chatCompletionsUrl/)
-  assert.match(envGate, /HF_CHAT_COMPLETIONS_URL/)
-  assert.match(envExample, /HF_CHAT_COMPLETIONS_URL=/)
+  assert.ok(provider.includes('.endpoints.huggingface.cloud'))
+  assert.ok(provider.includes('fetch(chatCompletionsUrl'))
+  assert.ok(envGate.includes("'HF_CHAT_COMPLETIONS_URL'"))
+  assert.ok(envGate.includes("url.hostname.endsWith('.endpoints.huggingface.cloud')"))
+  assert.ok(envGate.includes("chatModel !== 'dijital-ikiz'"))
+  assert.ok(envExample.includes('HF_CHAT_COMPLETIONS_URL='))
+  assert.ok(workflow.includes('HF_CHAT_COMPLETIONS_URL'))
   assert.match(readme, /LoRA adapter'ının Hugging Face Hub'a yüklenmesi, serverless Router'ın adapter'ı otomatik yüklemesi anlamına gelmez/)
   assert.match(runbook, /HF_CHAT_COMPLETIONS_URL/)
 })
