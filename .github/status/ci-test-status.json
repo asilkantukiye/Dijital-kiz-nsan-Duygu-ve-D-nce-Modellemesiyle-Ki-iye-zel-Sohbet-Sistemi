@@ -1,0 +1,143 @@
+{
+  "workflow": "CI",
+  "run_id": 41877207842,
+  "run_url": "https://github.com/asilkantukiye/Dijital-kiz-nsan-Duygu-ve-D-nce-Modellemesiyle-Ki-iye-zel-Sohbet-Sistemi/actions/runs/41877207842",
+  "conclusion": "success",
+  "branch": "main",
+  "commit": "8f9128eecd7762dfbaa7b40db90f1d98c5db1886",
+  "jobs": [
+    {
+      "name": "web",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Use Node.js 22",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Python for notebook validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile ML Python sources",
+          "conclusion": "success"
+        },
+        {
+          "name": "Syntax-check production smoke and environment gate scripts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate Kaggle notebook syntax",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate ML dataset, splits, and leakage guardrails",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned CPU baseline test dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test reproducible TF-IDF polarity baseline on synthetic fixtures",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test atomic chat-turn migration against PostgreSQL",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test embedding integrity against PostgreSQL",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test concurrent profile updates against PostgreSQL",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stress concurrent rate-limit requests against PostgreSQL",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Unit tests (memory and API validation)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Python for notebook validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Use Node.js 22",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Record automated validation results",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout main",
+          "conclusion": "success"
+        },
+        {
+          "name": "Capture test, typecheck and build outcomes",
+          "conclusion": "success"
+        },
+        {
+          "name": "Publish results to the CI report branch",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout main",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "secrets_included": false
+}
