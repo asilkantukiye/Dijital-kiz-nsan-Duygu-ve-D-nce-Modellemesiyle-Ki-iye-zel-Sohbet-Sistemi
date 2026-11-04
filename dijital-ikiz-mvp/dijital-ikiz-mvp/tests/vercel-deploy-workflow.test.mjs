@@ -208,10 +208,10 @@ test('Production requires the dedicated Hugging Face Inference Endpoint and LoRA
 
   assert.match(provider, /resolveChatCompletionsUrl/)
   assert.ok(provider.includes('.endpoints.huggingface.cloud'))
-  assert.match(provider, /fetch\\(chatCompletionsUrl/)
+  assert.ok(provider.includes('fetch(chatCompletionsUrl'))
   assert.ok(envGate.includes("'HF_CHAT_COMPLETIONS_URL'"))
   assert.ok(envGate.includes("url.hostname.endsWith('.endpoints.huggingface.cloud')"))
-  assert.ok(envGate.includes("env.HF_MODEL.trim() !== 'dijital-ikiz'"))
+  assert.ok(envGate.includes("chatModel !== 'dijital-ikiz'"))
   assert.ok(envExample.includes('HF_CHAT_COMPLETIONS_URL='))
   assert.ok(workflow.includes('HF_CHAT_COMPLETIONS_URL'))
   assert.match(readme, /LoRA adapter'ının Hugging Face Hub'a yüklenmesi, serverless Router'ın adapter'ı otomatik yüklemesi anlamına gelmez/)
