@@ -392,6 +392,7 @@ jobs:
           path: |
             kaggle-output/dijital-ikiz-model-artifacts.zip
             kaggle-output/metrics-summary.json
+            kaggle-output/strict-metrics-summary.json
             kaggle-output/unpacked/training-metrics.json
             kaggle-output/unpacked/scientific-validation-report.md
           if-no-files-found: error
