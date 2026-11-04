@@ -9,6 +9,7 @@ const REQUIRED_KEYS = [
   'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'HF_TOKEN',
+  'HF_CHAT_COMPLETIONS_URL',
   'HF_MODEL',
   'HF_EMBEDDING_MODEL',
   'RATE_LIMIT_KEY_SALT',
@@ -66,8 +67,7 @@ function isHttpsUrl(value) {
 function isValidHuggingFaceChatEndpointUrl(value) {
   try {
     const url = new URL(value);
-    const trustedHost = url.hostname === 'router.huggingface.co' ||
-      url.hostname.endsWith('.endpoints.huggingface.cloud');
+    const trustedHost = url.hostname.endsWith('.endpoints.huggingface.cloud');
     return url.protocol === 'https:' &&
       trustedHost &&
       !url.port &&
@@ -141,7 +141,12 @@ export function validateProductionEnvironment(env) {
 
   const chatEndpointUrl = env.HF_CHAT_COMPLETIONS_URL?.trim() || '';
   if (chatEndpointUrl && !isValidHuggingFaceChatEndpointUrl(chatEndpointUrl)) {
-    issues.push('HF_CHAT_COMPLETIONS_URL must be an HTTPS Hugging Face router or dedicated Inference Endpoint /v1/chat/completions URL');
+    issues.push('HF_CHAT_COMPLETIONS_URL must be a dedicated HTTPS Hugging Face Inference Endpoint /v1/chat/completions URL');
+  }
+
+  const chatModel = env.HF_MODEL?.trim() || '';
+  if (chatModel && chatModel !== 'dijital-ikiz') {
+    issues.push('HF_MODEL must equal the vLLM LoRA adapter alias dijital-ikiz in Production');
   }
 
   if (env.RATE_LIMIT_KEY_SALT?.trim().length < 32) {
