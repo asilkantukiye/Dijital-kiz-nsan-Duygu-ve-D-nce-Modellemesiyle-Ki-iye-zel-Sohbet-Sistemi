@@ -7,7 +7,8 @@ const validEnv = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_' + 'x'.repeat(32),
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-' + 'x'.repeat(48),
   HF_TOKEN: 'hf_' + 'x'.repeat(40),
-  HF_MODEL: 'Qwen/Qwen3-4B-Instruct-2507',
+  HF_MODEL: 'dijital-ikiz',
+  HF_CHAT_COMPLETIONS_URL: 'https://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions',
   HF_EMBEDDING_MODEL: 'intfloat/multilingual-e5-small',
   RATE_LIMIT_KEY_SALT: 's'.repeat(40),
   HEALTHCHECK_TOKEN: 'h'.repeat(40),
@@ -20,23 +21,25 @@ test('Production gate accepts all required Production variables including both U
   assert.deepEqual(result, { ok: true, issues: [] });
 });
 
-test('Production gate accepts a trusted optional Hugging Face Inference Endpoint URL', () => {
-  const result = validateProductionEnvironment({
-    ...validEnv,
-    HF_CHAT_COMPLETIONS_URL: 'https://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions'
-  });
+test('Production gate requires the dedicated LoRA Inference Endpoint and vLLM alias', () => {
+  const result = validateProductionEnvironment({ ...validEnv });
   assert.deepEqual(result, { ok: true, issues: [] });
+
+  const baseModel = validateProductionEnvironment({ ...validEnv, HF_MODEL: 'Qwen/Qwen3-4B-Instruct-2507' });
+  assert.equal(baseModel.ok, false);
+  assert.ok(baseModel.issues.some(issue => issue.includes('HF_MODEL') && issue.includes('dijital-ikiz')));
 });
 
 test('Production gate rejects untrusted or malformed optional chat endpoint URLs', () => {
   const invalidUrls = [
-    'http://router.huggingface.co/v1/chat/completions',
+    'http://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions',
     'https://attacker.example/v1/chat/completions',
-    'https://router.huggingface.co/v1/chat/completions?token=leak',
-    'https://router.huggingface.co/chat/completions',
-    'https://user:password@router.huggingface.co/v1/chat/completions',
-    'https://router.huggingface.co:8443/v1/chat/completions',
-    'https://router.huggingface.co.attacker.example/v1/chat/completions'
+    'https://router.huggingface.co/v1/chat/completions',
+    'https://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions?token=leak',
+    'https://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/chat/completions',
+    'https://user:password@qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud/v1/chat/completions',
+    'https://qwen-adapter.us-east-1.aws.endpoints.huggingface.cloud:8443/v1/chat/completions',
+    'https://endpoints.huggingface.cloud.attacker.example/v1/chat/completions'
   ];
 
   for (const endpoint of invalidUrls) {
