@@ -168,7 +168,7 @@ jobs:
               if config.get("base_model_name_or_path") != expected_base or metrics.get("base_model") != expected_base:
                   raise ValueError("model base identifier does not match the evaluated Qwen base model")
               if (
-                  provenance.get("source_training_workflow") != "Kaggle End-to-End Model Training"
+                  provenance.get("source_training_workflow") != "Trigger Kaggle End-to-End Model Training"
                   or provenance.get("source_artifact_name") != "kaggle-digital-twin-model-artifacts"
                   or provenance.get("base_model") != expected_base
                   or not isinstance(provenance.get("source_training_run_id"), int)

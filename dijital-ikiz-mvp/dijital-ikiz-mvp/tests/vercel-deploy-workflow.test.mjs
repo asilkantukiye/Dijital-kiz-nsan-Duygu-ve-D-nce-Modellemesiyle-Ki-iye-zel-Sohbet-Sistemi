@@ -244,6 +244,7 @@ test('Kaggle model publication verifies GitHub artifact digest and records prove
   assert.match(publisher, /validate_source_artifact_digest/)
   assert.match(deployWorkflow, /source-artifact-provenance\.json/)
   assert.match(deployWorkflow, /source_artifact_digest/)
+  assert.ok(deployWorkflow.includes('provenance.get("source_training_workflow") != "Trigger Kaggle End-to-End Model Training"'))
   assert.match(deployWorkflow, /source artifact provenance is missing or invalid/)
 })
 
